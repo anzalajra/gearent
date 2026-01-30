@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Rentals\Schemas;
 
 use App\Models\Customer;
 use App\Models\ProductUnit;
+use App\Models\Rental;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -32,24 +33,26 @@ class RentalForm
                     ->searchable(),
 
                 DateTimePicker::make('start_date')
-                    ->label('Start Date & Time')
-                    ->required()
-                    ->default(now())
-                    ->seconds(false)
-                    ->live()
-                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                        self::calculateDuration($get, $set);
-                    }),
+                ->label('Start Date & Time')
+                ->required()
+                ->native(false)
+                ->default(now())
+                ->seconds(false)
+                ->live()
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    self::calculateDuration($get, $set);
+                }),
 
                 DateTimePicker::make('end_date')
-                    ->label('End Date & Time')
-                    ->required()
-                    ->default(now()->addDays(1))
-                    ->seconds(false)
-                    ->live()
-                    ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                        self::calculateDuration($get, $set);
-                    }),
+                ->label('End Date & Time')
+                ->required()
+                ->native(false)
+                ->default(now()->addDays(1))
+                ->seconds(false)
+                ->live()
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    self::calculateDuration($get, $set);
+                }),
 
                 Select::make('status')
                     ->options([
@@ -94,17 +97,26 @@ class RentalForm
                     ->schema([
                         Select::make('product_unit_id')
                             ->label('Product Unit')
-                            ->options(function () {
-                                return ProductUnit::where('status', 'available')
-                                    ->with('product')
-                                    ->get()
-                                    ->mapWithKeys(function ($unit) {
-                                        return [$unit->id => $unit->product->name . ' - ' . $unit->serial_number];
-                                    });
+                            ->options(function (callable $get) {
+                                $startDate = $get('../../start_date');
+                                $endDate = $get('../../end_date');
+                                $currentRentalId = $get('../../id');
+
+                                return self::getAvailableUnits($startDate, $endDate, $currentRentalId);
                             })
                             ->required()
                             ->searchable()
                             ->live()
+                            ->helperText(function (callable $get) {
+                                $startDate = $get('../../start_date');
+                                $endDate = $get('../../end_date');
+                                
+                                if (!$startDate || !$endDate) {
+                                    return '⚠️ Pilih Start & End Date dulu untuk melihat unit yang tersedia';
+                                }
+                                
+                                return '✅ Menampilkan unit yang tersedia untuk periode ini';
+                            })
                             ->afterStateUpdated(function ($state, callable $get, callable $set) {
                                 if ($state) {
                                     $unit = ProductUnit::with('product')->find($state);
@@ -195,6 +207,63 @@ class RentalForm
                     ->rows(3)
                     ->columnSpanFull(),
             ]);
+    }
+
+    /**
+     * Get available units for the given date range
+     * Checks for overlapping rentals based on datetime
+     */
+    public static function getAvailableUnits($startDate, $endDate, $currentRentalId = null): array
+    {
+        if (!$startDate || !$endDate) {
+            // If no dates selected, show all units with status indicator
+            return ProductUnit::with('product')
+                ->get()
+                ->mapWithKeys(function ($unit) {
+                    $statusLabel = $unit->status !== 'available' ? " [{$unit->status}]" : '';
+                    return [$unit->id => $unit->product->name . ' - ' . $unit->serial_number . $statusLabel];
+                })
+                ->toArray();
+        }
+
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
+
+        // Get unit IDs that have overlapping rentals
+        $overlappingUnitIds = Rental::where('status', '!=', 'cancelled')
+            ->where('status', '!=', 'completed')
+            ->when($currentRentalId, function ($query) use ($currentRentalId) {
+                // Exclude current rental when editing
+                $query->where('id', '!=', $currentRentalId);
+            })
+            ->where(function ($query) use ($start, $end) {
+                // Check for any overlap:
+                // Existing rental starts before new rental ends AND existing rental ends after new rental starts
+                $query->where('start_date', '<', $end)
+                      ->where('end_date', '>', $start);
+            })
+            ->with('items')
+            ->get()
+            ->pluck('items')
+            ->flatten()
+            ->pluck('product_unit_id')
+            ->unique()
+            ->toArray();
+
+        // Get all units and mark availability
+        return ProductUnit::with('product')
+            ->get()
+            ->mapWithKeys(function ($unit) use ($overlappingUnitIds) {
+                $isBooked = in_array($unit->id, $overlappingUnitIds);
+                
+                if ($isBooked) {
+                    return []; // Don't include booked units
+                }
+                
+                return [$unit->id => $unit->product->name . ' - ' . $unit->serial_number];
+            })
+            ->filter() // Remove empty entries
+            ->toArray();
     }
 
     // Calculate duration and update days in items
