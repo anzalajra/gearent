@@ -1,0 +1,5 @@
+View Rental detail - halaman lihat detail + items
+Filter rentals - by status, customer, date range
+Dashboard dengan statistik (total revenue, active rentals, dll)
+Print Invoice - generate invoice PDF
+Rental Calendar View - visualisasi booking dalam kalender
