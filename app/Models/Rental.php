@@ -32,15 +32,20 @@ class Rental extends Model
         'deposit' => 'decimal:2',
     ];
 
-    // Auto-generate rental code
     protected static function boot()
     {
         parent::boot();
 
+        // Auto-generate rental code
         static::creating(function ($rental) {
             if (empty($rental->rental_code)) {
                 $rental->rental_code = self::generateRentalCode();
             }
+        });
+
+        // Auto-calculate totals after save
+        static::saved(function ($rental) {
+            $rental->calculateTotals();
         });
     }
 
@@ -53,21 +58,30 @@ class Rental extends Model
         return 'RNT-' . $date . '-' . str_pad($sequence, 3, '0', STR_PAD_LEFT);
     }
 
-    // Relasi ke Customer
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    // Relasi ke RentalItem
     public function items(): HasMany
     {
         return $this->hasMany(RentalItem::class);
     }
 
-    // Hitung jumlah hari rental
     public function getDaysAttribute(): int
     {
         return $this->start_date->diffInDays($this->end_date) + 1;
+    }
+
+    // Calculate and update totals
+    public function calculateTotals(): void
+    {
+        $subtotal = $this->items()->sum('subtotal');
+        $total = $subtotal - $this->discount;
+
+        $this->updateQuietly([
+            'subtotal' => $subtotal,
+            'total' => $total,
+        ]);
     }
 }
