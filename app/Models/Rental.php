@@ -23,9 +23,9 @@ class Rental extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'returned_date' => 'date',
+        'start_date' => 'datetime',
+        'end_date' => 'datetime',
+        'returned_date' => 'datetime',
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
@@ -43,9 +43,18 @@ class Rental extends Model
             }
         });
 
-        // Auto-calculate totals after save
-        static::saved(function ($rental) {
-            $rental->calculateTotals();
+        // Update product unit status when rental status changes
+        static::updated(function ($rental) {
+            if ($rental->isDirty('status')) {
+                $rental->updateProductUnitStatuses();
+            }
+        });
+
+        // Set product units to rented if rental is created as active
+        static::created(function ($rental) {
+            if ($rental->status === 'active') {
+                $rental->updateProductUnitStatuses();
+            }
         });
     }
 
@@ -68,20 +77,40 @@ class Rental extends Model
         return $this->hasMany(RentalItem::class);
     }
 
-    public function getDaysAttribute(): int
+    // Update all product unit statuses based on rental status
+    public function updateProductUnitStatuses(): void
     {
-        return $this->start_date->diffInDays($this->end_date) + 1;
+        $newStatus = match ($this->status) {
+            'active' => 'rented',
+            'completed', 'cancelled' => 'available',
+            default => null,
+        };
+
+        if ($newStatus) {
+            foreach ($this->items as $item) {
+                $item->productUnit->update(['status' => $newStatus]);
+            }
+        }
     }
 
-    // Calculate and update totals
-    public function calculateTotals(): void
+    // Mark rental as active (start rental)
+    public function markAsActive(): void
     {
-        $subtotal = $this->items()->sum('subtotal');
-        $total = $subtotal - $this->discount;
+        $this->update(['status' => 'active']);
+    }
 
-        $this->updateQuietly([
-            'subtotal' => $subtotal,
-            'total' => $total,
+    // Mark rental as completed (return items)
+    public function markAsCompleted(): void
+    {
+        $this->update([
+            'status' => 'completed',
+            'returned_date' => now(),
         ]);
+    }
+
+    // Mark rental as cancelled
+    public function markAsCancelled(): void
+    {
+        $this->update(['status' => 'cancelled']);
     }
 }

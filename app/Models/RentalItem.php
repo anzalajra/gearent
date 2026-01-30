@@ -20,13 +20,11 @@ class RentalItem extends Model
         'subtotal' => 'decimal:2',
     ];
 
-    // Relasi ke Rental
     public function rental(): BelongsTo
     {
         return $this->belongsTo(Rental::class);
     }
 
-    // Relasi ke ProductUnit
     public function productUnit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class);
