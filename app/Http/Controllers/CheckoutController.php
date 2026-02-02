@@ -13,6 +13,13 @@ class CheckoutController extends Controller
     public function index()
     {
         $customer = Auth::guard('customer')->user();
+
+        // Check if customer is verified
+        if (!$customer->canRent()) {
+            return redirect()->route('customer.profile')
+                ->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout. Silakan lengkapi dokumen yang diperlukan.');
+        }
+
         $cartItems = $customer->carts()->with(['productUnit.product'])->get();
 
         if ($cartItems->isEmpty()) {
@@ -20,19 +27,26 @@ class CheckoutController extends Controller
         }
 
         $subtotal = $cartItems->sum('subtotal');
-        $deposit = $subtotal * 0.3; // 30% deposit
+        $deposit = $subtotal * 0.3;
 
         return view('frontend.checkout.index', compact('customer', 'cartItems', 'subtotal', 'deposit'));
     }
 
     public function process(Request $request)
     {
+        $customer = Auth::guard('customer')->user();
+
+        // Check if customer is verified
+        if (!$customer->canRent()) {
+            return redirect()->route('customer.profile')
+                ->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout.');
+        }
+
         $request->validate([
             'notes' => 'nullable|string|max:500',
             'agree_terms' => 'required|accepted',
         ]);
 
-        $customer = Auth::guard('customer')->user();
         $cartItems = $customer->carts()->with(['productUnit.product'])->get();
 
         if ($cartItems->isEmpty()) {

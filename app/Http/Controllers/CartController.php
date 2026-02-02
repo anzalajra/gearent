@@ -4,33 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\Cart;
 use App\Models\ProductUnit;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class CartController extends Controller
 {
-    use AuthorizesRequests;
-
     public function index()
     {
         $customer = Auth::guard('customer')->user();
         $cartItems = $customer->carts()->with(['productUnit.product'])->get();
         $total = $cartItems->sum('subtotal');
+        $canCheckout = $customer->canRent();
 
-        return view('frontend.cart.index', compact('cartItems', 'total'));
+        return view('frontend.cart.index', compact('cartItems', 'total', 'canCheckout'));
     }
 
     public function add(Request $request)
     {
+        $customer = Auth::guard('customer')->user();
+
+        // Check if customer is verified
+        if (!$customer->canRent()) {
+            return back()->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan rental. Silakan lengkapi dokumen di halaman Profile.');
+        }
+
         $request->validate([
             'product_unit_id' => 'required|exists:product_units,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
         ]);
 
-        $customer = Auth::guard('customer')->user();
         $unit = ProductUnit::with('product')->findOrFail($request->product_unit_id);
 
         $startDate = Carbon::parse($request->start_date);

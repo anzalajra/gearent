@@ -50,3 +50,9 @@ Route::middleware('customer.auth')->group(function () {
     Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
     Route::get('/checkout/success/{rental}', [CheckoutController::class, 'success'])->name('checkout.success');
 });
+
+// Customer Documents
+Route::middleware('customer.auth')->group(function () {
+    Route::post('/customer/documents/upload', [App\Http\Controllers\CustomerDocumentController::class, 'upload'])->name('customer.documents.upload');
+    Route::delete('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'delete'])->name('customer.documents.delete');
+});

@@ -6,8 +6,65 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-2xl font-bold mb-8">Welcome, {{ $customer->name }}!</h1>
 
+    <!-- Verification Warning -->
+    @if($verificationStatus !== 'verified')
+        <div class="mb-8 p-4 rounded-lg border 
+            @if($verificationStatus === 'pending') bg-yellow-50 border-yellow-300 
+            @else bg-red-50 border-red-300 @endif">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    @if($verificationStatus === 'pending')
+                        <svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    @else
+                        <svg class="h-6 w-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    @endif
+                </div>
+                <div class="ml-3">
+                    @if($verificationStatus === 'pending')
+                        <h3 class="text-sm font-medium text-yellow-800">Verifikasi Sedang Diproses</h3>
+                        <p class="mt-1 text-sm text-yellow-700">Dokumen Anda sedang ditinjau oleh admin. Anda akan dapat melakukan rental setelah verifikasi disetujui.</p>
+                    @else
+                        <h3 class="text-sm font-medium text-red-800">Akun Belum Terverifikasi</h3>
+                        <p class="mt-1 text-sm text-red-700">Anda harus mengunggah dokumen yang diperlukan untuk melakukan rental. 
+                            <a href="{{ route('customer.profile') }}" class="font-semibold underline">Lengkapi verifikasi sekarang →</a>
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full mr-4
+                    @if($verificationStatus === 'verified') bg-green-100
+                    @elseif($verificationStatus === 'pending') bg-yellow-100
+                    @else bg-red-100 @endif">
+                    <svg class="w-6 h-6 
+                        @if($verificationStatus === 'verified') text-green-600
+                        @elseif($verificationStatus === 'pending') text-yellow-600
+                        @else text-red-600 @endif" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Status</p>
+                    <p class="text-lg font-bold 
+                        @if($verificationStatus === 'verified') text-green-600
+                        @elseif($verificationStatus === 'pending') text-yellow-600
+                        @else text-red-600 @endif">
+                        {{ $customer->getVerificationStatusLabel() }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex items-center">
                 <div class="p-3 bg-primary-100 rounded-full mr-4">
@@ -95,8 +152,8 @@
             <p class="text-sm text-gray-600">View all rental history</p>
         </a>
         <a href="{{ route('customer.profile') }}" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
-            <h3 class="font-semibold mb-2">Profile Settings</h3>
-            <p class="text-sm text-gray-600">Update your information</p>
+            <h3 class="font-semibold mb-2">Profile & Verification</h3>
+            <p class="text-sm text-gray-600">Update info & upload documents</p>
         </a>
     </div>
 </div>

@@ -6,6 +6,24 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-2xl font-bold mb-8">Shopping Cart</h1>
 
+    <!-- Verification Warning -->
+    @if(!$canCheckout)
+        <div class="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
+            <div class="flex items-start">
+                <svg class="h-6 w-6 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <div>
+                    <h3 class="text-sm font-medium text-red-800">Akun Belum Terverifikasi</h3>
+                    <p class="mt-1 text-sm text-red-700">
+                        Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout. 
+                        <a href="{{ route('customer.profile') }}" class="font-semibold underline">Lengkapi verifikasi sekarang →</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
+
     @if($cartItems->count() > 0)
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Cart Items -->
@@ -99,9 +117,18 @@
                         </div>
                     </div>
 
-                    <a href="{{ route('checkout.index') }}" class="w-full block text-center bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition">
-                        Proceed to Checkout
-                    </a>
+                    @if($canCheckout)
+                        <a href="{{ route('checkout.index') }}" class="w-full block text-center bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition">
+                            Proceed to Checkout
+                        </a>
+                    @else
+                        <button disabled class="w-full bg-gray-400 text-white py-3 rounded-lg font-semibold cursor-not-allowed">
+                            Verifikasi Diperlukan
+                        </button>
+                        <p class="text-xs text-center text-gray-500 mt-2">
+                            <a href="{{ route('customer.profile') }}" class="text-primary-600 hover:underline">Lengkapi verifikasi</a> untuk checkout
+                        </p>
+                    @endif
                 </div>
             </div>
         </div>

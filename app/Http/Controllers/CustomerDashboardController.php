@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DocumentType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -15,14 +16,19 @@ class CustomerDashboardController extends Controller
         $activeRentals = $customer->getActiveRentals();
         $pastRentals = $customer->getPastRentals();
         $cartCount = $customer->carts()->count();
+        $verificationStatus = $customer->getVerificationStatus();
 
-        return view('frontend.dashboard.index', compact('customer', 'activeRentals', 'pastRentals', 'cartCount'));
+        return view('frontend.dashboard.index', compact('customer', 'activeRentals', 'pastRentals', 'cartCount', 'verificationStatus'));
     }
 
     public function profile()
     {
         $customer = Auth::guard('customer')->user();
-        return view('frontend.dashboard.profile', compact('customer'));
+        $documentTypes = DocumentType::getActiveTypes();
+        $uploadedDocuments = $customer->documents()->with('documentType')->get()->keyBy('document_type_id');
+        $verificationStatus = $customer->getVerificationStatus();
+
+        return view('frontend.dashboard.profile', compact('customer', 'documentTypes', 'uploadedDocuments', 'verificationStatus'));
     }
 
     public function updateProfile(Request $request)
@@ -32,12 +38,11 @@ class CustomerDashboardController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
+            'nik' => 'required|string|size:16',
             'address' => 'nullable|string',
-            'id_type' => 'nullable|in:ktp,sim,passport',
-            'id_number' => 'nullable|string|max:50',
         ]);
 
-        $customer->update($request->only(['name', 'phone', 'address', 'id_type', 'id_number']));
+        $customer->update($request->only(['name', 'phone', 'nik', 'address']));
 
         return back()->with('success', 'Profile updated successfully.');
     }
