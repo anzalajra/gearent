@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Resources\CustomerResource\RelationManagers;
+namespace App\Filament\Resources\Customers\RelationManagers;
 
 use App\Models\CustomerDocument;
 use Filament\Actions\Action;

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Filament\Resources\CustomerResource\Pages;
+namespace App\Filament\Resources\Customers\Pages;
 
-use App\Filament\Resources\CustomerResource;
+use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\CustomerDocument;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -26,7 +26,6 @@ class ViewCustomer extends ViewRecord
                 ->modalDescription('Are you sure you want to verify this customer? This will allow them to make rentals.')
                 ->visible(fn () => !$this->record->is_verified && $this->record->getVerificationStatus() !== 'not_verified')
                 ->action(function () {
-                    // Approve all pending documents
                     $this->record->documents()
                         ->where('status', CustomerDocument::STATUS_PENDING)
                         ->update([
