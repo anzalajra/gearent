@@ -3,70 +3,36 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
-use Filament\Actions\Action;
+use App\Models\Rental;
 use Filament\Actions\DeleteAction;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
 
 class EditRental extends EditRecord
 {
     protected static string $resource = RentalResource::class;
 
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        // Check if rental can be edited
+        if (!$this->record->canBeEdited()) {
+            Notification::make()
+                ->title('Cannot edit this rental')
+                ->body('This rental is currently active and cannot be edited.')
+                ->danger()
+                ->send();
+
+            $this->redirect(RentalResource::getUrl('index'));
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->visible(fn () => $this->record->canBeDeleted()),
         ];
-    }
-
-    protected function getFormActions(): array
-    {
-        return [
-            Action::make('calculate')
-                ->label('Calculate Total')
-                ->icon('heroicon-m-calculator')
-                ->color('info')
-                ->action(function () {
-                    $items = $this->data['items'] ?? [];
-                    $subtotal = 0;
-
-                    foreach ($items as $key => $item) {
-                        $dailyRate = (float) ($item['daily_rate'] ?? 0);
-                        $days = (int) ($item['days'] ?? 1);
-                        $itemSubtotal = $dailyRate * $days;
-                        
-                        $this->data['items'][$key]['subtotal'] = $itemSubtotal;
-                        $subtotal += $itemSubtotal;
-                    }
-
-                    $discount = (float) ($this->data['discount'] ?? 0);
-                    $total = $subtotal - $discount;
-
-                    $this->data['subtotal'] = $subtotal;
-                    $this->data['total'] = $total;
-
-                    Notification::make()
-                        ->title('Calculated!')
-                        ->body("Subtotal: Rp " . number_format($subtotal, 0, ',', '.') . " | Total: Rp " . number_format($total, 0, ',', '.'))
-                        ->success()
-                        ->send();
-                }),
-            
-            $this->getSaveFormAction(),
-            $this->getCancelFormAction(),
-        ];
-    }
-
-    protected function afterSave(): void
-    {
-        $this->record->refresh();
-        
-        $subtotal = $this->record->items()->sum('subtotal');
-        $total = $subtotal - ($this->record->discount ?? 0);
-
-        $this->record->update([
-            'subtotal' => $subtotal,
-            'total' => $total,
-        ]);
     }
 }

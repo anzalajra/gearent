@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\Carbon;
 
 class Rental extends Model
 {
@@ -20,6 +21,7 @@ class Rental extends Model
         'total',
         'deposit',
         'notes',
+        'cancel_reason',
     ];
 
     protected $casts = [
@@ -32,27 +34,32 @@ class Rental extends Model
         'deposit' => 'decimal:2',
     ];
 
+    // Status constants
+    const STATUS_PENDING = 'pending';
+    const STATUS_LATE_PICKUP = 'late_pickup';
+    const STATUS_ACTIVE = 'active';
+    const STATUS_LATE_RETURN = 'late_return';
+    const STATUS_COMPLETED = 'completed';
+    const STATUS_CANCELLED = 'cancelled';
+
     protected static function boot()
     {
         parent::boot();
 
-        // Auto-generate rental code
         static::creating(function ($rental) {
             if (empty($rental->rental_code)) {
                 $rental->rental_code = self::generateRentalCode();
             }
         });
 
-        // Update product unit status when rental status changes
         static::updated(function ($rental) {
             if ($rental->isDirty('status')) {
                 $rental->updateProductUnitStatuses();
             }
         });
 
-        // Set product units to rented if rental is created as active
         static::created(function ($rental) {
-            if ($rental->status === 'active') {
+            if ($rental->status === self::STATUS_ACTIVE) {
                 $rental->updateProductUnitStatuses();
             }
         });
@@ -77,12 +84,44 @@ class Rental extends Model
         return $this->hasMany(RentalItem::class);
     }
 
-    // Update all product unit statuses based on rental status
+    /**
+     * Get the real-time status (checking for late)
+     */
+    public function getRealTimeStatus(): string
+    {
+        $now = Carbon::now();
+
+        if ($this->status === self::STATUS_PENDING && $now->gt($this->start_date)) {
+            return self::STATUS_LATE_PICKUP;
+        }
+
+        if ($this->status === self::STATUS_ACTIVE && $now->gt($this->end_date)) {
+            return self::STATUS_LATE_RETURN;
+        }
+
+        return $this->status;
+    }
+
+    /**
+     * Check and update late status in database
+     */
+    public function checkAndUpdateLateStatus(): void
+    {
+        $realTimeStatus = $this->getRealTimeStatus();
+
+        if ($realTimeStatus !== $this->status) {
+            $this->update(['status' => $realTimeStatus]);
+        }
+    }
+
+    /**
+     * Update all product unit statuses based on rental status
+     */
     public function updateProductUnitStatuses(): void
     {
         $newStatus = match ($this->status) {
-            'active' => 'rented',
-            'completed', 'cancelled' => 'available',
+            self::STATUS_ACTIVE, self::STATUS_LATE_RETURN => 'rented',
+            self::STATUS_COMPLETED, self::STATUS_CANCELLED => 'available',
             default => null,
         };
 
@@ -93,24 +132,178 @@ class Rental extends Model
         }
     }
 
-    // Mark rental as active (start rental)
-    public function markAsActive(): void
+    /**
+     * Check if all items have conflicting rentals
+     */
+    public function checkAvailability(): array
     {
-        $this->update(['status' => 'active']);
+        $conflicts = [];
+
+        foreach ($this->items as $item) {
+            $conflictingRentals = Rental::where('id', '!=', $this->id)
+                ->whereIn('status', [self::STATUS_PENDING, self::STATUS_LATE_PICKUP, self::STATUS_ACTIVE, self::STATUS_LATE_RETURN])
+                ->whereHas('items', function ($query) use ($item) {
+                    $query->where('product_unit_id', $item->product_unit_id);
+                })
+                ->where(function ($query) {
+                    $query->where('start_date', '<', $this->end_date)
+                          ->where('end_date', '>', $this->start_date);
+                })
+                ->with('items.productUnit.product')
+                ->get();
+
+            if ($conflictingRentals->isNotEmpty()) {
+                $conflicts[] = [
+                    'item' => $item,
+                    'conflicting_rentals' => $conflictingRentals,
+                ];
+            }
+        }
+
+        return $conflicts;
     }
 
-    // Mark rental as completed (return items)
-    public function markAsCompleted(): void
+    /**
+     * Check if rental is available (no conflicts)
+     */
+    public function isAvailable(): bool
     {
+        return empty($this->checkAvailability());
+    }
+
+    /**
+     * Attach kits to all rental items
+     */
+    public function attachKitsToAllItems(): void
+    {
+        foreach ($this->items as $item) {
+            $item->attachKitsFromUnit();
+        }
+    }
+
+    /**
+     * Check if all kits are returned
+     */
+    public function allKitsReturned(): bool
+    {
+        foreach ($this->items as $item) {
+            if (!$item->allKitsReturned()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Validate pickup - change status to active
+     */
+    public function validatePickup(): void
+    {
+        $this->attachKitsToAllItems();
+        $this->update(['status' => self::STATUS_ACTIVE]);
+    }
+
+    /**
+     * Validate return - change status to completed
+     */
+    public function validateReturn(): void
+    {
+        // Update unit kit conditions based on return condition
+        foreach ($this->items as $item) {
+            foreach ($item->rentalItemKits as $rentalItemKit) {
+                if ($rentalItemKit->condition_in && !in_array($rentalItemKit->condition_in, ['lost', 'broken'])) {
+                    $rentalItemKit->unitKit->update(['condition' => $rentalItemKit->condition_in]);
+                }
+                
+                // If lost, maybe mark unit kit as inactive or handle differently
+                if ($rentalItemKit->condition_in === 'lost') {
+                    // You can add logic here to handle lost kits
+                }
+            }
+        }
+
         $this->update([
-            'status' => 'completed',
+            'status' => self::STATUS_COMPLETED,
             'returned_date' => now(),
         ]);
     }
 
-    // Mark rental as cancelled
-    public function markAsCancelled(): void
+    /**
+     * Cancel rental
+     */
+    public function cancelRental(string $reason): void
     {
-        $this->update(['status' => 'cancelled']);
+        $this->update([
+            'status' => self::STATUS_CANCELLED,
+            'cancel_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Check if rental can be edited
+     */
+    public function canBeEdited(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING,
+            self::STATUS_LATE_PICKUP,
+            self::STATUS_COMPLETED,
+            self::STATUS_CANCELLED,
+        ]);
+    }
+
+    /**
+     * Check if rental can be deleted
+     */
+    public function canBeDeleted(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING,
+            self::STATUS_LATE_PICKUP,
+            self::STATUS_COMPLETED,
+            self::STATUS_CANCELLED,
+        ]);
+    }
+
+    /**
+     * Check if rental can be cancelled
+     */
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING,
+            self::STATUS_LATE_PICKUP,
+        ]);
+    }
+
+    /**
+     * Get status color
+     */
+    public static function getStatusColor(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_PENDING => 'warning',
+            self::STATUS_LATE_PICKUP => 'danger',
+            self::STATUS_ACTIVE => 'success',
+            self::STATUS_LATE_RETURN => 'danger',
+            self::STATUS_COMPLETED => 'info',
+            self::STATUS_CANCELLED => 'gray',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Get status options
+     */
+    public static function getStatusOptions(): array
+    {
+        return [
+            self::STATUS_PENDING => 'Pending',
+            self::STATUS_LATE_PICKUP => 'Late Pickup',
+            self::STATUS_ACTIVE => 'Active',
+            self::STATUS_LATE_RETURN => 'Late Return',
+            self::STATUS_COMPLETED => 'Completed',
+            self::STATUS_CANCELLED => 'Cancelled',
+        ];
     }
 }

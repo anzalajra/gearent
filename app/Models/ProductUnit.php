@@ -29,10 +29,10 @@ class ProductUnit extends Model
         return $this->belongsTo(Product::class);
     }
 
-    // Relasi ke UnitKit (akan dibuat nanti)
+    // Relasi ke UnitKit - tambahkan foreign key 'unit_id'
     public function kits(): HasMany
     {
-        return $this->hasMany(UnitKit::class);
+        return $this->hasMany(UnitKit::class, 'unit_id');
     }
 
     // Helper: Cek apakah unit available

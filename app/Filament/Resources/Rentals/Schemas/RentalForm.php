@@ -53,16 +53,11 @@ class RentalForm
                 ->afterStateUpdated(function ($state, callable $get, callable $set) {
                     self::calculateDuration($get, $set);
                 }),
-
                 Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'active' => 'Active',
-                        'completed' => 'Completed',
-                        'cancelled' => 'Cancelled',
-                    ])
+                    ->options(Rental::getStatusOptions())
                     ->required()
-                    ->default('pending'),
+                    ->default('pending')
+                    ->disabled(fn ($record) => $record && !$record->canBeEdited()),
 
                 Placeholder::make('duration_display')
                     ->label('Rental Duration')

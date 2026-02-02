@@ -5,6 +5,9 @@ namespace App\Filament\Resources\Rentals;
 use App\Filament\Resources\Rentals\Pages\CreateRental;
 use App\Filament\Resources\Rentals\Pages\EditRental;
 use App\Filament\Resources\Rentals\Pages\ListRentals;
+use App\Filament\Resources\Rentals\Pages\PickupOperation;
+use App\Filament\Resources\Rentals\Pages\ReturnOperation;
+use App\Filament\Resources\Rentals\Pages\ViewRental;
 use App\Filament\Resources\Rentals\Schemas\RentalForm;
 use App\Filament\Resources\Rentals\Tables\RentalsTable;
 use App\Models\Rental;
@@ -45,6 +48,9 @@ class RentalResource extends Resource
             'index' => ListRentals::route('/'),
             'create' => CreateRental::route('/create'),
             'edit' => EditRental::route('/{record}/edit'),
+            'view' => ViewRental::route('/{record}'),
+            'pickup' => PickupOperation::route('/{record}/pickup'),
+            'return' => ReturnOperation::route('/{record}/return'),
         ];
     }
 }

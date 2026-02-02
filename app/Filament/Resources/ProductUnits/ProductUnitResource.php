@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ProductUnits;
 use App\Filament\Resources\ProductUnits\Pages\CreateProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\EditProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\ListProductUnits;
+use App\Filament\Resources\ProductUnits\RelationManagers\KitsRelationManager; // Tambahkan ini
 use App\Filament\Resources\ProductUnits\Schemas\ProductUnitForm;
 use App\Filament\Resources\ProductUnits\Tables\ProductUnitsTable;
 use App\Models\ProductUnit;
@@ -35,7 +36,7 @@ class ProductUnitResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            KitsRelationManager::class, // Tambahkan ini
         ];
     }
 

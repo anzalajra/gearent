@@ -2,12 +2,16 @@
 
 namespace App\Filament\Resources\Rentals\Tables;
 
+use App\Filament\Resources\Rentals\RentalResource;
+use App\Models\Rental;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\Notifications\Notification;
 
 class RentalsTable
 {
@@ -35,86 +39,92 @@ class RentalsTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'active' => 'success',
-                        'completed' => 'info',
-                        'cancelled' => 'danger',
-                    }),
+                    ->color(fn (string $state): string => Rental::getStatusColor($state))
+                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
                 TextColumn::make('total')
-                    ->label('Total')
-                    ->money('IDR')
-                    ->sortable()
-                    ->weight('bold'),
-
-                TextColumn::make('deposit')
                     ->money('IDR')
                     ->sortable(),
+
+                TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 //
             ])
             ->recordActions([
-                // Start Rental Action
-                Action::make('start')
-                    ->label('Start')
-                    ->icon('heroicon-m-play')
+                // Pickup button - only for pending/late_pickup
+                Action::make('pickup')
+                    ->label('Pickup')
+                    ->icon('heroicon-o-truck')
                     ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Start Rental')
-                    ->modalDescription('This will mark the rental as active and set all product units to "rented". Continue?')
-                    ->visible(fn ($record) => $record->status === 'pending')
-                    ->action(function ($record) {
-                        $record->markAsActive();
-                        
-                        Notification::make()
-                            ->title('Rental Started!')
-                            ->body('Product units are now marked as rented.')
-                            ->success()
-                            ->send();
-                    }),
+                    ->url(fn (Rental $record) => RentalResource::getUrl('pickup', ['record' => $record]))
+                    ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
+                        Rental::STATUS_PENDING,
+                        Rental::STATUS_LATE_PICKUP,
+                    ])),
 
-                // Complete Rental Action
-                Action::make('complete')
-                    ->label('Complete')
-                    ->icon('heroicon-m-check-circle')
+                // Return button - only for active/late_return
+                Action::make('return')
+                    ->label('Return')
+                    ->icon('heroicon-o-arrow-uturn-left')
                     ->color('info')
-                    ->requiresConfirmation()
-                    ->modalHeading('Complete Rental')
-                    ->modalDescription('This will mark the rental as completed and return all product units to "available". Continue?')
-                    ->visible(fn ($record) => $record->status === 'active')
-                    ->action(function ($record) {
-                        $record->markAsCompleted();
-                        
-                        Notification::make()
-                            ->title('Rental Completed!')
-                            ->body('Product units are now available again.')
-                            ->success()
-                            ->send();
-                    }),
+                    ->url(fn (Rental $record) => RentalResource::getUrl('return', ['record' => $record]))
+                    ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
+                        Rental::STATUS_ACTIVE,
+                        Rental::STATUS_LATE_RETURN,
+                    ])),
 
-                // Cancel Rental Action
+                // Edit button - only for pending/late_pickup/completed/cancelled
+                EditAction::make()
+                    ->visible(fn (Rental $record) => $record->canBeEdited()),
+
+                // Cancel button - only for pending/late_pickup
                 Action::make('cancel')
                     ->label('Cancel')
-                    ->icon('heroicon-m-x-circle')
+                    ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Cancel Rental')
-                    ->modalDescription('This will cancel the rental and return all product units to "available". Continue?')
-                    ->visible(fn ($record) => in_array($record->status, ['pending', 'active']))
-                    ->action(function ($record) {
-                        $record->markAsCancelled();
-                        
-                        Notification::make()
-                            ->title('Rental Cancelled!')
-                            ->body('Product units are now available again.')
-                            ->warning()
-                            ->send();
-                    }),
+                    ->modalDescription('Are you sure you want to cancel this rental?')
+                    ->form([
+                        Textarea::make('cancel_reason')
+                            ->label('Reason for cancellation')
+                            ->required()
+                            ->rows(3),
+                    ])
+                    ->action(function (Rental $record, array $data) {
+                        $record->cancelRental($data['cancel_reason']);
 
-                EditAction::make(),
-                DeleteAction::make(),
+                        Notification::make()
+                            ->title('Rental cancelled')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn (Rental $record) => $record->canBeCancelled()),
+
+                // Delete button - only for pending/cancelled/completed
+                DeleteAction::make()
+                    ->visible(fn (Rental $record) => $record->canBeDeleted()),
+            ])
+            ->recordUrl(function (Rental $record) {
+                $status = $record->getRealTimeStatus();
+
+                return match (true) {
+                    in_array($status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP]) 
+                        => RentalResource::getUrl('pickup', ['record' => $record]),
+                    in_array($status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]) 
+                        => RentalResource::getUrl('return', ['record' => $record]),
+                    in_array($status, [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED]) 
+                        => RentalResource::getUrl('view', ['record' => $record]),
+                    default => null,
+                };
+            })
+            ->toolbarActions([
+                //
             ]);
     }
 }
