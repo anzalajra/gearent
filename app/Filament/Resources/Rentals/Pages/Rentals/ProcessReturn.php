@@ -7,6 +7,7 @@ use App\Models\Rental;
 use App\Models\RentalItemKit;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -38,7 +39,11 @@ class ProcessReturn extends Page implements HasTable
     {
         $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit'])->findOrFail($record);
 
-        if (!in_array($this->rental->getRealTimeStatus(), [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
+        // Update late status on mount
+        $this->rental->checkAndUpdateLateStatus();
+        $this->rental->refresh();
+
+        if (!in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
             Notification::make()
                 ->title('Cannot return this rental')
                 ->body('This rental is not in active or late return status.')
@@ -52,6 +57,35 @@ class ProcessReturn extends Page implements HasTable
     public function getTitle(): string|Htmlable
     {
         return 'Return Operation - ' . $this->rental->rental_code;
+    }
+
+    public function isItemReturnChecked($item): bool
+    {
+        if ($item->rentalItemKits->isEmpty()) {
+            return true;
+        }
+
+        foreach ($item->rentalItemKits as $kit) {
+            if (!$kit->is_returned || !$kit->condition_in) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function allItemsReturnChecked(): bool
+    {
+        foreach ($this->rental->items as $item) {
+            if (!$this->isItemReturnChecked($item)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function canValidateReturn(): bool
+    {
+        return $this->allItemsReturnChecked();
     }
 
     public function table(Table $table): Table
@@ -87,9 +121,9 @@ class ProcessReturn extends Page implements HasTable
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('kit_check')
-                    ->label('Kit Check')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->color(fn ($record) => $record->allKitsReturned() ? 'success' : 'warning')
+                    ->label(fn ($record) => $this->isItemReturnChecked($record) ? 'Kit Checked' : 'Kit Check')
+                    ->icon(fn ($record) => $this->isItemReturnChecked($record) ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-circle')
+                    ->color(fn ($record) => $this->isItemReturnChecked($record) ? 'success' : 'warning')
                     ->modalHeading(fn ($record) => 'Kit Check - ' . $record->productUnit->serial_number)
                     ->modalWidth('2xl')
                     ->form(function ($record) {
@@ -107,6 +141,8 @@ class ProcessReturn extends Page implements HasTable
                             Repeater::make('kits')
                                 ->label('Kit Items')
                                 ->schema([
+                                    Hidden::make('id'),
+
                                     TextInput::make('kit_name')
                                         ->label('Kit Name')
                                         ->disabled()
@@ -133,6 +169,7 @@ class ProcessReturn extends Page implements HasTable
 
                                     Checkbox::make('is_returned')
                                         ->label('Returned')
+                                        ->default(true)
                                         ->columnSpan(1),
 
                                     Textarea::make('notes')
@@ -142,6 +179,7 @@ class ProcessReturn extends Page implements HasTable
                                         ->columnSpan(1),
                                 ])
                                 ->columns(6)
+                                ->itemLabel(fn (array $state): ?string => $state['kit_name'] ?? null)
                                 ->default(function () use ($rentalItemKits) {
                                     return $rentalItemKits->map(function ($rentalItemKit) {
                                         return [
@@ -149,8 +187,8 @@ class ProcessReturn extends Page implements HasTable
                                             'kit_name' => $rentalItemKit->unitKit->name,
                                             'serial_number' => $rentalItemKit->unitKit->serial_number ?? '-',
                                             'condition_out' => ucfirst($rentalItemKit->condition_out),
-                                            'condition_in' => $rentalItemKit->condition_in,
-                                            'is_returned' => $rentalItemKit->is_returned,
+                                            'condition_in' => $rentalItemKit->condition_in ?? $rentalItemKit->condition_out,
+                                            'is_returned' => $rentalItemKit->is_returned ?? true,
                                             'notes' => $rentalItemKit->notes,
                                         ];
                                     })->toArray();
@@ -162,21 +200,22 @@ class ProcessReturn extends Page implements HasTable
                     })
                     ->action(function ($record, array $data) {
                         foreach ($data['kits'] ?? [] as $kitData) {
-                            $record->rentalItemKits()
-                                ->where('id', $kitData['id'])
-                                ->update([
-                                    'condition_in' => $kitData['condition_in'],
-                                    'is_returned' => $kitData['is_returned'] ?? false,
-                                    'notes' => $kitData['notes'],
-                                ]);
+                            if (isset($kitData['id']) && $kitData['id']) {
+                                RentalItemKit::where('id', $kitData['id'])
+                                    ->update([
+                                        'condition_in' => $kitData['condition_in'] ?? null,
+                                        'is_returned' => $kitData['is_returned'] ?? false,
+                                        'notes' => $kitData['notes'] ?? null,
+                                    ]);
+                            }
                         }
+
+                        $this->rental->load(['items.rentalItemKits.unitKit']);
 
                         Notification::make()
                             ->title('Kit return status updated')
                             ->success()
                             ->send();
-
-                        $this->rental->refresh();
                     })
                     ->visible(fn ($record) => $record->rentalItemKits->count() > 0),
             ])
@@ -184,63 +223,40 @@ class ProcessReturn extends Page implements HasTable
             ->paginated(false);
     }
 
-    public function canValidateReturn(): bool
-    {
-        $this->rental->load('items.rentalItemKits');
-        return $this->rental->allKitsReturned();
-    }
-
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('validate_return')
-                ->label('Validate Return')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->size('lg')
-                ->requiresConfirmation()
-                ->modalHeading('Confirm Return')
-                ->modalDescription('Are you sure all items have been returned? This will change the rental status to Completed.')
-                ->modalSubmitActionLabel('Yes, Confirm Return')
-                ->disabled(fn () => !$this->canValidateReturn())
-                ->action(function () {
-                    $this->rental->validateReturn();
-
-                    Notification::make()
-                        ->title('Return validated successfully')
-                        ->body('Rental status changed to Completed.')
-                        ->success()
-                        ->send();
-
-                    $this->redirect(RentalResource::getUrl('index'));
-                }),
+            $this->getValidateReturnAction(),
         ];
     }
 
-    public function getFooterActions(): array
+    public function getValidateReturnAction(): Action
     {
-        return [
-            Action::make('validate_return_bottom')
-                ->label('Validate Return')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->size('lg')
-                ->requiresConfirmation()
-                ->modalHeading('Confirm Return')
-                ->modalDescription('Are you sure all items have been returned? This will change the rental status to Completed.')
-                ->modalSubmitActionLabel('Yes, Confirm Return')
-                ->disabled(fn () => !$this->canValidateReturn())
-                ->action(function () {
-                    $this->rental->validateReturn();
+        return Action::make('validate_return')
+            ->label('Validate Return')
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->size('lg')
+            ->requiresConfirmation()
+            ->modalHeading('Confirm Return')
+            ->modalDescription('Are you sure all items have been returned? This will change the rental status to Completed.')
+            ->modalSubmitActionLabel('Yes, Confirm Return')
+            ->disabled(fn () => !$this->canValidateReturn())
+            ->action(function () {
+                $this->rental->validateReturn();
 
-                    Notification::make()
-                        ->title('Return validated successfully')
-                        ->body('Rental status changed to Completed.')
-                        ->success()
-                        ->send();
+                Notification::make()
+                    ->title('Return validated successfully')
+                    ->body('Rental status changed to Completed.')
+                    ->success()
+                    ->send();
 
-                    $this->redirect(RentalResource::getUrl('index'));
-                }),
-        ];
+                $this->redirect(RentalResource::getUrl('index'));
+            });
+    }
+
+    public function validateReturnAction(): Action
+    {
+        return $this->getValidateReturnAction();
     }
 }

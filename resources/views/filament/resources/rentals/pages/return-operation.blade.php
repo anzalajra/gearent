@@ -4,49 +4,49 @@
             Rental Information
         </x-slot>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Rental Code</p>
-                <p class="font-semibold">{{ $rental->rental_code }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Customer</p>
-                <p class="font-semibold">
-                    <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="text-primary-600 hover:underline">
-                        {{ $rental->customer->name }}
-                    </a>
-                </p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                <p class="font-semibold">{{ $rental->customer->phone ?? '-' }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                <x-filament::badge :color="$rental->status === 'active' ? 'success' : 'danger'">
-                    {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
-                </x-filament::badge>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Start Date</p>
-                <p class="font-semibold">{{ $rental->start_date->format('d M Y H:i') }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">End Date</p>
-                <p class="font-semibold">{{ $rental->end_date->format('d M Y H:i') }}</p>
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">All Kits Returned</p>
-                @if($this->canValidateReturn())
-                    <x-filament::badge color="success">Yes, All Returned</x-filament::badge>
-                @else
-                    <x-filament::badge color="warning">Pending Return</x-filament::badge>
-                @endif
-            </div>
-            <div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Notes</p>
-                <p class="font-semibold">{{ $rental->notes ?? '-' }}</p>
-            </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <tbody>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400" style="width: 15%;">Rental Code</td>
+                        <td class="py-3 pr-6 font-semibold" style="width: 35%;">{{ $rental->rental_code }}</td>
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400" style="width: 15%;">Start Date</td>
+                        <td class="py-3 font-semibold" style="width: 35%;">{{ $rental->start_date->format('d M Y H:i') }}</td>
+                    </tr>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">Customer</td>
+                        <td class="py-3 pr-6 font-semibold">
+                            <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="text-primary-600 hover:underline">
+                                {{ $rental->customer->name }}
+                            </a>
+                        </td>
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">End Date</td>
+                        <td class="py-3 font-semibold">{{ $rental->end_date->format('d M Y H:i') }}</td>
+                    </tr>
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">Phone</td>
+                        <td class="py-3 pr-6 font-semibold">{{ $rental->customer->phone ?? '-' }}</td>
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">All Kits Checked</td>
+                        <td class="py-3">
+                            @if($this->canValidateReturn())
+                                <x-filament::badge color="success">Yes, All Checked</x-filament::badge>
+                            @else
+                                <x-filament::badge color="warning">Pending Check</x-filament::badge>
+                            @endif
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">Status</td>
+                        <td class="py-3 pr-6">
+                            <x-filament::badge :color="$rental->status === 'active' ? 'success' : 'danger'">
+                                {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
+                            </x-filament::badge>
+                        </td>
+                        <td class="py-3 pr-6 font-medium text-gray-500 dark:text-gray-400">Notes</td>
+                        <td class="py-3 font-semibold">{{ $rental->notes ?? '-' }}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </x-filament::section>
 
@@ -56,8 +56,8 @@
         </x-slot>
 
         @if(!$this->canValidateReturn())
-            <div class="mb-4 p-4 bg-warning-50 dark:bg-warning-900/20 rounded-lg">
-                <p class="text-warning-700 dark:text-warning-400">
+            <div class="mb-4 p-3 bg-warning-50 dark:bg-warning-950 rounded-lg border border-warning-200 dark:border-warning-800">
+                <p class="text-sm text-warning-600 dark:text-warning-400">
                     ⚠️ Please check all kits as returned before validating the return.
                 </p>
             </div>
@@ -66,9 +66,9 @@
         {{ $this->table }}
     </x-filament::section>
 
-    <div class="flex justify-end mt-6">
-        @foreach($this->getFooterActions() as $action)
-            {{ $action }}
-        @endforeach
-    </div>
+    <x-filament::section>
+        <div class="flex justify-end">
+            {{ ($this->validateReturnAction)(['rental' => $this->rental]) }}
+        </div>
+    </x-filament::section>
 </x-filament-panels::page>

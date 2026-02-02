@@ -6,6 +6,7 @@ use App\Filament\Resources\Rentals\RentalResource;
 use App\Models\Rental;
 use App\Models\RentalItemKit;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -34,9 +35,13 @@ class PickupOperation extends Page implements HasTable
 
     public function mount(int|string $record): void
     {
-        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.productUnit.kits'])->findOrFail($record);
+        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits'])->findOrFail($record);
 
-        if (!in_array($this->rental->getRealTimeStatus(), [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
+        // Update late status on mount
+        $this->rental->checkAndUpdateLateStatus();
+        $this->rental->refresh();
+
+        if (!in_array($this->rental->status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
             Notification::make()
                 ->title('Cannot pickup this rental')
                 ->body('This rental is not in pending or late pickup status.')
@@ -60,6 +65,24 @@ class PickupOperation extends Page implements HasTable
             'available' => empty($conflicts),
             'conflicts' => $conflicts,
         ];
+    }
+
+    public function isItemKitChecked($item): bool
+    {
+        $unitKitsCount = $item->productUnit->kits->count();
+        $rentalItemKitsCount = $item->rentalItemKits->count();
+
+        return $unitKitsCount > 0 && $rentalItemKitsCount >= $unitKitsCount;
+    }
+
+    public function allItemsKitChecked(): bool
+    {
+        foreach ($this->rental->items as $item) {
+            if ($item->productUnit->kits->count() > 0 && !$this->isItemKitChecked($item)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public function table(Table $table): Table
@@ -86,9 +109,9 @@ class PickupOperation extends Page implements HasTable
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('kit_check')
-                    ->label('Kit Check')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->color('warning')
+                    ->label(fn ($record) => $this->isItemKitChecked($record) ? 'Kit Checked' : 'Kit Check')
+                    ->icon(fn ($record) => $this->isItemKitChecked($record) ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-circle')
+                    ->color(fn ($record) => $this->isItemKitChecked($record) ? 'success' : 'warning')
                     ->modalHeading(fn ($record) => 'Kit Check - ' . $record->productUnit->serial_number)
                     ->modalWidth('2xl')
                     ->form(function ($record) {
@@ -102,10 +125,14 @@ class PickupOperation extends Page implements HasTable
                             ];
                         }
 
+                        $existingKits = $record->rentalItemKits->keyBy('unit_kit_id');
+
                         return [
                             Repeater::make('kits')
                                 ->label('Kit Items')
                                 ->schema([
+                                    Hidden::make('kit_id'),
+
                                     TextInput::make('kit_name')
                                         ->label('Kit Name')
                                         ->disabled()
@@ -131,14 +158,16 @@ class PickupOperation extends Page implements HasTable
                                         ->columnSpan(1),
                                 ])
                                 ->columns(4)
-                                ->default(function () use ($kits) {
-                                    return $kits->map(function ($kit) {
+                                ->itemLabel(fn (array $state): ?string => $state['kit_name'] ?? null)
+                                ->default(function () use ($kits, $existingKits) {
+                                    return $kits->map(function ($kit) use ($existingKits) {
+                                        $existing = $existingKits->get($kit->id);
                                         return [
                                             'kit_id' => $kit->id,
                                             'kit_name' => $kit->name,
                                             'serial_number' => $kit->serial_number ?? '-',
-                                            'condition_out' => $kit->condition,
-                                            'notes' => '',
+                                            'condition_out' => $existing?->condition_out ?? $kit->condition,
+                                            'notes' => $existing?->notes ?? '',
                                         ];
                                     })->toArray();
                                 })
@@ -148,18 +177,19 @@ class PickupOperation extends Page implements HasTable
                         ];
                     })
                     ->action(function ($record, array $data) {
-                        foreach ($data['kits'] ?? [] as $index => $kitData) {
-                            $kit = $record->productUnit->kits[$index] ?? null;
-                            if ($kit) {
+                        foreach ($data['kits'] ?? [] as $kitData) {
+                            if (isset($kitData['kit_id']) && $kitData['kit_id']) {
                                 $record->rentalItemKits()->updateOrCreate(
-                                    ['unit_kit_id' => $kit->id],
+                                    ['unit_kit_id' => $kitData['kit_id']],
                                     [
-                                        'condition_out' => $kitData['condition_out'],
-                                        'notes' => $kitData['notes'],
+                                        'condition_out' => $kitData['condition_out'] ?? 'good',
+                                        'notes' => $kitData['notes'] ?? null,
                                     ]
                                 );
                             }
                         }
+
+                        $this->rental->load(['items.rentalItemKits', 'items.productUnit.kits']);
 
                         Notification::make()
                             ->title('Kit conditions saved')
@@ -181,52 +211,37 @@ class PickupOperation extends Page implements HasTable
                 ->color('gray')
                 ->url(fn () => RentalResource::getUrl('edit', ['record' => $this->rental])),
 
-            Action::make('validate_pickup')
-                ->label('Validate Pickup')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->size('lg')
-                ->requiresConfirmation()
-                ->modalHeading('Confirm Pickup')
-                ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
-                ->modalSubmitActionLabel('Yes, Confirm Pickup')
-                ->action(function () {
-                    $this->rental->validatePickup();
-
-                    Notification::make()
-                        ->title('Pickup validated successfully')
-                        ->body('Rental status changed to Active.')
-                        ->success()
-                        ->send();
-
-                    $this->redirect(RentalResource::getUrl('index'));
-                }),
+            $this->getValidatePickupAction(),
         ];
     }
 
-    public function getFooterActions(): array
+    public function getValidatePickupAction(): Action
     {
-        return [
-            Action::make('validate_pickup_bottom')
-                ->label('Validate Pickup')
-                ->icon('heroicon-o-check-circle')
-                ->color('success')
-                ->size('lg')
-                ->requiresConfirmation()
-                ->modalHeading('Confirm Pickup')
-                ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
-                ->modalSubmitActionLabel('Yes, Confirm Pickup')
-                ->action(function () {
-                    $this->rental->validatePickup();
+        return Action::make('validate_pickup')
+            ->label('Validate Pickup')
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->size('lg')
+            ->requiresConfirmation()
+            ->modalHeading('Confirm Pickup')
+            ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
+            ->modalSubmitActionLabel('Yes, Confirm Pickup')
+            ->disabled(fn () => !$this->allItemsKitChecked())
+            ->action(function () {
+                $this->rental->validatePickup();
 
-                    Notification::make()
-                        ->title('Pickup validated successfully')
-                        ->body('Rental status changed to Active.')
-                        ->success()
-                        ->send();
+                Notification::make()
+                    ->title('Pickup validated successfully')
+                    ->body('Rental status changed to Active.')
+                    ->success()
+                    ->send();
 
-                    $this->redirect(RentalResource::getUrl('index'));
-                }),
-        ];
+                $this->redirect(RentalResource::getUrl('index'));
+            });
+    }
+
+    public function validatePickupAction(): Action
+    {
+        return $this->getValidatePickupAction();
     }
 }

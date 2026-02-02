@@ -3,14 +3,18 @@
 namespace App\Filament\Resources\Rentals\Tables;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Models\Delivery;
 use App\Models\Rental;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 
 class RentalsTable
 {
@@ -38,6 +42,7 @@ class RentalsTable
 
                 TextColumn::make('status')
                     ->badge()
+                    ->getStateUsing(fn (Rental $record): string => $record->getRealTimeStatus())
                     ->color(fn (string $state): string => Rental::getStatusColor($state))
                     ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
@@ -51,11 +56,9 @@ class RentalsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
-            ->filters([
-                //
-            ])
+            ->filters([])
             ->recordActions([
-                // Pickup button - only for pending/late_pickup
+                // Pickup button
                 Action::make('pickup')
                     ->label('Pickup')
                     ->icon('heroicon-o-truck')
@@ -66,7 +69,7 @@ class RentalsTable
                         Rental::STATUS_LATE_PICKUP,
                     ])),
 
-                // Return button - only for active/late_return
+                // Return button
                 Action::make('return')
                     ->label('Return')
                     ->icon('heroicon-o-arrow-uturn-left')
@@ -77,11 +80,159 @@ class RentalsTable
                         Rental::STATUS_LATE_RETURN,
                     ])),
 
-                // Edit button - only for pending/late_pickup/completed/cancelled
+                // Documents dropdown
+                ActionGroup::make([
+                    // Quotation PDF
+                    Action::make('download_quotation')
+                        ->label('Download Quotation')
+                        ->icon('heroicon-o-document-text')
+                        ->color('gray')
+                        ->action(function (Rental $record) {
+                            $record->load(['customer', 'items.productUnit.product']);
+                            
+                            $pdf = Pdf::loadView('pdf.quotation', ['rental' => $record]);
+                            
+                            return response()->streamDownload(
+                                fn () => print($pdf->output()),
+                                'Quotation-' . $record->rental_code . '.pdf'
+                            );
+                        }),
+
+                    // Invoice PDF
+                    Action::make('download_invoice')
+                        ->label('Download Invoice')
+                        ->icon('heroicon-o-document-currency-dollar')
+                        ->color('gray')
+                        ->action(function (Rental $record) {
+                            $record->load(['customer', 'items.productUnit.product']);
+                            
+                            $pdf = Pdf::loadView('pdf.invoice', ['rental' => $record]);
+                            
+                            return response()->streamDownload(
+                                fn () => print($pdf->output()),
+                                'Invoice-' . $record->rental_code . '.pdf'
+                            );
+                        }),
+
+                    // Create Delivery Out
+                    Action::make('create_delivery_out')
+                        ->label('Create Surat Jalan Keluar')
+                        ->icon('heroicon-o-truck')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->modalHeading('Create Surat Jalan Keluar')
+                        ->modalDescription('This will create a new delivery document for check-out.')
+                        ->action(function (Rental $record) {
+                            $existing = $record->deliveries()->where('type', 'out')->first();
+                            if ($existing) {
+                                Notification::make()
+                                    ->title('Surat Jalan Keluar already exists')
+                                    ->body('Delivery number: ' . $existing->delivery_number)
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $delivery = Delivery::create([
+                                'rental_id' => $record->getKey(),
+                                'type' => 'out',
+                                'date' => now(),
+                                'checked_by' => Auth::id(),
+                                'status' => 'draft',
+                            ]);
+
+                            foreach ($record->items as $rentalItem) {
+                                $delivery->items()->create([
+                                    'rental_item_id' => $rentalItem->getKey(),
+                                    'rental_item_kit_id' => null,
+                                    'is_checked' => false,
+                                ]);
+
+                                foreach ($rentalItem->rentalItemKits as $kit) {
+                                    $delivery->items()->create([
+                                        'rental_item_id' => $rentalItem->getKey(),
+                                        'rental_item_kit_id' => $kit->getKey(),
+                                        'is_checked' => false,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Surat Jalan Keluar created')
+                                ->body('Delivery number: ' . $delivery->delivery_number)
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
+                            Rental::STATUS_PENDING,
+                            Rental::STATUS_LATE_PICKUP,
+                            Rental::STATUS_ACTIVE,
+                        ]) && !$record->deliveries()->where('type', 'out')->exists()),
+
+                    // Create Delivery In
+                    Action::make('create_delivery_in')
+                        ->label('Create Surat Jalan Masuk')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Create Surat Jalan Masuk')
+                        ->modalDescription('This will create a new delivery document for check-in.')
+                        ->action(function (Rental $record) {
+                            $existing = $record->deliveries()->where('type', 'in')->first();
+                            if ($existing) {
+                                Notification::make()
+                                    ->title('Surat Jalan Masuk already exists')
+                                    ->body('Delivery number: ' . $existing->delivery_number)
+                                    ->warning()
+                                    ->send();
+                                return;
+                            }
+
+                            $delivery = Delivery::create([
+                                'rental_id' => $record->getKey(),
+                                'type' => 'in',
+                                'date' => now(),
+                                'checked_by' => Auth::id(),
+                                'status' => 'draft',
+                            ]);
+
+                            foreach ($record->items as $rentalItem) {
+                                $delivery->items()->create([
+                                    'rental_item_id' => $rentalItem->getKey(),
+                                    'rental_item_kit_id' => null,
+                                    'is_checked' => false,
+                                ]);
+
+                                foreach ($rentalItem->rentalItemKits as $kit) {
+                                    $delivery->items()->create([
+                                        'rental_item_id' => $rentalItem->getKey(),
+                                        'rental_item_kit_id' => $kit->getKey(),
+                                        'is_checked' => false,
+                                    ]);
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Surat Jalan Masuk created')
+                                ->body('Delivery number: ' . $delivery->delivery_number)
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
+                            Rental::STATUS_ACTIVE,
+                            Rental::STATUS_LATE_RETURN,
+                        ]) && !$record->deliveries()->where('type', 'in')->exists()),
+                ])
+                ->label('Documents')
+                ->icon('heroicon-o-document-duplicate')
+                ->color('gray')
+                ->button(),
+
+                // Edit button
                 EditAction::make()
                     ->visible(fn (Rental $record) => $record->canBeEdited()),
 
-                // Cancel button - only for pending/late_pickup
+                // Cancel button
                 Action::make('cancel')
                     ->label('Cancel')
                     ->icon('heroicon-o-x-circle')
@@ -103,9 +254,12 @@ class RentalsTable
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (Rental $record) => $record->canBeCancelled()),
+                    ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
+                        Rental::STATUS_PENDING,
+                        Rental::STATUS_LATE_PICKUP,
+                    ])),
 
-                // Delete button - only for pending/cancelled/completed
+                // Delete button
                 DeleteAction::make()
                     ->visible(fn (Rental $record) => $record->canBeDeleted()),
             ])
@@ -122,8 +276,6 @@ class RentalsTable
                     default => null,
                 };
             })
-            ->toolbarActions([
-                //
-            ]);
+            ->poll('30s');
     }
 }

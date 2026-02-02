@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Rental extends Model
 {
@@ -35,12 +36,12 @@ class Rental extends Model
     ];
 
     // Status constants
-    const STATUS_PENDING = 'pending';
-    const STATUS_LATE_PICKUP = 'late_pickup';
-    const STATUS_ACTIVE = 'active';
-    const STATUS_LATE_RETURN = 'late_return';
-    const STATUS_COMPLETED = 'completed';
-    const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_LATE_PICKUP = 'late_pickup';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_LATE_RETURN = 'late_return';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected static function boot()
     {
@@ -107,10 +108,14 @@ class Rental extends Model
      */
     public function checkAndUpdateLateStatus(): void
     {
-        $realTimeStatus = $this->getRealTimeStatus();
+        $now = Carbon::now();
 
-        if ($realTimeStatus !== $this->status) {
-            $this->update(['status' => $realTimeStatus]);
+        if ($this->status === self::STATUS_PENDING && $now->gt($this->start_date)) {
+            $this->update(['status' => self::STATUS_LATE_PICKUP]);
+        }
+
+        if ($this->status === self::STATUS_ACTIVE && $now->gt($this->end_date)) {
+            $this->update(['status' => self::STATUS_LATE_RETURN]);
         }
     }
 
@@ -208,16 +213,10 @@ class Rental extends Model
      */
     public function validateReturn(): void
     {
-        // Update unit kit conditions based on return condition
         foreach ($this->items as $item) {
             foreach ($item->rentalItemKits as $rentalItemKit) {
                 if ($rentalItemKit->condition_in && !in_array($rentalItemKit->condition_in, ['lost', 'broken'])) {
                     $rentalItemKit->unitKit->update(['condition' => $rentalItemKit->condition_in]);
-                }
-                
-                // If lost, maybe mark unit kit as inactive or handle differently
-                if ($rentalItemKit->condition_in === 'lost') {
-                    // You can add logic here to handle lost kits
                 }
             }
         }
@@ -305,5 +304,20 @@ class Rental extends Model
             self::STATUS_COMPLETED => 'Completed',
             self::STATUS_CANCELLED => 'Cancelled',
         ];
+    }
+
+    public function deliveries(): HasMany
+    {
+        return $this->hasMany(Delivery::class);
+    }
+
+    public function deliveryOut(): HasOne
+    {
+        return $this->hasOne(Delivery::class)->where('type', 'out');
+    }
+
+    public function deliveryIn(): HasOne
+    {
+        return $this->hasOne(Delivery::class)->where('type', 'in');
     }
 }

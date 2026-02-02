@@ -4,19 +4,16 @@ namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
 use App\Models\Rental;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Resources\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Model;
 
 class ViewRental extends Page
 {
     protected static string $resource = RentalResource::class;
 
-    protected static ?string $slug = '{record}/view';
+    protected static bool $canCreateAnother = false;
 
-    public Rental|Model|null $record = null;
+    public ?Rental $rental = null;
 
     public function getView(): string
     {
@@ -25,7 +22,7 @@ class ViewRental extends Page
 
     public function mount(int|string $record): void
     {
-        $this->record = Rental::with([
+        $this->rental = Rental::with([
             'customer',
             'items.productUnit.product',
             'items.rentalItemKits.unitKit'
@@ -34,18 +31,11 @@ class ViewRental extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'View Rental - ' . $this->record->rental_code;
+        return 'View Rental - ' . $this->rental->rental_code;
     }
 
     protected function getHeaderActions(): array
     {
-        return [
-            EditAction::make()
-                ->url(fn () => RentalResource::getUrl('edit', ['record' => $this->record]))
-                ->visible(fn () => $this->record->canBeEdited()),
-
-            DeleteAction::make()
-                ->visible(fn () => $this->record->canBeDeleted()),
-        ];
+        return [];
     }
 }
