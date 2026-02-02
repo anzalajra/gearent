@@ -20,5 +20,5 @@
         </a>
     </div>
 
-    {{-- Widget dirender melalui getHeaderWidgets() di Page, jadi jangan panggil @livewire() di sini --}}
+    {{-- Widget dirender via getHeaderWidgets() di Page, jadi jangan panggil @livewire() di sini --}}
 </x-filament-panels::page>
