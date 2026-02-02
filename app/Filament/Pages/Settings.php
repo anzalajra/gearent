@@ -1,44 +1,149 @@
 <?php
 
-namespace App\Filament\Widgets;
+namespace App\Filament\Pages;
 
-use App\Models\Rental;
-use Filament\Widgets\ChartWidget;
-use Illuminate\Support\Carbon;
+use App\Models\Setting;
+use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Tabs;
+use UnitEnum;
 
-class RentalChart extends ChartWidget
+class Settings extends Page implements HasForms
 {
-    protected ?string $heading = 'Rentals This Month';
+    use InteractsWithForms;
 
-    protected static ?int $sort = 3;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected function getData(): array
+    protected static string|UnitEnum|null $navigationGroup = 'System';
+
+    protected static ?string $navigationLabel = 'Settings';
+
+    protected static ?int $navigationSort = 100;
+
+    protected string $view = 'filament.pages.settings';
+
+    public ?array $data = [];
+
+    public function mount(): void
     {
-        $data = [];
-        $labels = [];
-
-        for ($i = 29; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i);
-            $labels[] = $date->format('d');
-            $data[] = Rental::whereDate('created_at', $date)->count();
-        }
-
-        return [
-            'datasets' => [
-                [
-                    'label' => 'Rentals',
-                    'data' => $data,
-                    'borderColor' => '#2563eb',
-                    'backgroundColor' => 'rgba(37, 99, 235, 0.1)',
-                    'fill' => true,
-                ],
-            ],
-            'labels' => $labels,
-        ];
+        $settings = Setting::all()->pluck('value', 'key')->toArray();
+        $this->form->fill($settings);
     }
 
-    protected function getType(): string
+    public function form(Schema $schema): Schema
     {
-        return 'line';
+        return $schema
+            ->statePath('data')
+            ->components([
+                Tabs::make('Settings')
+                    ->tabs([
+                        Tabs\Tab::make('General')
+                            ->icon('heroicon-o-building-office')
+                            ->schema([
+                                Grid::make(2)
+                                    ->schema([
+                                        TextInput::make('site_name')
+                                            ->label('Site Name')
+                                            ->required()
+                                            ->maxLength(255),
+                                        TextInput::make('site_tagline')
+                                            ->label('Tagline')
+                                            ->maxLength(255),
+                                        TextInput::make('site_email')
+                                            ->label('Email')
+                                            ->email()
+                                            ->maxLength(255),
+                                        TextInput::make('site_phone')
+                                            ->label('Phone')
+                                            ->tel()
+                                            ->maxLength(20),
+                                    ]),
+                                Textarea::make('site_address')
+                                    ->label('Address')
+                                    ->rows(3)
+                                    ->maxLength(500)
+                                    ->columnSpanFull(),
+                            ]),
+
+                        Tabs\Tab::make('Rental')
+                            ->icon('heroicon-o-calendar')
+                            ->schema([
+                                Grid::make(2)
+                                    ->schema([
+                                        TextInput::make('deposit_percentage')
+                                            ->label('Deposit Percentage')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->required()
+                                            ->default(30)
+                                            ->minValue(0)
+                                            ->maxValue(100),
+                                        TextInput::make('late_fee_percentage')
+                                            ->label('Late Fee per Day')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->default(0)
+                                            ->minValue(0),
+                                        TextInput::make('min_rental_days')
+                                            ->label('Minimum Rental Days')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->default(1),
+                                        TextInput::make('max_rental_days')
+                                            ->label('Maximum Rental Days')
+                                            ->numeric()
+                                            ->minValue(1)
+                                            ->default(30),
+                                    ]),
+                            ]),
+
+                        Tabs\Tab::make('WhatsApp')
+                            ->icon('heroicon-o-chat-bubble-left-right')
+                            ->schema([
+                                TextInput::make('whatsapp_number')
+                                    ->label('WhatsApp Number')
+                                    ->placeholder('6281234567890')
+                                    ->helperText('Format: country code + number (without + or spaces)')
+                                    ->maxLength(20),
+                                Checkbox::make('whatsapp_enabled')
+                                    ->label('Enable WhatsApp Notifications')
+                                    ->helperText('Send rental notifications via WhatsApp'),
+                            ]),
+                    ]),
+            ]);
+    }
+
+    public function save(): void
+    {
+        $data = $this->form->getState();
+
+        foreach ($data as $key => $value) {
+            Setting::set($key, $value ?? '');
+        }
+
+        Notification::make()
+            ->title('Settings saved successfully')
+            ->success()
+            ->send();
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            Action::make('save')
+                ->label('Save Settings')
+                ->icon('heroicon-o-check')
+                ->submit('save'),
+        ];
     }
 }
