@@ -20,14 +20,19 @@ class UnitKit extends Model
         return $this->belongsTo(ProductUnit::class, 'unit_id');
     }
 
-    public function getConditionColor(): string
+    // Alias untuk kompatibilitas
+    public function unit(): BelongsTo
     {
-        return match ($this->condition) {
-            'excellent' => 'success',
-            'good' => 'info',
-            'fair' => 'warning',
-            'poor' => 'danger',
-            default => 'gray',
-        };
+        return $this->belongsTo(ProductUnit::class, 'unit_id');
+    }
+
+    public static function getConditionOptions(): array
+    {
+        return [
+            'excellent' => 'Excellent',
+            'good' => 'Good',
+            'fair' => 'Fair',
+            'poor' => 'Poor',
+        ];
     }
 }

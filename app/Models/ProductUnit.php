@@ -35,7 +35,7 @@ class ProductUnit extends Model
 
     public function kits(): HasMany
     {
-        return $this->hasMany(UnitKit::class);
+        return $this->hasMany(UnitKit::class, 'unit_id');
     }
 
     public function rentalItems(): HasMany
