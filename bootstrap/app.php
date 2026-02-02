@@ -10,8 +10,11 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->alias([
+            'customer.auth' => \App\Http\Middleware\CustomerAuth::class,
+            'customer.guest' => \App\Http\Middleware\CustomerGuest::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -13,9 +13,9 @@ class ProductUnit extends Model
         'serial_number',
         'condition',
         'status',
-        'notes',
         'purchase_date',
         'purchase_price',
+        'notes',
     ];
 
     protected $casts = [
@@ -23,21 +23,59 @@ class ProductUnit extends Model
         'purchase_price' => 'decimal:2',
     ];
 
-    // Relasi ke Product
+    public const STATUS_AVAILABLE = 'available';
+    public const STATUS_RENTED = 'rented';
+    public const STATUS_MAINTENANCE = 'maintenance';
+    public const STATUS_RETIRED = 'retired';
+
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
-    // Relasi ke UnitKit - tambahkan foreign key 'unit_id'
     public function kits(): HasMany
     {
-        return $this->hasMany(UnitKit::class, 'unit_id');
+        return $this->hasMany(UnitKit::class);
     }
 
-    // Helper: Cek apakah unit available
-    public function isAvailable(): bool
+    public function rentalItems(): HasMany
     {
-        return $this->status === 'available';
+        return $this->hasMany(RentalItem::class);
+    }
+
+    public function carts(): HasMany
+    {
+        return $this->hasMany(Cart::class);
+    }
+
+    public static function getStatusOptions(): array
+    {
+        return [
+            self::STATUS_AVAILABLE => 'Available',
+            self::STATUS_RENTED => 'Rented',
+            self::STATUS_MAINTENANCE => 'Maintenance',
+            self::STATUS_RETIRED => 'Retired',
+        ];
+    }
+
+    public static function getStatusColor(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_AVAILABLE => 'success',
+            self::STATUS_RENTED => 'warning',
+            self::STATUS_MAINTENANCE => 'info',
+            self::STATUS_RETIRED => 'danger',
+            default => 'gray',
+        };
+    }
+
+    public static function getConditionOptions(): array
+    {
+        return [
+            'excellent' => 'Excellent',
+            'good' => 'Good',
+            'fair' => 'Fair',
+            'poor' => 'Poor',
+        ];
     }
 }
