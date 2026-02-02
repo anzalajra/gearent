@@ -25,7 +25,7 @@ class PickupOperation extends Page implements HasTable
 
     protected static string $resource = RentalResource::class;
 
-    public Rental $record;
+    public ?Rental $rental = null;
 
     public function getView(): string
     {
@@ -34,10 +34,9 @@ class PickupOperation extends Page implements HasTable
 
     public function mount(int|string $record): void
     {
-        $this->record = Rental::with(['customer', 'items.productUnit.product', 'items.productUnit.kits'])->findOrFail($record);
-        
-        // Check if rental can be picked up
-        if (!in_array($this->record->getRealTimeStatus(), [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
+        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.productUnit.kits'])->findOrFail($record);
+
+        if (!in_array($this->rental->getRealTimeStatus(), [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
             Notification::make()
                 ->title('Cannot pickup this rental')
                 ->body('This rental is not in pending or late pickup status.')
@@ -50,13 +49,13 @@ class PickupOperation extends Page implements HasTable
 
     public function getTitle(): string|Htmlable
     {
-        return 'Pickup Operation - ' . $this->record->rental_code;
+        return 'Pickup Operation - ' . $this->rental->rental_code;
     }
 
     public function getAvailabilityStatus(): array
     {
-        $conflicts = $this->record->checkAvailability();
-        
+        $conflicts = $this->rental->checkAvailability();
+
         return [
             'available' => empty($conflicts),
             'conflicts' => $conflicts,
@@ -66,7 +65,7 @@ class PickupOperation extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->record->items()->getQuery())
+            ->query($this->rental->items()->getQuery())
             ->columns([
                 TextColumn::make('productUnit.product.name')
                     ->label('Product')
@@ -94,7 +93,7 @@ class PickupOperation extends Page implements HasTable
                     ->modalWidth('2xl')
                     ->form(function ($record) {
                         $kits = $record->productUnit->kits;
-                        
+
                         if ($kits->isEmpty()) {
                             return [
                                 Placeholder::make('no_kits')
@@ -149,7 +148,6 @@ class PickupOperation extends Page implements HasTable
                         ];
                     })
                     ->action(function ($record, array $data) {
-                        // Save kit conditions for pickup
                         foreach ($data['kits'] ?? [] as $index => $kitData) {
                             $kit = $record->productUnit->kits[$index] ?? null;
                             if ($kit) {
@@ -181,7 +179,7 @@ class PickupOperation extends Page implements HasTable
                 ->label('Edit Rental')
                 ->icon('heroicon-o-pencil-square')
                 ->color('gray')
-                ->url(fn () => RentalResource::getUrl('edit', ['record' => $this->record])),
+                ->url(fn () => RentalResource::getUrl('edit', ['record' => $this->rental])),
 
             Action::make('validate_pickup')
                 ->label('Validate Pickup')
@@ -193,7 +191,7 @@ class PickupOperation extends Page implements HasTable
                 ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
                 ->modalSubmitActionLabel('Yes, Confirm Pickup')
                 ->action(function () {
-                    $this->record->validatePickup();
+                    $this->rental->validatePickup();
 
                     Notification::make()
                         ->title('Pickup validated successfully')
@@ -219,7 +217,7 @@ class PickupOperation extends Page implements HasTable
                 ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
                 ->modalSubmitActionLabel('Yes, Confirm Pickup')
                 ->action(function () {
-                    $this->record->validatePickup();
+                    $this->rental->validatePickup();
 
                     Notification::make()
                         ->title('Pickup validated successfully')

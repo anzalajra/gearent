@@ -8,12 +8,15 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
 
 class ViewRental extends Page
 {
     protected static string $resource = RentalResource::class;
 
-    public Rental $record;
+    protected static ?string $slug = '{record}/view';
+
+    public Rental|Model|null $record = null;
 
     public function getView(): string
     {

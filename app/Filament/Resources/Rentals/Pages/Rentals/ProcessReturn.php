@@ -21,13 +21,13 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 
-class ReturnOperation extends Page implements HasTable
+class ProcessReturn extends Page implements HasTable
 {
     use InteractsWithTable;
 
     protected static string $resource = RentalResource::class;
 
-    public Rental $record;
+    public ?Rental $rental = null;
 
     public function getView(): string
     {
@@ -36,10 +36,9 @@ class ReturnOperation extends Page implements HasTable
 
     public function mount(int|string $record): void
     {
-        $this->record = Rental::with(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit'])->findOrFail($record);
-        
-        // Check if rental can be returned
-        if (!in_array($this->record->getRealTimeStatus(), [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
+        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit'])->findOrFail($record);
+
+        if (!in_array($this->rental->getRealTimeStatus(), [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
             Notification::make()
                 ->title('Cannot return this rental')
                 ->body('This rental is not in active or late return status.')
@@ -52,13 +51,13 @@ class ReturnOperation extends Page implements HasTable
 
     public function getTitle(): string|Htmlable
     {
-        return 'Return Operation - ' . $this->record->rental_code;
+        return 'Return Operation - ' . $this->rental->rental_code;
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->record->items()->getQuery())
+            ->query($this->rental->items()->getQuery())
             ->columns([
                 TextColumn::make('productUnit.product.name')
                     ->label('Product')
@@ -95,7 +94,7 @@ class ReturnOperation extends Page implements HasTable
                     ->modalWidth('2xl')
                     ->form(function ($record) {
                         $rentalItemKits = $record->rentalItemKits;
-                        
+
                         if ($rentalItemKits->isEmpty()) {
                             return [
                                 Placeholder::make('no_kits')
@@ -177,8 +176,7 @@ class ReturnOperation extends Page implements HasTable
                             ->success()
                             ->send();
 
-                        // Refresh the record
-                        $this->record->refresh();
+                        $this->rental->refresh();
                     })
                     ->visible(fn ($record) => $record->rentalItemKits->count() > 0),
             ])
@@ -188,8 +186,8 @@ class ReturnOperation extends Page implements HasTable
 
     public function canValidateReturn(): bool
     {
-        $this->record->load('items.rentalItemKits');
-        return $this->record->allKitsReturned();
+        $this->rental->load('items.rentalItemKits');
+        return $this->rental->allKitsReturned();
     }
 
     protected function getHeaderActions(): array
@@ -206,7 +204,7 @@ class ReturnOperation extends Page implements HasTable
                 ->modalSubmitActionLabel('Yes, Confirm Return')
                 ->disabled(fn () => !$this->canValidateReturn())
                 ->action(function () {
-                    $this->record->validateReturn();
+                    $this->rental->validateReturn();
 
                     Notification::make()
                         ->title('Return validated successfully')
@@ -233,7 +231,7 @@ class ReturnOperation extends Page implements HasTable
                 ->modalSubmitActionLabel('Yes, Confirm Return')
                 ->disabled(fn () => !$this->canValidateReturn())
                 ->action(function () {
-                    $this->record->validateReturn();
+                    $this->rental->validateReturn();
 
                     Notification::make()
                         ->title('Return validated successfully')

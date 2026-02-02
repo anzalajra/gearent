@@ -7,48 +7,48 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Rental Code</p>
-                <p class="font-semibold">{{ $record->rental_code }}</p>
+                <p class="font-semibold">{{ $rental->rental_code }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                <x-filament::badge :color="\App\Models\Rental::getStatusColor($record->status)">
-                    {{ ucfirst(str_replace('_', ' ', $record->status)) }}
+                <x-filament::badge :color="\App\Models\Rental::getStatusColor($rental->status)">
+                    {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
                 </x-filament::badge>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Customer</p>
-                <p class="font-semibold">{{ $record->customer->name }}</p>
+                <p class="font-semibold">{{ $rental->customer->name }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Phone</p>
-                <p class="font-semibold">{{ $record->customer->phone ?? '-' }}</p>
+                <p class="font-semibold">{{ $rental->customer->phone ?? '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Start Date</p>
-                <p class="font-semibold">{{ $record->start_date->format('d M Y H:i') }}</p>
+                <p class="font-semibold">{{ $rental->start_date->format('d M Y H:i') }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">End Date</p>
-                <p class="font-semibold">{{ $record->end_date->format('d M Y H:i') }}</p>
+                <p class="font-semibold">{{ $rental->end_date->format('d M Y H:i') }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Returned Date</p>
-                <p class="font-semibold">{{ $record->returned_date ? $record->returned_date->format('d M Y H:i') : '-' }}</p>
+                <p class="font-semibold">{{ $rental->returned_date ? $rental->returned_date->format('d M Y H:i') : '-' }}</p>
             </div>
             <div>
                 <p class="text-sm text-gray-500 dark:text-gray-400">Total</p>
-                <p class="font-semibold">Rp {{ number_format($record->total, 0, ',', '.') }}</p>
+                <p class="font-semibold">Rp {{ number_format($rental->total, 0, ',', '.') }}</p>
             </div>
-            @if($record->notes)
+            @if($rental->notes)
             <div class="col-span-full">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Notes</p>
-                <p>{{ $record->notes }}</p>
+                <p>{{ $rental->notes }}</p>
             </div>
             @endif
-            @if($record->status === 'cancelled' && $record->cancel_reason)
+            @if($rental->status === 'cancelled' && $rental->cancel_reason)
             <div class="col-span-full">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Cancel Reason</p>
-                <p class="text-danger-600">{{ $record->cancel_reason }}</p>
+                <p class="text-danger-600">{{ $rental->cancel_reason }}</p>
             </div>
             @endif
         </div>
@@ -70,7 +70,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($record->items as $item)
+                @foreach($rental->items as $item)
                 <tr class="border-b border-gray-100 dark:border-gray-800">
                     <td class="p-3">{{ $item->productUnit->product->name }}</td>
                     <td class="p-3">{{ $item->productUnit->serial_number }}</td>

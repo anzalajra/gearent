@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Rentals\Tables;
 use App\Filament\Resources\Rentals\RentalResource;
 use App\Models\Rental;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
