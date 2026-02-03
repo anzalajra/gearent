@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Models\Delivery;
+use App\Models\DeliveryItem;
 use App\Models\Rental;
 use App\Models\RentalItemKit;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Hidden;
@@ -29,6 +32,7 @@ class ProcessReturn extends Page implements HasTable
     protected static string $resource = RentalResource::class;
 
     public ?Rental $rental = null;
+    public ?Delivery $delivery = null;
 
     public function getView(): string
     {
@@ -37,11 +41,23 @@ class ProcessReturn extends Page implements HasTable
 
     public function mount(int|string $record): void
     {
-        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit'])->findOrFail($record);
+        $this->rental = Rental::with([
+            'customer', 
+            'items.productUnit.product', 
+            'items.rentalItemKits.unitKit'
+        ])->findOrFail($record);
 
         // Update late status on mount
         $this->rental->checkAndUpdateLateStatus();
         $this->rental->refresh();
+
+        // Always sync deliveries to ensure all kits are present
+        $this->rental->createDeliveries();
+
+        // Get delivery in
+        $this->delivery = $this->rental->deliveries()
+            ->where('type', Delivery::TYPE_IN)
+            ->first();
 
         if (!in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
             Notification::make()
@@ -59,165 +75,120 @@ class ProcessReturn extends Page implements HasTable
         return 'Return Operation - ' . $this->rental->rental_code;
     }
 
-    public function isItemReturnChecked($item): bool
+    public function allItemsChecked(): bool
     {
-        if ($item->rentalItemKits->isEmpty()) {
-            return true;
-        }
-
-        foreach ($item->rentalItemKits as $kit) {
-            if (!$kit->is_returned || !$kit->condition_in) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public function allItemsReturnChecked(): bool
-    {
-        foreach ($this->rental->items as $item) {
-            if (!$this->isItemReturnChecked($item)) {
-                return false;
-            }
-        }
-        return true;
+        return $this->delivery->items()->where('is_checked', false)->count() === 0;
     }
 
     public function canValidateReturn(): bool
     {
-        return $this->allItemsReturnChecked();
+        return $this->allItemsChecked();
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->rental->items()->getQuery())
+            ->query($this->delivery->items()->getQuery())
             ->columns([
-                TextColumn::make('productUnit.product.name')
-                    ->label('Product')
-                    ->searchable(),
+                TextColumn::make('item_name')
+                    ->label('Item')
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return '↳ ' . $record->rentalItemKit->unitKit->name;
+                        }
+                        return $record->rentalItem->productUnit->product->name;
+                    }),
 
-                TextColumn::make('productUnit.serial_number')
+                TextColumn::make('serial_number')
                     ->label('Serial Number')
-                    ->searchable(),
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return $record->rentalItemKit->unitKit->serial_number ?? '-';
+                        }
+                        return $record->rentalItem->productUnit->serial_number;
+                    }),
 
-                TextColumn::make('kits_status')
-                    ->label('Kits')
-                    ->getStateUsing(fn ($record) => $record->getKitsStatusText())
+                TextColumn::make('type')
+                    ->label('Type')
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        return $record->rentalItemKit ? 'Kit' : 'Unit';
+                    })
                     ->badge()
-                    ->color(fn ($record) => $record->allKitsReturned() ? 'success' : 'warning'),
+                    ->color(fn (string $state) => $state === 'Unit' ? 'primary' : 'gray'),
 
-                TextColumn::make('days')
-                    ->label('Days'),
+                TextColumn::make('condition')
+                    ->label('Condition')
+                    ->badge()
+                    ->color(fn (?string $state) => $state ? DeliveryItem::getConditionColor($state) : 'gray')
+                    ->formatStateUsing(fn (?string $state) => $state ? ucfirst($state) : '-'),
 
-                IconColumn::make('all_returned')
-                    ->label('Returned')
+                IconColumn::make('is_checked')
+                    ->label('Checked')
                     ->boolean()
-                    ->getStateUsing(fn ($record) => $record->allKitsReturned())
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('success')
                     ->falseColor('danger'),
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('kit_check')
-                    ->label(fn ($record) => $this->isItemReturnChecked($record) ? 'Kit Checked' : 'Kit Check')
-                    ->icon(fn ($record) => $this->isItemReturnChecked($record) ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-circle')
-                    ->color(fn ($record) => $this->isItemReturnChecked($record) ? 'success' : 'warning')
-                    ->modalHeading(fn ($record) => 'Kit Check - ' . $record->productUnit->serial_number)
-                    ->modalWidth('2xl')
-                    ->form(function ($record) {
-                        $rentalItemKits = $record->rentalItemKits;
-
-                        if ($rentalItemKits->isEmpty()) {
-                            return [
-                                Placeholder::make('no_kits')
-                                    ->label('')
-                                    ->content('No kits tracked for this rental item.'),
-                            ];
-                        }
-
+                \Filament\Actions\Action::make('check_item')
+                    ->label(fn (DeliveryItem $record) => $record->is_checked ? 'Edit' : 'Check')
+                    ->icon(fn (DeliveryItem $record) => $record->is_checked ? 'heroicon-o-pencil' : 'heroicon-o-check')
+                    ->color(fn (DeliveryItem $record) => $record->is_checked ? 'gray' : 'warning')
+                    ->modalHeading('Check Item')
+                    ->modalWidth('md')
+                    ->fillForm(function (DeliveryItem $record): array {
                         return [
-                            Repeater::make('kits')
-                                ->label('Kit Items')
-                                ->schema([
-                                    Hidden::make('id'),
-
-                                    TextInput::make('kit_name')
-                                        ->label('Kit Name')
-                                        ->disabled()
-                                        ->dehydrated(false)
-                                        ->columnSpan(1),
-
-                                    TextInput::make('serial_number')
-                                        ->label('Serial Number')
-                                        ->disabled()
-                                        ->dehydrated(false)
-                                        ->columnSpan(1),
-
-                                    TextInput::make('condition_out')
-                                        ->label('Condition Out')
-                                        ->disabled()
-                                        ->dehydrated(false)
-                                        ->columnSpan(1),
-
-                                    Select::make('condition_in')
-                                        ->label('Condition In')
-                                        ->options(RentalItemKit::getConditionInOptions())
-                                        ->required()
-                                        ->columnSpan(1),
-
-                                    Checkbox::make('is_returned')
-                                        ->label('Returned')
-                                        ->default(true)
-                                        ->columnSpan(1),
-
-                                    Textarea::make('notes')
-                                        ->label('Notes')
-                                        ->rows(1)
-                                        ->placeholder('Notes if damaged/lost')
-                                        ->columnSpan(1),
-                                ])
-                                ->columns(6)
-                                ->itemLabel(fn (array $state): ?string => $state['kit_name'] ?? null)
-                                ->default(function () use ($rentalItemKits) {
-                                    return $rentalItemKits->map(function ($rentalItemKit) {
-                                        return [
-                                            'id' => $rentalItemKit->id,
-                                            'kit_name' => $rentalItemKit->unitKit->name,
-                                            'serial_number' => $rentalItemKit->unitKit->serial_number ?? '-',
-                                            'condition_out' => ucfirst($rentalItemKit->condition_out),
-                                            'condition_in' => $rentalItemKit->condition_in ?? $rentalItemKit->condition_out,
-                                            'is_returned' => $rentalItemKit->is_returned ?? true,
-                                            'notes' => $rentalItemKit->notes,
-                                        ];
-                                    })->toArray();
-                                })
-                                ->addable(false)
-                                ->deletable(false)
-                                ->reorderable(false),
+                            'item_name' => $record->rentalItemKit 
+                                ? $record->rentalItemKit->unitKit->name 
+                                : $record->rentalItem->productUnit->product->name,
+                            'condition' => $record->condition,
+                            'is_checked' => $record->is_checked,
+                            'notes' => $record->notes,
                         ];
                     })
-                    ->action(function ($record, array $data) {
-                        foreach ($data['kits'] ?? [] as $kitData) {
-                            if (isset($kitData['id']) && $kitData['id']) {
-                                RentalItemKit::where('id', $kitData['id'])
-                                    ->update([
-                                        'condition_in' => $kitData['condition_in'] ?? null,
-                                        'is_returned' => $kitData['is_returned'] ?? false,
-                                        'notes' => $kitData['notes'] ?? null,
-                                    ]);
-                            }
+                    ->form(function (DeliveryItem $record) {
+                        return [
+                            TextInput::make('item_name')
+                                ->label('Item')
+                                ->disabled()
+                                ->dehydrated(false),
+
+                            Select::make('condition')
+                                ->label('Condition')
+                                ->options(DeliveryItem::getConditionInOptions())
+                                ->required(),
+
+                            Checkbox::make('is_checked')
+                                ->label('Mark as Checked'),
+
+                            Textarea::make('notes')
+                                ->label('Notes')
+                                ->rows(2),
+                        ];
+                    })
+                    ->action(function (DeliveryItem $record, array $data) {
+                        $record->update([
+                            'condition' => $data['condition'],
+                            'is_checked' => $data['is_checked'],
+                            'notes' => $data['notes'],
+                        ]);
+
+                        // Sync back to RentalItemKit if it's a kit
+                        if ($record->rentalItemKit) {
+                            $record->rentalItemKit->update([
+                                'condition_in' => $data['condition'],
+                                'is_returned' => $data['is_checked'],
+                            ]);
                         }
 
-                        $this->rental->load(['items.rentalItemKits.unitKit']);
+                        $this->delivery->refresh();
 
                         Notification::make()
-                            ->title('Kit return status updated')
+                            ->title('Item updated')
                             ->success()
                             ->send();
-                    })
-                    ->visible(fn ($record) => $record->rentalItemKits->count() > 0),
+                    }),
             ])
             ->headerActions([])
             ->paginated(false);
@@ -226,6 +197,21 @@ class ProcessReturn extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('download_pdf')
+                ->label('Download PDF')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('info')
+                ->action(function () {
+                    $this->delivery->load(['rental.customer', 'items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit', 'checkedBy']);
+                    
+                    $pdf = Pdf::loadView('pdf.delivery-note', ['delivery' => $this->delivery]);
+                    
+                    return response()->streamDownload(
+                        fn () => print($pdf->output()),
+                        $this->delivery->delivery_number . '.pdf'
+                    );
+                }),
+
             $this->getValidateReturnAction(),
         ];
     }
@@ -241,9 +227,12 @@ class ProcessReturn extends Page implements HasTable
             ->modalHeading('Confirm Return')
             ->modalDescription('Are you sure all items have been returned? This will change the rental status to Completed.')
             ->modalSubmitActionLabel('Yes, Confirm Return')
-            ->disabled(fn () => !$this->canValidateReturn())
+            ->disabled(fn () => !$this->allItemsChecked())
             ->action(function () {
                 $this->rental->validateReturn();
+
+                // Also complete the delivery
+                $this->delivery->complete();
 
                 Notification::make()
                     ->title('Return validated successfully')

@@ -81,14 +81,21 @@ class CheckoutController extends Controller
                 ]);
 
                 foreach ($items as $cartItem) {
-                    RentalItem::create([
+                    $rentalItem = RentalItem::create([
                         'rental_id' => $rental->id,
                         'product_unit_id' => $cartItem->product_unit_id,
                         'daily_rate' => $cartItem->daily_rate,
                         'days' => $cartItem->days,
                         'subtotal' => $cartItem->subtotal,
                     ]);
+
+                    // Attach kits automatically
+                    $rentalItem->attachKitsFromUnit();
                 }
+
+                // Create initial deliveries (Draft SJK & SJM)
+                $rental->load('items.rentalItemKits');
+                $rental->createDeliveries();
 
                 $rentals[] = $rental;
             }

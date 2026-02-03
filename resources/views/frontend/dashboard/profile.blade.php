@@ -76,81 +76,79 @@
         <h2 class="text-lg font-semibold mb-4">Dokumen Verifikasi</h2>
         <p class="text-sm text-gray-600 mb-6">Upload dokumen yang diperlukan untuk verifikasi akun. Format: JPG, PNG, PDF. Maksimal 500KB.</p>
 
-        <div class="space-y-4">
-            @foreach($documentTypes as $type)
-                @php
-                    $uploadedDoc = $uploadedDocuments->get($type->id);
-                @endphp
-                <div class="border rounded-lg p-4 @if($type->is_required) border-primary-300 bg-primary-50 @endif">
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-medium">{{ $type->name }}</h3>
-                                @if($type->is_required)
-                                    <span class="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded">Wajib</span>
-                                @endif
-                            </div>
-                            @if($type->description)
-                                <p class="text-sm text-gray-500 mt-1">{{ $type->description }}</p>
-                            @endif
-
-                            @if($uploadedDoc)
-                                <div class="mt-3 flex items-center gap-4">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                        </svg>
-                                        <span class="text-sm">{{ $uploadedDoc->file_name }}</span>
-                                        <span class="text-xs text-gray-400">({{ $uploadedDoc->getFileSizeFormatted() }})</span>
-                                    </div>
-                                    <span class="px-2 py-1 rounded text-xs font-medium
-                                        @if($uploadedDoc->status === 'approved') bg-green-100 text-green-700
-                                        @elseif($uploadedDoc->status === 'rejected') bg-red-100 text-red-700
-                                        @else bg-yellow-100 text-yellow-700 @endif">
-                                        @if($uploadedDoc->status === 'approved') ✓ Disetujui
-                                        @elseif($uploadedDoc->status === 'rejected') ✗ Ditolak
-                                        @else ⏳ Menunggu Review @endif
-                                    </span>
-                                </div>
-
-                                @if($uploadedDoc->status === 'rejected' && $uploadedDoc->rejection_reason)
-                                    <p class="mt-2 text-sm text-red-600">Alasan: {{ $uploadedDoc->rejection_reason }}</p>
-                                @endif
-                            @endif
-                        </div>
-
-                        <div class="ml-4">
-                            @if($uploadedDoc)
+        <form action="{{ route('customer.documents.upload') }}" method="POST" enctype="multipart/form-data">
+            @csrf
+            <div class="space-y-4">
+                @foreach($documentTypes as $type)
+                    @php
+                        $uploadedDoc = $uploadedDocuments->get($type->id);
+                    @endphp
+                    <div class="border rounded-lg p-4 @if($type->is_required) border-primary-300 bg-primary-50 @endif">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ Storage::url($uploadedDoc->file_path) }}" target="_blank" class="text-primary-600 hover:underline text-sm">Lihat</a>
-                                    @if($uploadedDoc->status !== 'approved')
-                                        <form action="{{ route('customer.documents.delete', $uploadedDoc) }}" method="POST" class="inline" onsubmit="return confirm('Hapus dokumen ini?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:underline text-sm">Hapus</button>
-                                        </form>
+                                    <h3 class="font-medium">{{ $type->name }}</h3>
+                                    @if($type->is_required)
+                                        <span class="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded">Wajib</span>
                                     @endif
                                 </div>
-                            @endif
-                        </div>
-                    </div>
+                                @if($type->description)
+                                    <p class="text-sm text-gray-500 mt-1">{{ $type->description }}</p>
+                                @endif
 
-                    @if(!$uploadedDoc || $uploadedDoc->status === 'rejected')
-                        <form action="{{ route('customer.documents.upload') }}" method="POST" enctype="multipart/form-data" class="mt-4">
-                            @csrf
-                            <input type="hidden" name="document_type_id" value="{{ $type->id }}">
-                            <div class="flex items-center gap-3">
-                                <input type="file" name="file" accept=".jpg,.jpeg,.png,.pdf" required class="text-sm">
-                                <button type="submit" class="bg-primary-600 text-white px-4 py-1.5 rounded text-sm hover:bg-primary-700">
-                                    Upload
-                                </button>
+                                @if($uploadedDoc)
+                                    <div class="mt-3 flex items-center gap-4">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            <span class="text-sm">{{ $uploadedDoc->file_name }}</span>
+                                            <span class="text-xs text-gray-400">({{ $uploadedDoc->getFileSizeFormatted() }})</span>
+                                        </div>
+                                        <span class="px-2 py-1 rounded text-xs font-medium
+                                            @if($uploadedDoc->status === 'approved') bg-green-100 text-green-700
+                                            @elseif($uploadedDoc->status === 'rejected') bg-red-100 text-red-700
+                                            @else bg-yellow-100 text-yellow-700 @endif">
+                                            @if($uploadedDoc->status === 'approved') ✓ Disetujui
+                                            @elseif($uploadedDoc->status === 'rejected') ✗ Ditolak
+                                            @else ⏳ Menunggu Review @endif
+                                        </span>
+                                    </div>
+
+                                    @if($uploadedDoc->status === 'rejected' && $uploadedDoc->rejection_reason)
+                                        <p class="mt-2 text-sm text-red-600">Alasan: {{ $uploadedDoc->rejection_reason }}</p>
+                                    @endif
+                                @endif
                             </div>
-                            <p class="text-xs text-gray-400 mt-1">JPG, PNG, PDF - Max 500KB</p>
-                        </form>
-                    @endif
-                </div>
-            @endforeach
-        </div>
+
+                            <div class="ml-4">
+                                @if($uploadedDoc)
+                                    <div class="flex items-center gap-2">
+                                        <a href="{{ Storage::url($uploadedDoc->file_path) }}" target="_blank" class="text-primary-600 hover:underline text-sm">Lihat</a>
+                                        @if($uploadedDoc->status !== 'approved')
+                                            <button type="button" onclick="deleteDocument('{{ route('customer.documents.delete', $uploadedDoc) }}')" class="text-red-600 hover:underline text-sm">Hapus</button>
+                                        @endif
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if(!$uploadedDoc || $uploadedDoc->status === 'rejected')
+                            <div class="mt-4">
+                                <input type="file" name="files[{{ $type->id }}]" accept=".jpg,.jpeg,.png,.pdf" class="text-sm">
+                                <p class="text-xs text-gray-400 mt-1">JPG, PNG, PDF - Max 500KB</p>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="mt-6">
+                <button type="submit" class="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700">
+                    Upload Dokumen
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- Password Form -->
@@ -183,4 +181,19 @@
         </form>
     </div>
 </div>
+
+<form id="delete-doc-form" action="" method="POST" style="display: none;">
+    @csrf
+    @method('DELETE')
+</form>
+
+<script>
+    function deleteDocument(url) {
+        if (confirm('Hapus dokumen ini?')) {
+            const form = document.getElementById('delete-doc-form');
+            form.action = url;
+            form.submit();
+        }
+    }
+</script>
 @endsection

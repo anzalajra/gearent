@@ -3,9 +3,13 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Models\Delivery;
+use App\Models\DeliveryItem;
 use App\Models\Rental;
 use App\Models\RentalItemKit;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -14,6 +18,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -27,6 +32,7 @@ class PickupOperation extends Page implements HasTable
     protected static string $resource = RentalResource::class;
 
     public ?Rental $rental = null;
+    public ?Delivery $delivery = null;
 
     public function getView(): string
     {
@@ -35,11 +41,24 @@ class PickupOperation extends Page implements HasTable
 
     public function mount(int|string $record): void
     {
-        $this->rental = Rental::with(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits'])->findOrFail($record);
+        $this->rental = Rental::with([
+            'customer', 
+            'items.productUnit.product', 
+            'items.productUnit.kits', 
+            'items.rentalItemKits'
+        ])->findOrFail($record);
 
         // Update late status on mount
         $this->rental->checkAndUpdateLateStatus();
         $this->rental->refresh();
+
+        // Always sync deliveries to ensure all kits are present
+        $this->rental->createDeliveries();
+
+        // Get delivery out
+        $this->delivery = $this->rental->deliveries()
+            ->where('type', Delivery::TYPE_OUT)
+            ->first();
 
         if (!in_array($this->rental->status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
             Notification::make()
@@ -67,136 +86,114 @@ class PickupOperation extends Page implements HasTable
         ];
     }
 
-    public function isItemKitChecked($item): bool
+    public function allItemsChecked(): bool
     {
-        $unitKitsCount = $item->productUnit->kits->count();
-        $rentalItemKitsCount = $item->rentalItemKits->count();
-
-        return $unitKitsCount > 0 && $rentalItemKitsCount >= $unitKitsCount;
-    }
-
-    public function allItemsKitChecked(): bool
-    {
-        foreach ($this->rental->items as $item) {
-            if ($item->productUnit->kits->count() > 0 && !$this->isItemKitChecked($item)) {
-                return false;
-            }
-        }
-        return true;
+        return $this->delivery->items()->where('is_checked', false)->count() === 0;
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->rental->items()->getQuery())
+            ->query($this->delivery->items()->getQuery())
             ->columns([
-                TextColumn::make('productUnit.product.name')
-                    ->label('Product')
-                    ->searchable(),
+                TextColumn::make('item_name')
+                    ->label('Item')
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return '↳ ' . $record->rentalItemKit->unitKit->name;
+                        }
+                        return $record->rentalItem->productUnit->product->name;
+                    }),
 
-                TextColumn::make('productUnit.serial_number')
+                TextColumn::make('serial_number')
                     ->label('Serial Number')
-                    ->searchable(),
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return $record->rentalItemKit->unitKit->serial_number ?? '-';
+                        }
+                        return $record->rentalItem->productUnit->serial_number;
+                    }),
 
-                TextColumn::make('kits_count')
-                    ->label('Kits')
-                    ->getStateUsing(fn ($record) => $record->productUnit->kits->count() . ' kits')
+                TextColumn::make('type')
+                    ->label('Type')
+                    ->getStateUsing(function (DeliveryItem $record) {
+                        return $record->rentalItemKit ? 'Kit' : 'Unit';
+                    })
                     ->badge()
-                    ->color('info'),
+                    ->color(fn (string $state) => $state === 'Unit' ? 'primary' : 'gray'),
 
-                TextColumn::make('days')
-                    ->label('Days'),
+                TextColumn::make('condition')
+                    ->label('Condition')
+                    ->badge()
+                    ->color(fn (?string $state) => $state ? DeliveryItem::getConditionColor($state) : 'gray')
+                    ->formatStateUsing(fn (?string $state) => $state ? ucfirst($state) : '-'),
+
+                IconColumn::make('is_checked')
+                    ->label('Checked')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('kit_check')
-                    ->label(fn ($record) => $this->isItemKitChecked($record) ? 'Kit Checked' : 'Kit Check')
-                    ->icon(fn ($record) => $this->isItemKitChecked($record) ? 'heroicon-o-check-circle' : 'heroicon-o-exclamation-circle')
-                    ->color(fn ($record) => $this->isItemKitChecked($record) ? 'success' : 'warning')
-                    ->modalHeading(fn ($record) => 'Kit Check - ' . $record->productUnit->serial_number)
-                    ->modalWidth('2xl')
-                    ->form(function ($record) {
-                        $kits = $record->productUnit->kits;
-
-                        if ($kits->isEmpty()) {
-                            return [
-                                Placeholder::make('no_kits')
-                                    ->label('')
-                                    ->content('No kits available for this unit.'),
-                            ];
-                        }
-
-                        $existingKits = $record->rentalItemKits->keyBy('unit_kit_id');
-
+                \Filament\Actions\Action::make('check_item')
+                    ->label(fn (DeliveryItem $record) => $record->is_checked ? 'Edit' : 'Check')
+                    ->icon(fn (DeliveryItem $record) => $record->is_checked ? 'heroicon-o-pencil' : 'heroicon-o-check')
+                    ->color(fn (DeliveryItem $record) => $record->is_checked ? 'gray' : 'warning')
+                    ->modalHeading('Check Item')
+                    ->modalWidth('md')
+                    ->fillForm(function (DeliveryItem $record): array {
                         return [
-                            Repeater::make('kits')
-                                ->label('Kit Items')
-                                ->schema([
-                                    Hidden::make('kit_id'),
-
-                                    TextInput::make('kit_name')
-                                        ->label('Kit Name')
-                                        ->disabled()
-                                        ->dehydrated(false)
-                                        ->columnSpan(1),
-
-                                    TextInput::make('serial_number')
-                                        ->label('Serial Number')
-                                        ->disabled()
-                                        ->dehydrated(false)
-                                        ->columnSpan(1),
-
-                                    Select::make('condition_out')
-                                        ->label('Condition Out')
-                                        ->options(RentalItemKit::getConditionOptions())
-                                        ->required()
-                                        ->columnSpan(1),
-
-                                    Textarea::make('notes')
-                                        ->label('Notes')
-                                        ->rows(1)
-                                        ->placeholder('Optional notes')
-                                        ->columnSpan(1),
-                                ])
-                                ->columns(4)
-                                ->itemLabel(fn (array $state): ?string => $state['kit_name'] ?? null)
-                                ->default(function () use ($kits, $existingKits) {
-                                    return $kits->map(function ($kit) use ($existingKits) {
-                                        $existing = $existingKits->get($kit->id);
-                                        return [
-                                            'kit_id' => $kit->id,
-                                            'kit_name' => $kit->name,
-                                            'serial_number' => $kit->serial_number ?? '-',
-                                            'condition_out' => $existing?->condition_out ?? $kit->condition,
-                                            'notes' => $existing?->notes ?? '',
-                                        ];
-                                    })->toArray();
-                                })
-                                ->addable(false)
-                                ->deletable(false)
-                                ->reorderable(false),
+                            'item_name' => $record->rentalItemKit 
+                                ? $record->rentalItemKit->unitKit->name 
+                                : $record->rentalItem->productUnit->product->name,
+                            'condition' => $record->condition,
+                            'is_checked' => $record->is_checked,
+                            'notes' => $record->notes,
                         ];
                     })
-                    ->action(function ($record, array $data) {
-                        foreach ($data['kits'] ?? [] as $kitData) {
-                            if (isset($kitData['kit_id']) && $kitData['kit_id']) {
-                                $record->rentalItemKits()->updateOrCreate(
-                                    ['unit_kit_id' => $kitData['kit_id']],
-                                    [
-                                        'condition_out' => $kitData['condition_out'] ?? 'good',
-                                        'notes' => $kitData['notes'] ?? null,
-                                    ]
-                                );
-                            }
+                    ->form(function (DeliveryItem $record) {
+                        return [
+                            TextInput::make('item_name')
+                                ->label('Item')
+                                ->disabled()
+                                ->dehydrated(false),
+
+                            Select::make('condition')
+                                ->label('Condition')
+                                ->options(DeliveryItem::getConditionOptions())
+                                ->required(),
+
+                            Checkbox::make('is_checked')
+                                ->label('Mark as Checked'),
+
+                            Textarea::make('notes')
+                                ->label('Notes')
+                                ->rows(2),
+                        ];
+                    })
+                    ->action(function (DeliveryItem $record, array $data) {
+                        $record->update([
+                            'condition' => $data['condition'],
+                            'is_checked' => $data['is_checked'],
+                            'notes' => $data['notes'],
+                        ]);
+
+                        // Sync back to RentalItemKit if it's a kit
+                        if ($record->rentalItemKit) {
+                            $record->rentalItemKit->update([
+                                'condition_out' => $data['condition'],
+                            ]);
                         }
 
-                        $this->rental->load(['items.rentalItemKits', 'items.productUnit.kits']);
+                        $this->delivery->refresh();
 
                         Notification::make()
-                            ->title('Kit conditions saved')
+                            ->title('Item updated')
                             ->success()
                             ->send();
-                    })
-                    ->visible(fn ($record) => $record->productUnit->kits->count() > 0),
+                    }),
             ])
             ->headerActions([])
             ->paginated(false);
@@ -205,6 +202,21 @@ class PickupOperation extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('download_pdf')
+                ->label('Download PDF')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('info')
+                ->action(function () {
+                    $this->delivery->load(['rental.customer', 'items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit', 'checkedBy']);
+                    
+                    $pdf = Pdf::loadView('pdf.delivery-note', ['delivery' => $this->delivery]);
+                    
+                    return response()->streamDownload(
+                        fn () => print($pdf->output()),
+                        $this->delivery->delivery_number . '.pdf'
+                    );
+                }),
+
             Action::make('edit_rental')
                 ->label('Edit Rental')
                 ->icon('heroicon-o-pencil-square')
@@ -226,9 +238,12 @@ class PickupOperation extends Page implements HasTable
             ->modalHeading('Confirm Pickup')
             ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
             ->modalSubmitActionLabel('Yes, Confirm Pickup')
-            ->disabled(fn () => !$this->allItemsKitChecked())
+            ->disabled(fn () => !$this->allItemsChecked())
             ->action(function () {
                 $this->rental->validatePickup();
+
+                // Also complete the delivery
+                $this->delivery->complete();
 
                 Notification::make()
                     ->title('Pickup validated successfully')

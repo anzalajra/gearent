@@ -267,4 +267,127 @@ class Rental extends Model
             $this->update(['status' => self::STATUS_COMPLETED]);
         }
     }
+
+    /**
+     * Create delivery documents (Out and In) for this rental
+     */
+    public function createDeliveries(): void
+    {
+        // Ensure all rental items have their kits attached first
+        foreach ($this->items as $item) {
+            $item->attachKitsFromUnit();
+        }
+        $this->load('items.rentalItemKits');
+
+        // Create or Update Delivery Out (SJK)
+        $deliveryOut = $this->deliveries()->where('type', Delivery::TYPE_OUT)->first();
+        if (!$deliveryOut) {
+            $deliveryOut = Delivery::create([
+                'rental_id' => $this->id,
+                'type' => Delivery::TYPE_OUT,
+                'date' => $this->start_date,
+                'status' => Delivery::STATUS_DRAFT,
+            ]);
+        }
+
+        if ($deliveryOut->status === Delivery::STATUS_DRAFT) {
+            foreach ($this->items as $item) {
+                // Main Unit
+                $deliveryOut->items()->firstOrCreate([
+                    'rental_item_id' => $item->id,
+                    'rental_item_kit_id' => null,
+                ], [
+                    'is_checked' => false,
+                    'condition' => $item->productUnit->condition,
+                ]);
+
+                // Kits
+                foreach ($item->rentalItemKits as $kit) {
+                    $deliveryOut->items()->firstOrCreate([
+                        'rental_item_id' => $item->id,
+                        'rental_item_kit_id' => $kit->id,
+                    ], [
+                        'is_checked' => false,
+                        'condition' => $kit->condition_out,
+                    ]);
+                }
+            }
+        }
+
+        // Create or Update Delivery In (SJM)
+        $deliveryIn = $this->deliveries()->where('type', Delivery::TYPE_IN)->first();
+        if (!$deliveryIn) {
+            $deliveryIn = Delivery::create([
+                'rental_id' => $this->id,
+                'type' => Delivery::TYPE_IN,
+                'date' => $this->end_date,
+                'status' => Delivery::STATUS_DRAFT,
+            ]);
+        }
+
+        if ($deliveryIn->status === Delivery::STATUS_DRAFT) {
+            foreach ($this->items as $item) {
+                // Main Unit
+                $deliveryIn->items()->firstOrCreate([
+                    'rental_item_id' => $item->id,
+                    'rental_item_kit_id' => null,
+                ], [
+                    'is_checked' => false,
+                ]);
+
+                // Kits
+                foreach ($item->rentalItemKits as $kit) {
+                    $deliveryIn->items()->firstOrCreate([
+                        'rental_item_id' => $item->id,
+                        'rental_item_kit_id' => $kit->id,
+                    ], [
+                        'is_checked' => false,
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cancel the rental with a reason
+     * 
+     * @param string $reason The reason for cancellation
+     * @throws \Exception If rental cannot be cancelled
+     */
+    public function cancelRental(string $reason): void
+    {
+        // Validate that rental can be cancelled
+        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
+            throw new \Exception('Cannot cancel this rental. Only pending or late pickup rentals can be cancelled.');
+        }
+
+        // Release all product units back to available
+        foreach ($this->items as $item) {
+            if ($item->productUnit && $item->productUnit->status === ProductUnit::STATUS_RENTED) {
+                $item->productUnit->update(['status' => ProductUnit::STATUS_AVAILABLE]);
+            }
+        }
+
+        // Decrement discount usage if a discount was applied
+        if ($this->discountRelation) {
+            $this->discountRelation->decrement('usage_count');
+        }
+
+        // Update rental status and save cancel reason
+        $this->update([
+            'status' => self::STATUS_CANCELLED,
+            'cancel_reason' => $reason,
+        ]);
+    }
+
+    /**
+     * Check if the rental can be cancelled
+     */
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, [
+            self::STATUS_PENDING,
+            self::STATUS_LATE_PICKUP,
+        ]);
+    }
 }

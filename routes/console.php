@@ -8,4 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('rentals:check-late')->everyMinute();
+Schedule::command('rentals:check-late')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/late-rentals.log'));

@@ -56,7 +56,7 @@
             Items & Kits
         </x-slot>
 
-        @if(!$this->allItemsKitChecked())
+        @if(!$this->allItemsChecked())
             <div class="mb-4 p-3 bg-warning-50 rounded-lg border border-warning-200">
                 <p class="text-sm text-warning-600">
                     ⚠️ Please check all kits before validating pickup.

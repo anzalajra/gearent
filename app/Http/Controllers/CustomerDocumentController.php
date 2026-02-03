@@ -13,37 +13,58 @@ class CustomerDocumentController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'document_type_id' => 'required|exists:document_types,id',
-            'file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:512', // 500KB = 512KB max
+            'files' => 'required|array',
+            'files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:512',
         ]);
 
         $customer = Auth::guard('customer')->user();
-        $file = $request->file('file');
+        $files = array_filter($request->file('files') ?? []);
 
-        // Check if already uploaded
-        $existing = $customer->documents()
-            ->where('document_type_id', $request->document_type_id)
-            ->first();
-
-        // Delete old file if exists
-        if ($existing) {
-            Storage::delete($existing->file_path);
-            $existing->delete();
+        if (empty($files)) {
+            return back()->with('error', 'Silakan pilih setidaknya satu dokumen untuk diunggah.');
         }
 
-        // Store new file
-        $path = $file->store('customer-documents/' . $customer->id, 'public');
+        $uploadedCount = 0;
+        foreach ($files as $typeId => $file) {
+            if (!$file->isValid()) continue;
 
-        CustomerDocument::create([
-            'customer_id' => $customer->id,
-            'document_type_id' => $request->document_type_id,
-            'file_path' => $path,
-            'file_name' => $file->getClientOriginalName(),
-            'file_size' => $file->getSize(),
-            'status' => CustomerDocument::STATUS_PENDING,
-        ]);
+            // Check if document type exists
+            if (!DocumentType::find($typeId)) continue;
 
-        return back()->with('success', 'Document uploaded successfully. Waiting for verification.');
+            // Check if already uploaded
+            $existing = $customer->documents()
+                ->where('document_type_id', $typeId)
+                ->first();
+
+            // Delete old file if exists (only if not approved)
+            if ($existing) {
+                if ($existing->status === CustomerDocument::STATUS_APPROVED) {
+                    continue;
+                }
+                Storage::delete($existing->file_path);
+                $existing->delete();
+            }
+
+            // Store new file
+            $path = $file->store('customer-documents/' . $customer->id, 'public');
+
+            CustomerDocument::create([
+                'customer_id' => $customer->id,
+                'document_type_id' => $typeId,
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'file_size' => $file->getSize(),
+                'status' => CustomerDocument::STATUS_PENDING,
+            ]);
+
+            $uploadedCount++;
+        }
+
+        if ($uploadedCount > 0) {
+            return back()->with('success', "$uploadedCount dokumen berhasil diunggah. Menunggu verifikasi.");
+        }
+
+        return back()->with('info', 'Tidak ada dokumen baru yang diunggah.');
     }
 
     public function delete(CustomerDocument $document)
