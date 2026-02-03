@@ -89,6 +89,22 @@ class RentalsTable
                         ->color('gray')
                         ->url(fn (Rental $record) => RentalResource::getUrl('documents', ['record' => $record])),
 
+                    // Checklist Form PDF
+                    Action::make('download_checklist')
+                        ->label('Download Checklist Form')
+                        ->icon('heroicon-o-clipboard-document-list')
+                        ->color('gray')
+                        ->action(function (Rental $record) {
+                            $record->load(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit']);
+                            
+                            $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $record]);
+                            
+                            return response()->streamDownload(
+                                fn () => print($pdf->output()),
+                                'Checklist-' . $record->rental_code . '.pdf'
+                            );
+                        }),
+
                     // Quotation PDF
                     Action::make('download_quotation')
                         ->label('Download Quotation')

@@ -74,7 +74,8 @@
                                     <td class="p-0 border-r border-b border-gray-200 dark:border-white/10 relative {{ $day->isToday() ? 'bg-primary-50/20' : '' }}">
                                         @if($rental)
                                             <div 
-                                                class="absolute inset-y-1 left-0 right-0 {{ $colors['bg'] }} z-10 flex items-center px-1 shadow-sm"
+                                                wire:click="mountAction('viewRentalDetails', { rentalId: {{ $rental['id'] }} })"
+                                                class="absolute inset-y-1 left-0 right-0 {{ $colors['bg'] }} z-10 flex items-center px-1 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                                                 title="{{ $rental['code'] }} - {{ $rental['customer'] }} ({{ ucfirst($status) }})"
                                             >
                                                 @if($isStart)
@@ -103,5 +104,7 @@
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-600"></div> Late Pickup/Return</div>
         </div>
     </div>
+
+    <x-filament-actions::modals />
 </x-filament-panels::page>
 

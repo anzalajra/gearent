@@ -15,6 +15,7 @@ class Rental extends Model
         'discount_code',
         'start_date',
         'end_date',
+        'returned_date',
         'status',
         'subtotal',
         'discount',
@@ -26,6 +27,7 @@ class Rental extends Model
     protected $casts = [
         'start_date' => 'datetime',
         'end_date' => 'datetime',
+        'returned_date' => 'datetime',
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
@@ -38,6 +40,23 @@ class Rental extends Model
     public const STATUS_CANCELLED = 'cancelled';
     public const STATUS_LATE_PICKUP = 'late_pickup';
     public const STATUS_LATE_RETURN = 'late_return';
+
+    protected static function booted()
+    {
+        static::saved(function ($rental) {
+            $rental->refreshUnitStatuses();
+        });
+
+        static::deleting(function ($rental) {
+            $units = $rental->items->map(fn($item) => $item->productUnit)->filter();
+            
+            static::deleted(function () use ($units) {
+                foreach ($units as $unit) {
+                    $unit->refreshStatus();
+                }
+            });
+        });
+    }
 
     protected static function boot()
     {

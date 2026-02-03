@@ -15,77 +15,60 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn($query) => $query->withCount([
+                'units',
+                'units as available_units_count' => fn($query) => $query->where('status', 'available'),
+            ]))
+            ->recordClasses('!p-0 !border-none !shadow-none [&_.fi-ta-record-content]:!p-0 [&_.fi-ta-record-content-ctn]:!p-0')
             ->contentGrid([
-                'md' => 1,
-                'xl' => 2,
+                'sm' => 2,
+                'md' => 3,
+                'lg' => 4,
+                'xl' => 4,
             ])
             ->columns([
-                \Filament\Tables\Columns\Layout\Grid::make(1)
-                    ->schema([
-                        \Filament\Tables\Columns\Layout\Split::make([
-                            \Filament\Tables\Columns\Layout\Grid::make(1)
-                                ->schema([
-                                    ImageColumn::make('image')
-                                        ->square()
-                                        ->size(180)
-                                        ->extraImgAttributes([
-                                            'class' => 'object-cover w-full h-full rounded-l-xl',
-                                        ]),
-                                ])
-                                ->grow(false),
-
-                            \Filament\Tables\Columns\Layout\Stack::make([
-                                TextColumn::make('name')
-                                    ->weight('bold')
-                                    ->size('lg')
-                                    ->icon('heroicon-m-cube')
-                                    ->searchable(),
-
-                                TextColumn::make('daily_rate')
-                                    ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.') . ' / 1 Day')
-                                    ->color('gray')
-                                    ->size('sm'),
-
-                                \Filament\Tables\Columns\Layout\Split::make([
-                                    TextColumn::make('units_count')
-                                        ->counts('units')
-                                        ->icon('heroicon-m-rectangle-stack')
-                                        ->formatStateUsing(fn($state) => "Unit: {$state}")
-                                        ->color('primary')
-                                        ->size('xs'),
-
-                                    TextColumn::make('available_units_count')
-                                        ->getStateUsing(fn($record) => $record->units()->where('status', 'available')->count())
-                                        ->icon('heroicon-m-check-circle')
-                                        ->formatStateUsing(fn($state) => "Stock: {$state}")
-                                        ->color('success')
-                                        ->size('xs'),
-                                ])->extraAttributes(['class' => 'max-w-max gap-4']),
-
-                                TextColumn::make('edit_button')
-                                    ->label('')
-                                    ->default('Edit Product')
-                                    ->formatStateUsing(fn() => view('filament.components.edit-button-link'))
-                                    ->extraAttributes(['class' => 'mt-auto pt-4']),
-                            ])
-                            ->grow()
-                            ->space(2)
-                            ->extraAttributes(['class' => 'p-6']),
+                \Filament\Tables\Columns\Layout\Split::make([
+                    ImageColumn::make('image')
+                        ->square()
+                        ->size(100)
+                        ->extraImgAttributes([
+                            'class' => 'object-cover w-full h-full rounded-l-xl',
                         ])
-                        ->extraAttributes([
-                            'class' => 'bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden flex items-stretch',
-                        ]),
-                    ]),
+                        ->grow(false),
+
+                    \Filament\Tables\Columns\Layout\Stack::make([
+                        TextColumn::make('name')
+                            ->weight('bold')
+                            ->size('md')
+                            ->icon('heroicon-m-cube')
+                            ->searchable(),
+
+                        TextColumn::make('daily_rate')
+                            ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.') . ' / 1 Day')
+                            ->color('gray')
+                            ->size('xs'),
+
+                        TextColumn::make('stock_info')
+                            ->getStateUsing(function ($record) {
+                                return "unit: {$record->units_count} | stock: {$record->available_units_count}";
+                            })
+                            ->icon('heroicon-m-rectangle-stack')
+                            ->color('primary')
+                            ->size('xs'),
+                    ])
+                    ->grow()
+                    ->space(1)
+                    ->extraAttributes(['class' => 'p-2']),
+                ])
+                ->extraAttributes([
+                    'class' => 'bg-white dark:bg-gray-900 rounded-xl overflow-hidden flex items-stretch h-full !p-0 !border-none !shadow-none',
+                ]),
             ])
             ->filters([
                 //
             ])
             ->recordActions([])
             ->recordUrl(fn($record) => \App\Filament\Resources\Products\ProductResource::getUrl('edit', ['record' => $record]))
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([]);
     }
 }

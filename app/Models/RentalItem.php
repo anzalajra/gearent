@@ -21,6 +21,17 @@ class RentalItem extends Model
         'subtotal' => 'decimal:2',
     ];
 
+    protected static function booted()
+    {
+        static::saved(function ($item) {
+            $item->productUnit?->refreshStatus();
+        });
+
+        static::deleted(function ($item) {
+            $item->productUnit?->refreshStatus();
+        });
+    }
+
     public function rental(): BelongsTo
     {
         return $this->belongsTo(Rental::class);

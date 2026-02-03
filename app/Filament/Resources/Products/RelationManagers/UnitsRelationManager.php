@@ -9,6 +9,8 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -29,38 +31,70 @@ class UnitsRelationManager extends RelationManager
     {
         return $schema
             ->components([
-                TextInput::make('serial_number')
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true)
-                    ->placeholder('SN-A7IV-001'),
+                Section::make('Unit Information')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('serial_number')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true)
+                            ->placeholder('SN-A7IV-001'),
 
-                Select::make('condition')
-                    ->options([
-                        'excellent' => 'Excellent',
-                        'good' => 'Good',
-                        'fair' => 'Fair',
-                        'poor' => 'Poor',
-                    ])
-                    ->required()
-                    ->default('excellent'),
+                        Select::make('condition')
+                            ->options([
+                                'excellent' => 'Excellent',
+                                'good' => 'Good',
+                                'fair' => 'Fair',
+                                'poor' => 'Poor',
+                            ])
+                            ->required()
+                            ->default('excellent'),
 
-                Select::make('status')
-                    ->options(ProductUnit::getStatusOptions())
-                    ->required()
-                    ->default('available'),
+                        Select::make('status')
+                            ->options(ProductUnit::getStatusOptions())
+                            ->required()
+                            ->default('available'),
 
-                DatePicker::make('purchase_date')
-                    ->label('Purchase Date'),
+                        DatePicker::make('purchase_date')
+                            ->label('Purchase Date'),
 
-                TextInput::make('purchase_price')
-                    ->label('Purchase Price')
-                    ->numeric()
-                    ->prefix('Rp'),
+                        TextInput::make('purchase_price')
+                            ->label('Purchase Price')
+                            ->numeric()
+                            ->prefix('Rp'),
 
-                Textarea::make('notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
+                        Textarea::make('notes')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ]),
+
+                Section::make('Kits / Accessories')
+                    ->description('List of accessories or extra gear included with this unit')
+                    ->schema([
+                        Repeater::make('kits')
+                            ->relationship('kits')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->required()
+                                    ->maxLength(255),
+                                TextInput::make('serial_number')
+                                    ->maxLength(255),
+                                Select::make('condition')
+                                    ->options([
+                                        'excellent' => 'Excellent',
+                                        'good' => 'Good',
+                                        'fair' => 'Fair',
+                                        'poor' => 'Poor',
+                                    ])
+                                    ->required()
+                                    ->default('excellent'),
+                                Textarea::make('notes')
+                                    ->rows(1),
+                            ])
+                            ->columns(2)
+                            ->defaultItems(0)
+                            ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
+                    ]),
             ]);
     }
 
@@ -71,6 +105,19 @@ class UnitsRelationManager extends RelationManager
                 TextColumn::make('serial_number')
                     ->searchable()
                     ->sortable(),
+
+                TextColumn::make('kits_count')
+                    ->counts('kits')
+                    ->label('Kits')
+                    ->badge()
+                    ->color('info'),
+
+                TextColumn::make('kits.name')
+                    ->label('Kit List')
+                    ->listWithLineBreaks()
+                    ->bulleted()
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('condition')
                     ->badge()
