@@ -14,7 +14,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -25,11 +24,14 @@ class DiscountResource extends Resource
 {
     protected static ?string $model = Discount::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedReceiptPercent;
-
+    // Navigation Configuration
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';
+    
     protected static string|UnitEnum|null $navigationGroup = 'Sales';
-
-    protected static ?int $navigationSort = 5;
+    
+    protected static ?int $navigationSort = 1;
+    
+    protected static ?string $navigationLabel = 'Discounts';
 
     public static function form(Schema $schema): Schema
     {

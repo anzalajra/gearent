@@ -5,23 +5,30 @@ namespace App\Filament\Resources\ProductUnits;
 use App\Filament\Resources\ProductUnits\Pages\CreateProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\EditProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\ListProductUnits;
-use App\Filament\Resources\ProductUnits\RelationManagers\KitsRelationManager; // Tambahkan ini
+use App\Filament\Resources\ProductUnits\RelationManagers\KitsRelationManager;
 use App\Filament\Resources\ProductUnits\Schemas\ProductUnitForm;
 use App\Filament\Resources\ProductUnits\Tables\ProductUnitsTable;
 use App\Models\ProductUnit;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class ProductUnitResource extends Resource
 {
     protected static ?string $model = ProductUnit::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
     protected static ?string $recordTitleAttribute = 'serial_number';
+
+    // Navigation Configuration
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
+    
+    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    
+    protected static ?int $navigationSort = 3;
+    
+    protected static ?string $navigationLabel = 'Product Units';
 
     public static function form(Schema $schema): Schema
     {
@@ -36,7 +43,7 @@ class ProductUnitResource extends Resource
     public static function getRelations(): array
     {
         return [
-            KitsRelationManager::class, // Tambahkan ini
+            KitsRelationManager::class,
         ];
     }
 

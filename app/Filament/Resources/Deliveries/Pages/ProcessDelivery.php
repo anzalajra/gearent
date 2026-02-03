@@ -8,8 +8,6 @@ use App\Models\DeliveryItem;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -103,8 +101,18 @@ class ProcessDelivery extends Page implements HasTable
                     ->label(fn (DeliveryItem $record) => $record->is_checked ? 'Edit' : 'Check')
                     ->icon(fn (DeliveryItem $record) => $record->is_checked ? 'heroicon-o-pencil' : 'heroicon-o-check')
                     ->color(fn (DeliveryItem $record) => $record->is_checked ? 'gray' : 'warning')
-                    ->modalHeading(fn (DeliveryItem $record) => 'Check Item')
+                    ->modalHeading('Check Item')
                     ->modalWidth('md')
+                    ->fillForm(function (DeliveryItem $record): array {
+                        return [
+                            'item_name' => $record->rentalItemKit 
+                                ? $record->rentalItemKit->unitKit->name 
+                                : $record->rentalItem->productUnit->product->name,
+                            'condition' => $record->condition,
+                            'is_checked' => $record->is_checked,
+                            'notes' => $record->notes,
+                        ];
+                    })
                     ->form(function (DeliveryItem $record) {
                         $conditionOptions = $this->delivery->type === 'out' 
                             ? DeliveryItem::getConditionOptions() 
@@ -113,29 +121,20 @@ class ProcessDelivery extends Page implements HasTable
                         return [
                             TextInput::make('item_name')
                                 ->label('Item')
-                                ->default(function () use ($record) {
-                                    if ($record->rentalItemKit) {
-                                        return $record->rentalItemKit->unitKit->name;
-                                    }
-                                    return $record->rentalItem->productUnit->product->name;
-                                })
                                 ->disabled()
                                 ->dehydrated(false),
 
                             Select::make('condition')
                                 ->label('Condition')
                                 ->options($conditionOptions)
-                                ->required()
-                                ->default($record->condition),
+                                ->required(),
 
                             Checkbox::make('is_checked')
-                                ->label('Mark as Checked')
-                                ->default($record->is_checked),
+                                ->label('Mark as Checked'),
 
                             Textarea::make('notes')
                                 ->label('Notes')
-                                ->rows(2)
-                                ->default($record->notes),
+                                ->rows(2),
                         ];
                     })
                     ->action(function (DeliveryItem $record, array $data) {
@@ -145,12 +144,10 @@ class ProcessDelivery extends Page implements HasTable
                             'notes' => $data['notes'],
                         ]);
 
-                        // Jika check-out, update condition_out di rental_item_kits
                         if ($this->delivery->type === 'out' && $record->rentalItemKit) {
                             $record->rentalItemKit->update(['condition_out' => $data['condition']]);
                         }
 
-                        // Jika check-in, update condition_in dan is_returned di rental_item_kits
                         if ($this->delivery->type === 'in' && $record->rentalItemKit) {
                             $record->rentalItemKit->update([
                                 'condition_in' => $data['condition'],
@@ -213,7 +210,6 @@ class ProcessDelivery extends Page implements HasTable
             ->action(function () {
                 $this->delivery->complete();
 
-                // Update rental status based on delivery type
                 if ($this->delivery->type === 'out') {
                     $this->delivery->rental->update(['status' => 'active']);
                 } elseif ($this->delivery->type === 'in') {

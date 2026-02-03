@@ -12,7 +12,6 @@ use App\Models\Delivery;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use UnitEnum;
 
@@ -20,13 +19,16 @@ class DeliveryResource extends Resource
 {
     protected static ?string $model = Delivery::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
-
-    protected static string|UnitEnum|null $navigationGroup = 'Operations';
-
     protected static ?string $recordTitleAttribute = 'delivery_number';
 
-    protected static ?int $navigationSort = 2;
+    // Navigation Configuration
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-truck';
+    
+    protected static string|UnitEnum|null $navigationGroup = 'Operations';
+    
+    protected static ?int $navigationSort = 1;
+    
+    protected static ?string $navigationLabel = 'Deliveries';
 
     public static function form(Schema $schema): Schema
     {

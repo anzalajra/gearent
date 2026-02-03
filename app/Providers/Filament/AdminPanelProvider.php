@@ -36,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
-                \App\Filament\Pages\Settings::class, // Tambahkan ini
+                \App\Filament\Pages\Settings::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
@@ -62,6 +62,18 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentFullCalendarPlugin::make(),
-            ]);
+            ])
+            // Navigation Groups Order - mengatur urutan group di sidebar
+            ->navigationGroups([
+                'Inventory',
+                'Rentals',
+                'Customers',
+                'Operations',
+                'Sales',
+                'Settings',
+                'System',
+            ])
+            // Sidebar collapsible (opsional - bisa dihapus jika tidak perlu)
+            ->sidebarCollapsibleOnDesktop();
     }
 }
