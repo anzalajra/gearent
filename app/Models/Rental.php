@@ -145,13 +145,31 @@ class Rental extends Model
         }
 
         $now = now();
+        $newStatus = $this->status;
 
         if ($this->status === self::STATUS_PENDING && $this->start_date < $now) {
-            $this->update(['status' => self::STATUS_LATE_PICKUP]);
+            $newStatus = self::STATUS_LATE_PICKUP;
         }
 
         if ($this->status === self::STATUS_ACTIVE && $this->end_date < $now) {
-            $this->update(['status' => self::STATUS_LATE_RETURN]);
+            $newStatus = self::STATUS_LATE_RETURN;
+        }
+
+        if ($this->status !== $newStatus) {
+            $this->update(['status' => $newStatus]);
+            $this->refreshUnitStatuses();
+        }
+    }
+
+    /**
+     * Refresh all product unit statuses associated with this rental
+     */
+    public function refreshUnitStatuses(): void
+    {
+        foreach ($this->items as $item) {
+            if ($item->productUnit) {
+                $item->productUnit->refreshStatus();
+            }
         }
     }
 
@@ -213,6 +231,13 @@ class Rental extends Model
         }
 
         $this->update(['status' => self::STATUS_ACTIVE]);
+
+        // Update product unit statuses to Rented
+        foreach ($this->items as $item) {
+            if ($item->productUnit) {
+                $item->productUnit->refreshStatus();
+            }
+        }
     }
 
     /**
@@ -258,13 +283,30 @@ class Rental extends Model
 
     public function validateReturn(): void
     {
-        $allReturned = $this->items()
-            ->whereHas('rentalItemKits', function ($query) {
-                $query->where('is_returned', false);
-            })->doesntExist();
+        // Check if all items (main units and kits) in Delivery IN are checked
+        $deliveryIn = $this->deliveries->where('type', Delivery::TYPE_IN)->first();
+        
+        if (!$deliveryIn || !$deliveryIn->allItemsChecked()) {
+            return;
+        }
 
-        if ($allReturned) {
-            $this->update(['status' => self::STATUS_COMPLETED]);
+        $this->update(['status' => self::STATUS_COMPLETED]);
+
+        // Update product unit statuses based on return condition
+        foreach ($this->items as $item) {
+            if ($item->productUnit) {
+                // Check delivery item condition for the main unit
+                $mainUnitDeliveryItem = $deliveryIn->items
+                    ->where('rental_item_id', $item->id)
+                    ->whereNull('rental_item_kit_id')
+                    ->first();
+
+                if ($mainUnitDeliveryItem && in_array($mainUnitDeliveryItem->condition, ['broken', 'lost'])) {
+                    $item->productUnit->update(['status' => ProductUnit::STATUS_MAINTENANCE]);
+                } else {
+                    $item->productUnit->refreshStatus();
+                }
+            }
         }
     }
 
@@ -290,7 +332,7 @@ class Rental extends Model
             ]);
         }
 
-        if ($deliveryOut->status === Delivery::STATUS_DRAFT) {
+        if ($deliveryOut->status === Delivery::STATUS_DRAFT || $deliveryOut->items()->count() === 0) {
             foreach ($this->items as $item) {
                 // Main Unit
                 $deliveryOut->items()->firstOrCreate([
@@ -321,11 +363,11 @@ class Rental extends Model
                 'rental_id' => $this->id,
                 'type' => Delivery::TYPE_IN,
                 'date' => $this->end_date,
-                'status' => Delivery::STATUS_PENDING,
+                'status' => Delivery::STATUS_DRAFT,
             ]);
         }
 
-        if ($deliveryIn->status === Delivery::STATUS_DRAFT) {
+        if ($deliveryIn->status === Delivery::STATUS_DRAFT || $deliveryIn->items()->count() === 0) {
             foreach ($this->items as $item) {
                 // Main Unit
                 $deliveryIn->items()->firstOrCreate([
@@ -361,10 +403,10 @@ class Rental extends Model
             throw new \Exception('Cannot cancel this rental. Only pending or late pickup rentals can be cancelled.');
         }
 
-        // Release all product units back to available
+        // Release all product units back to available/scheduled
         foreach ($this->items as $item) {
-            if ($item->productUnit && $item->productUnit->status === ProductUnit::STATUS_RENTED) {
-                $item->productUnit->update(['status' => ProductUnit::STATUS_AVAILABLE]);
+            if ($item->productUnit) {
+                $item->productUnit->refreshStatus();
             }
         }
 

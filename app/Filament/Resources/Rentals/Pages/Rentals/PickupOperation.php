@@ -45,7 +45,9 @@ class PickupOperation extends Page implements HasTable
             'customer', 
             'items.productUnit.product', 
             'items.productUnit.kits', 
-            'items.rentalItemKits'
+            'items.rentalItemKits',
+            'deliveries.items.rentalItem.productUnit.product',
+            'deliveries.items.rentalItemKit.unitKit',
         ])->findOrFail($record);
 
         // Update late status on mount
@@ -57,6 +59,7 @@ class PickupOperation extends Page implements HasTable
 
         // Get delivery out
         $this->delivery = $this->rental->deliveries()
+            ->with(['items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit'])
             ->where('type', Delivery::TYPE_OUT)
             ->first();
 
@@ -88,7 +91,7 @@ class PickupOperation extends Page implements HasTable
 
     public function allItemsChecked(): bool
     {
-        return $this->delivery->items()->where('is_checked', false)->count() === 0;
+        return $this->delivery->items->where('is_checked', false)->count() === 0;
     }
 
     public function table(Table $table): Table

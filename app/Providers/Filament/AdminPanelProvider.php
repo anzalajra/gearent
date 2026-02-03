@@ -32,11 +32,13 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
                 \App\Filament\Pages\Settings::class,
+                \App\Filament\Pages\ProductSetup::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
@@ -65,13 +67,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Navigation Groups Order - mengatur urutan group di sidebar
             ->navigationGroups([
-                'Inventory',
                 'Rentals',
-                'Customers',
-                'Operations',
                 'Sales',
-                'Settings',
-                'System',
+                'Inventory',
+                'Setting',
             ])
             // Sidebar collapsible (opsional - bisa dihapus jika tidak perlu)
             ->sidebarCollapsibleOnDesktop();

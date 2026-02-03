@@ -43,6 +43,9 @@ class ProcessDelivery extends Page implements HasTable
             'items.rentalItemKit.unitKit',
             'checkedBy',
         ])->findOrFail($record);
+        
+        // Ensure items are loaded for the allItemsChecked() method
+        $this->delivery->load('items');
     }
 
     public function getTitle(): string|Htmlable
@@ -170,7 +173,7 @@ class ProcessDelivery extends Page implements HasTable
 
     public function allItemsChecked(): bool
     {
-        return $this->delivery->items()->where('is_checked', false)->count() === 0;
+        return $this->delivery->items->where('is_checked', false)->count() === 0;
     }
 
     protected function getHeaderActions(): array

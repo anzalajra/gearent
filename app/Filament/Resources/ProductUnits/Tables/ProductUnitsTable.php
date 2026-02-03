@@ -37,9 +37,11 @@ class ProductUnitsTable
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'available' => 'success',
+                        'scheduled' => 'primary',
                         'rented' => 'warning',
                         'maintenance' => 'info',
                         'retired' => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('purchase_date')

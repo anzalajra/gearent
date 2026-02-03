@@ -21,11 +21,15 @@ class DocumentTypeResource extends Resource
 {
     protected static ?string $model = DocumentType::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|UnitEnum|null $navigationGroup = 'Setting';
 
-    protected static ?int $navigationSort = 10;
+    protected static ?string $navigationLabel = 'Document Types';
+
+    protected static ?int $navigationSort = 2;
 
     public static function form(Schema $schema): Schema
     {

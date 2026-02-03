@@ -18,12 +18,14 @@ class CategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-folder';
     
-    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    protected static string|UnitEnum|null $navigationGroup = 'Product Setup';
     
     protected static ?int $navigationSort = 2;
     

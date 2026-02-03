@@ -42,6 +42,11 @@ class RentalItem extends Model
     public function attachKitsFromUnit(): void
     {
         $kits = $this->productUnit->kits;
+        
+        // Skip if kits are already attached and count matches
+        if ($this->rentalItemKits()->count() === $kits->count()) {
+            return;
+        }
 
         foreach ($kits as $kit) {
             $this->rentalItemKits()->updateOrCreate(

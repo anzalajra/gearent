@@ -44,7 +44,9 @@ class ProcessReturn extends Page implements HasTable
         $this->rental = Rental::with([
             'customer', 
             'items.productUnit.product', 
-            'items.rentalItemKits.unitKit'
+            'items.rentalItemKits.unitKit',
+            'deliveries.items.rentalItem.productUnit.product',
+            'deliveries.items.rentalItemKit.unitKit',
         ])->findOrFail($record);
 
         // Update late status on mount
@@ -56,6 +58,7 @@ class ProcessReturn extends Page implements HasTable
 
         // Get delivery in
         $this->delivery = $this->rental->deliveries()
+            ->with(['items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit'])
             ->where('type', Delivery::TYPE_IN)
             ->first();
 
@@ -77,7 +80,7 @@ class ProcessReturn extends Page implements HasTable
 
     public function allItemsChecked(): bool
     {
-        return $this->delivery->items()->where('is_checked', false)->count() === 0;
+        return $this->delivery->items->where('is_checked', false)->count() === 0;
     }
 
     public function canValidateReturn(): bool

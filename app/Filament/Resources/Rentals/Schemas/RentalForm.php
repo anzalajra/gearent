@@ -112,8 +112,8 @@ class RentalForm
                                 
                                 return '✅ Menampilkan unit yang tersedia untuk periode ini';
                             })
-                            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                if ($state) {
+                            ->afterStateUpdated(function ($state, $old, callable $get, callable $set) {
+                                if ($state && $state !== $old) {
                                     $unit = ProductUnit::with('product')->find($state);
                                     if ($unit) {
                                         $set('daily_rate', $unit->product->daily_rate);
@@ -129,6 +129,16 @@ class RentalForm
                                             $set('days', $days);
                                             $set('subtotal', $unit->product->daily_rate * $days);
                                         }
+
+                                        // Refresh status
+                                        $unit->refreshStatus();
+                                    }
+                                }
+
+                                if ($old) {
+                                    $oldUnit = ProductUnit::find($old);
+                                    if ($oldUnit) {
+                                        $oldUnit->refreshStatus();
                                     }
                                 }
                             })
@@ -213,6 +223,7 @@ class RentalForm
         if (!$startDate || !$endDate) {
             // If no dates selected, show all units with status indicator
             return ProductUnit::with('product')
+                ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
                 ->get()
                 ->mapWithKeys(function ($unit) {
                     $statusLabel = $unit->status !== 'available' ? " [{$unit->status}]" : '';
@@ -247,6 +258,7 @@ class RentalForm
 
         // Get all units and mark availability
         return ProductUnit::with('product')
+            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
             ->get()
             ->mapWithKeys(function ($unit) use ($overlappingUnitIds) {
                 $isBooked = in_array($unit->id, $overlappingUnitIds);

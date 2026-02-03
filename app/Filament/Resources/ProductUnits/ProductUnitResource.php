@@ -19,6 +19,8 @@ class ProductUnitResource extends Resource
 {
     protected static ?string $model = ProductUnit::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $recordTitleAttribute = 'serial_number';
 
     // Navigation Configuration
@@ -26,9 +28,9 @@ class ProductUnitResource extends Resource
     
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
     
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
     
-    protected static ?string $navigationLabel = 'Product Units';
+    protected static ?string $navigationLabel = 'Product Unit';
 
     public static function form(Schema $schema): Schema
     {

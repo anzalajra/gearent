@@ -24,9 +24,9 @@ class DeliveryResource extends Resource
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-truck';
     
-    protected static string|UnitEnum|null $navigationGroup = 'Operations';
+    protected static string|UnitEnum|null $navigationGroup = 'Rentals';
     
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
     
     protected static ?string $navigationLabel = 'Deliveries';
 

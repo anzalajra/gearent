@@ -1,0 +1,122 @@
+<?php
+
+namespace App\Filament\Resources\Products\RelationManagers;
+
+use App\Models\ProductUnit;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+
+class UnitsRelationManager extends RelationManager
+{
+    protected static string $relationship = 'units';
+
+    protected static ?string $title = 'Product Units';
+
+    protected static ?string $recordTitleAttribute = 'serial_number';
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                TextInput::make('serial_number')
+                    ->required()
+                    ->maxLength(255)
+                    ->unique(ignoreRecord: true)
+                    ->placeholder('SN-A7IV-001'),
+
+                Select::make('condition')
+                    ->options([
+                        'excellent' => 'Excellent',
+                        'good' => 'Good',
+                        'fair' => 'Fair',
+                        'poor' => 'Poor',
+                    ])
+                    ->required()
+                    ->default('excellent'),
+
+                Select::make('status')
+                    ->options(ProductUnit::getStatusOptions())
+                    ->required()
+                    ->default('available'),
+
+                DatePicker::make('purchase_date')
+                    ->label('Purchase Date'),
+
+                TextInput::make('purchase_price')
+                    ->label('Purchase Price')
+                    ->numeric()
+                    ->prefix('Rp'),
+
+                Textarea::make('notes')
+                    ->rows(3)
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('serial_number')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('condition')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'excellent' => 'success',
+                        'good' => 'info',
+                        'fair' => 'warning',
+                        'poor' => 'danger',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'available' => 'success',
+                        'scheduled' => 'primary',
+                        'rented' => 'warning',
+                        'maintenance' => 'info',
+                        'retired' => 'gray',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('purchase_date')
+                    ->date()
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('purchase_price')
+                    ->money('IDR')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                //
+            ])
+            ->headerActions([
+                CreateAction::make(),
+            ])
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+}

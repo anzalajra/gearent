@@ -53,9 +53,12 @@ class CatalogController extends Controller
     {
         $product->load(['category', 'units.kits']);
 
+        // Show total units that are not retired or in maintenance
         $availableUnits = $product->units()
-            ->where('status', 'available')
+            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
             ->get();
+
+        $bookedDates = $product->getBookedDates();
 
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
@@ -63,7 +66,7 @@ class CatalogController extends Controller
             ->take(4)
             ->get();
 
-        return view('frontend.catalog.show', compact('product', 'availableUnits', 'relatedProducts'));
+        return view('frontend.catalog.show', compact('product', 'availableUnits', 'relatedProducts', 'bookedDates'));
     }
 
     public function checkAvailability(Request $request, ProductUnit $unit)

@@ -18,12 +18,14 @@ class BrandResource extends Resource
 {
     protected static ?string $model = Brand::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $recordTitleAttribute = 'name';
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
     
-    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    protected static string|UnitEnum|null $navigationGroup = 'Product Setup';
     
     protected static ?int $navigationSort = 1;
     

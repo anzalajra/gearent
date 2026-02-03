@@ -53,7 +53,6 @@
                                             </div>
                                             <div>
                                                 <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
-                                                <p class="text-sm text-gray-500">{{ $item->productUnit->serial_number }}</p>
                                                 <p class="text-sm text-primary-600">Rp {{ number_format($item->daily_rate, 0, ',', '.') }}/day</p>
                                             </div>
                                         </div>

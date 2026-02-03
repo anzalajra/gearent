@@ -71,7 +71,7 @@ class Delivery extends Model
 
     public function allItemsChecked(): bool
     {
-        return $this->items()->where('is_checked', false)->count() === 0;
+        return $this->items->where('is_checked', false)->count() === 0;
     }
 
     public function complete(): void

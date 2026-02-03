@@ -28,22 +28,12 @@ class ProductUnitForm
                     ->placeholder('SN-A7IV-001'),
 
                 Select::make('condition')
-                    ->options([
-                        'excellent' => 'Excellent',
-                        'good' => 'Good',
-                        'fair' => 'Fair',
-                        'poor' => 'Poor',
-                    ])
+                    ->options(\App\Models\ProductUnit::getConditionOptions())
                     ->required()
                     ->default('excellent'),
 
                 Select::make('status')
-                    ->options([
-                        'available' => 'Available',
-                        'rented' => 'Rented',
-                        'maintenance' => 'Maintenance',
-                        'retired' => 'Retired',
-                    ])
+                    ->options(\App\Models\ProductUnit::getStatusOptions())
                     ->required()
                     ->default('available'),
 

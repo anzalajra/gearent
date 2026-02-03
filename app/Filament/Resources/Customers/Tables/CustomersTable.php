@@ -40,11 +40,13 @@ class CustomersTable
                         'verified' => 'success',
                         'pending' => 'warning',
                         'not_verified' => 'danger',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state) => match ($state) {
                         'verified' => 'Verified',
                         'pending' => 'Pending',
                         'not_verified' => 'Not Verified',
+                        default => $state,
                     }),
 
                 TextColumn::make('rentals_count')

@@ -30,36 +30,35 @@ class CartController extends Controller
         }
 
         $request->validate([
-            'product_unit_id' => 'required|exists:product_units,id',
+            'product_id' => 'required|exists:products,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
         ]);
 
-        $unit = ProductUnit::with('product')->findOrFail($request->product_unit_id);
-
+        $product = \App\Models\Product::findOrFail($request->product_id);
         $startDate = Carbon::parse($request->start_date);
         $endDate = Carbon::parse($request->end_date);
+        
+        // Find available unit automatically
+        $unit = $product->findAvailableUnit($startDate, $endDate);
+
+        if (!$unit) {
+            return back()->with('error', 'Maaf, alat ini tidak tersedia untuk tanggal yang dipilih.');
+        }
+
         $days = max(1, $startDate->diffInDays($endDate));
 
         // Check if already in cart
-        $existingCart = $customer->carts()->where('product_unit_id', $unit->id)->first();
-        if ($existingCart) {
-            return back()->with('error', 'This item is already in your cart.');
-        }
-
-        // Check availability
-        $isConflict = $unit->rentalItems()
-            ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                $query->whereIn('status', ['pending', 'active', 'late_pickup', 'late_return'])
-                    ->where(function ($q) use ($startDate, $endDate) {
-                        $q->where('start_date', '<', $endDate)
-                          ->where('end_date', '>', $startDate);
-                    });
+        $existingCart = $customer->carts()
+            ->where('product_unit_id', $unit->id)
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->where('start_date', '<', $endDate)
+                      ->where('end_date', '>', $startDate);
             })
-            ->exists();
+            ->first();
 
-        if ($isConflict) {
-            return back()->with('error', 'This unit is not available for the selected dates.');
+        if ($existingCart) {
+            return back()->with('error', 'Item ini sudah ada di keranjang Anda untuk tanggal yang sama.');
         }
 
         Cart::create([
@@ -68,11 +67,11 @@ class CartController extends Controller
             'start_date' => $startDate,
             'end_date' => $endDate,
             'days' => $days,
-            'daily_rate' => $unit->product->daily_rate,
-            'subtotal' => $unit->product->daily_rate * $days,
+            'daily_rate' => $product->daily_rate,
+            'subtotal' => $product->daily_rate * $days,
         ]);
 
-        return back()->with('success', 'Item added to cart.');
+        return back()->with('success', 'Berhasil ditambahkan ke keranjang.');
     }
 
     public function update(Request $request, Cart $cart)

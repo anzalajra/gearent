@@ -2,6 +2,21 @@
 
 @section('title', $product->name)
 
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        .flatpickr-day.flatpickr-disabled,
+        .flatpickr-day.flatpickr-disabled:hover {
+            color: #ffffff !important;
+            background: #ef4444 !important;
+            border-color: #ef4444 !important;
+            text-decoration: none !important;
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+        }
+    </style>
+@endpush
+
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
@@ -78,25 +93,36 @@
                     <!-- Booking Form -->
                     <form action="{{ route('cart.add') }}" method="POST" class="bg-gray-50 rounded-lg p-6">
                         @csrf
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                                <input type="datetime-local" name="start_date" required min="{{ now()->format('Y-m-d\TH:i') }}" class="w-full border rounded-lg px-3 py-2">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                                <input type="datetime-local" name="end_date" required class="w-full border rounded-lg px-3 py-2">
+                        <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Rentang Tanggal Sewa</label>
+                            <div class="relative">
+                                <input type="text" id="date_range" required placeholder="Pilih tanggal sewa..." 
+                                    class="w-full border rounded-lg px-3 py-2 bg-white cursor-pointer" readonly>
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Unit</label>
-                            <select name="product_unit_id" required class="w-full border rounded-lg px-3 py-2">
-                                @foreach($availableUnits as $unit)
-                                    <option value="{{ $unit->id }}">{{ $unit->serial_number }} - {{ ucfirst($unit->condition) }}</option>
-                                @endforeach
-                            </select>
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Jam Pickup</label>
+                                <input type="time" name="pickup_time" id="pickup_time" required value="09:00"
+                                    class="w-full border rounded-lg px-3 py-2 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Jam Return</label>
+                                <input type="time" name="return_time" id="return_time" required value="09:00"
+                                    class="w-full border rounded-lg px-3 py-2 bg-white">
+                            </div>
                         </div>
+
+                        <input type="hidden" name="start_date" id="start_date">
+                        <input type="hidden" name="end_date" id="end_date">
 
                         @if($canRent)
                             <button type="submit" class="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition">
@@ -148,3 +174,41 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const bookedDates = @json($bookedDates);
+            let selectedStart = null;
+            let selectedEnd = null;
+
+            const updateHiddenDates = () => {
+                if (selectedStart && selectedEnd) {
+                    const pickupTime = document.getElementById('pickup_time').value;
+                    const returnTime = document.getElementById('return_time').value;
+                    
+                    document.getElementById('start_date').value = `${selectedStart} ${pickupTime}:00`;
+                    document.getElementById('end_date').value = `${selectedEnd} ${returnTime}:00`;
+                }
+            };
+
+            flatpickr("#date_range", {
+                mode: "range",
+                minDate: "today",
+                dateFormat: "Y-m-d",
+                disable: bookedDates,
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");
+                        selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
+                        updateHiddenDates();
+                    }
+                }
+            });
+
+            document.getElementById('pickup_time').addEventListener('change', updateHiddenDates);
+            document.getElementById('return_time').addEventListener('change', updateHiddenDates);
+        });
+    </script>
+@endpush
