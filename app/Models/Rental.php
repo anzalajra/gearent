@@ -107,7 +107,6 @@ class Rental extends Model
      */
     public function canBeEdited(): bool
     {
-        // Only allow editing for pending and late_pickup statuses
         return in_array($this->status, [
             self::STATUS_PENDING,
             self::STATUS_LATE_PICKUP,
@@ -116,29 +115,104 @@ class Rental extends Model
 
     /**
      * Get the real-time status of the rental
-     * This checks against current time to determine if status should be updated
      */
     public function getRealTimeStatus(): string
     {
-        // If already completed or cancelled, return as is
         if (in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED])) {
             return $this->status;
         }
 
         $now = now();
 
-        // Check if pickup is late (pending but start date has passed)
         if ($this->status === self::STATUS_PENDING && $this->start_date < $now) {
             return self::STATUS_LATE_PICKUP;
         }
 
-        // Check if return is late (active but end date has passed)
         if ($this->status === self::STATUS_ACTIVE && $this->end_date < $now) {
             return self::STATUS_LATE_RETURN;
         }
 
-        // Return current status if no changes needed
         return $this->status;
+    }
+
+    /**
+     * Check and update late status in database
+     */
+    public function checkAndUpdateLateStatus(): void
+    {
+        if (in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED])) {
+            return;
+        }
+
+        $now = now();
+
+        if ($this->status === self::STATUS_PENDING && $this->start_date < $now) {
+            $this->update(['status' => self::STATUS_LATE_PICKUP]);
+        }
+
+        if ($this->status === self::STATUS_ACTIVE && $this->end_date < $now) {
+            $this->update(['status' => self::STATUS_LATE_RETURN]);
+        }
+    }
+
+    /**
+     * Check availability of rental items (conflicts with other active rentals)
+     */
+    public function checkAvailability(): array
+    {
+        $conflicts = [];
+
+        foreach ($this->items as $item) {
+            // Check if the product unit is already rented in an overlapping period
+            $conflictingRentals = self::where('id', '!=', $this->id)
+                ->whereIn('status', [self::STATUS_PENDING, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
+                ->where(function ($query) {
+                    $query->whereBetween('start_date', [$this->start_date, $this->end_date])
+                        ->orWhereBetween('end_date', [$this->start_date, $this->end_date])
+                        ->orWhere(function ($q) {
+                            $q->where('start_date', '<=', $this->start_date)
+                              ->where('end_date', '>=', $this->end_date);
+                        });
+                })
+                ->whereHas('items', function ($query) use ($item) {
+                    $query->where('product_unit_id', $item->product_unit_id);
+                })
+                ->with('customer')
+                ->get();
+
+            if ($conflictingRentals->isNotEmpty()) {
+                $conflicts[] = [
+                    'product_unit' => $item->productUnit,
+                    'conflicting_rentals' => $conflictingRentals,
+                ];
+            }
+        }
+
+        return $conflicts;
+    }
+
+    /**
+     * Validate pickup and change status to active
+     */
+    public function validatePickup(): void
+    {
+        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
+            throw new \Exception('Cannot validate pickup for this rental status.');
+        }
+
+        // Check if all items with kits have their kits checked
+        foreach ($this->items as $item) {
+            if ($item->productUnit->kits->count() > 0) {
+                $checkedKits = $item->rentalItemKits->count();
+                $totalKits = $item->productUnit->kits->count();
+                
+                if ($checkedKits < $totalKits) {
+                    throw new \Exception('All kit items must be checked before validating pickup.');
+                }
+            }
+        }
+
+        $this->update(['status' => self::STATUS_ACTIVE]);
     }
 
     /**
@@ -146,7 +220,6 @@ class Rental extends Model
      */
     public function canBeDeleted(): bool
     {
-        // Only allow deleting pending rentals that haven't been picked up yet
         return $this->status === self::STATUS_PENDING;
     }
 
