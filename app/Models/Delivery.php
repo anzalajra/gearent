@@ -26,7 +26,9 @@ class Delivery extends Model
     public const TYPE_IN = 'in';
 
     public const STATUS_DRAFT = 'draft';
+    public const STATUS_PENDING = 'pending';
     public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     protected static function boot()
     {
@@ -97,8 +99,10 @@ class Delivery extends Model
     public static function getStatusColor(string $status): string
     {
         return match ($status) {
-            self::STATUS_DRAFT => 'warning',
+            self::STATUS_DRAFT => 'gray',
+            self::STATUS_PENDING => 'warning',
             self::STATUS_COMPLETED => 'success',
+            self::STATUS_CANCELLED => 'danger',
             default => 'gray',
         };
     }
@@ -107,7 +111,9 @@ class Delivery extends Model
     {
         return [
             self::STATUS_DRAFT => 'Draft',
+            self::STATUS_PENDING => 'Pending',
             self::STATUS_COMPLETED => 'Completed',
+            self::STATUS_CANCELLED => 'Cancelled',
         ];
     }
 }

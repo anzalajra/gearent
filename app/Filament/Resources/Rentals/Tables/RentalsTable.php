@@ -80,8 +80,15 @@ class RentalsTable
                         Rental::STATUS_LATE_RETURN,
                     ])),
 
-                // Documents dropdown
+                // PDF Actions Group
                 ActionGroup::make([
+                    // In/Out Status (Delivery Documents)
+                    Action::make('documents')
+                        ->label('In/Out Status')
+                        ->icon('heroicon-o-document-duplicate')
+                        ->color('gray')
+                        ->url(fn (Rental $record) => RentalResource::getUrl('documents', ['record' => $record])),
+
                     // Quotation PDF
                     Action::make('download_quotation')
                         ->label('Download Quotation')
@@ -113,11 +120,7 @@ class RentalsTable
                                 'Invoice-' . $record->rental_code . '.pdf'
                             );
                         }),
-                ])
-                ->label('Documents')
-                ->icon('heroicon-o-document-duplicate')
-                ->color('gray')
-                ->button(),
+                ]),
 
                 // Edit button
                 EditAction::make()
@@ -152,7 +155,11 @@ class RentalsTable
 
                 // Delete button
                 DeleteAction::make()
-                    ->visible(fn (Rental $record) => $record->canBeDeleted()),
+                    ->visible(fn (Rental $record) => in_array($record->status, [
+                        Rental::STATUS_PENDING,
+                        Rental::STATUS_CANCELLED,
+                        Rental::STATUS_COMPLETED,
+                    ])),
             ])
             ->recordUrl(function (Rental $record) {
                 $status = $record->getRealTimeStatus();

@@ -88,7 +88,10 @@ class DeliveriesTable
                     ->visible(fn (Delivery $record) => $record->status === Delivery::STATUS_DRAFT),
 
                 DeleteAction::make()
-                    ->visible(fn (Delivery $record) => $record->status === Delivery::STATUS_DRAFT),
+                    ->visible(fn (Delivery $record) => in_array($record->status, [
+                        Delivery::STATUS_DRAFT,
+                        Delivery::STATUS_CANCELLED,
+                    ])),
             ])
             ->recordUrl(fn (Delivery $record) => DeliveryResource::getUrl('process', ['record' => $record]));
     }

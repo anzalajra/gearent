@@ -321,7 +321,7 @@ class Rental extends Model
                 'rental_id' => $this->id,
                 'type' => Delivery::TYPE_IN,
                 'date' => $this->end_date,
-                'status' => Delivery::STATUS_DRAFT,
+                'status' => Delivery::STATUS_PENDING,
             ]);
         }
 
@@ -378,6 +378,9 @@ class Rental extends Model
             'status' => self::STATUS_CANCELLED,
             'cancel_reason' => $reason,
         ]);
+
+        // Cancel all associated deliveries
+        $this->deliveries()->update(['status' => Delivery::STATUS_CANCELLED]);
     }
 
     /**

@@ -88,19 +88,4 @@
             </table>
         </div>
     </x-filament::section>
-
-    @if($rental->canBeEdited())
-    <x-filament::section>
-        <div class="flex justify-end">
-            <x-filament::button
-                tag="a"
-                href="{{ \App\Filament\Resources\Rentals\RentalResource::getUrl('edit', ['record' => $rental]) }}"
-                color="gray"
-                icon="heroicon-o-pencil-square"
-            >
-                Edit Rental
-            </x-filament::button>
-        </div>
-    </x-filament::section>
-    @endif
 </x-filament-panels::page>

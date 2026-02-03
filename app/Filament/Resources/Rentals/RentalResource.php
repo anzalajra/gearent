@@ -7,6 +7,7 @@ use App\Filament\Resources\Rentals\Pages\EditRental;
 use App\Filament\Resources\Rentals\Pages\ListRentals;
 use App\Filament\Resources\Rentals\Pages\PickupOperation;
 use App\Filament\Resources\Rentals\Pages\ProcessReturn;
+use App\Filament\Resources\Rentals\Pages\RentalDocuments;
 use App\Filament\Resources\Rentals\Pages\ViewRental;
 use App\Filament\Resources\Rentals\Schemas\RentalForm;
 use App\Filament\Resources\Rentals\Tables\RentalsTable;
@@ -57,6 +58,7 @@ class RentalResource extends Resource
             'edit' => EditRental::route('/{record}/edit'),
             'pickup' => PickupOperation::route('/{record}/pickup'),
             'return' => ProcessReturn::route('/{record}/return'),
+            'documents' => RentalDocuments::route('/{record}/documents'),
             'view' => ViewRental::route('/{record}/view'),
         ];
     }

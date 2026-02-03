@@ -212,6 +212,12 @@ class ProcessReturn extends Page implements HasTable
                     );
                 }),
 
+            Action::make('rental_documents')
+                ->label('Delivery Documents')
+                ->icon('heroicon-o-document-duplicate')
+                ->color('gray')
+                ->url(fn () => RentalResource::getUrl('documents', ['record' => $this->rental])),
+
             $this->getValidateReturnAction(),
         ];
     }

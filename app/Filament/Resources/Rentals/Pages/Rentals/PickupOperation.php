@@ -217,6 +217,12 @@ class PickupOperation extends Page implements HasTable
                     );
                 }),
 
+            Action::make('rental_documents')
+                ->label('Delivery Documents')
+                ->icon('heroicon-o-document-duplicate')
+                ->color('gray')
+                ->url(fn () => RentalResource::getUrl('documents', ['record' => $this->rental])),
+
             Action::make('edit_rental')
                 ->label('Edit Rental')
                 ->icon('heroicon-o-pencil-square')
