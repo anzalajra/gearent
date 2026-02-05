@@ -24,7 +24,7 @@ class CustomerDashboardController extends Controller
     public function profile()
     {
         $customer = Auth::guard('customer')->user();
-        $documentTypes = DocumentType::getActiveTypes();
+        $documentTypes = DocumentType::getActiveTypes($customer->customer_category_id);
         $uploadedDocuments = $customer->documents()->with('documentType')->get()->keyBy('document_type_id');
         $verificationStatus = $customer->getVerificationStatus();
         

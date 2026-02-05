@@ -45,6 +45,7 @@ class CustomerResource extends Resource
     {
         return [
             DocumentsRelationManager::class,
+            \App\Filament\Resources\Customers\RelationManagers\RentalsRelationManager::class,
         ];
     }
 

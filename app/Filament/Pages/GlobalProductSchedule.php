@@ -31,6 +31,8 @@ class GlobalProductSchedule extends Page implements HasActions
     
     protected static ?string $navigationLabel = 'Global Schedule';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.pages.global-product-schedule';
 
     public Carbon $startDate;

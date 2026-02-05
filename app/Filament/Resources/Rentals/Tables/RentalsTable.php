@@ -177,19 +177,7 @@ class RentalsTable
                         Rental::STATUS_COMPLETED,
                     ])),
             ])
-            ->recordUrl(function (Rental $record) {
-                $status = $record->getRealTimeStatus();
-
-                return match (true) {
-                    in_array($status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP]) 
-                        => RentalResource::getUrl('pickup', ['record' => $record]),
-                    in_array($status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]) 
-                        => RentalResource::getUrl('return', ['record' => $record]),
-                    in_array($status, [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED]) 
-                        => RentalResource::getUrl('view', ['record' => $record]),
-                    default => null,
-                };
-            })
+            ->recordUrl(fn (Rental $record) => RentalResource::getUrl('view', ['record' => $record]))
             ->poll('30s');
     }
 }

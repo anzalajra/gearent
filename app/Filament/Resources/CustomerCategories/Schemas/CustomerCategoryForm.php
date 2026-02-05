@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomerCategories\Schemas;
 
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
@@ -44,6 +45,12 @@ class CustomerCategoryForm
                 TagsInput::make('benefits')
                     ->label('Benefits')
                     ->helperText('List the benefits for this category (press Enter to add).'),
+
+                CheckboxList::make('documentTypes')
+                    ->relationship('documentTypes', 'name')
+                    ->label('Required Documents')
+                    ->columns(2)
+                    ->columnSpanFull(),
 
                 Toggle::make('is_active')
                     ->default(true),

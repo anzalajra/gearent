@@ -73,4 +73,9 @@ class CustomerCategory extends Model
     {
         return $this->belongsToMany(Product::class, 'product_visibility_exclusions', 'customer_category_id', 'product_id');
     }
+
+    public function documentTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(DocumentType::class, 'customer_category_document_type');
+    }
 }

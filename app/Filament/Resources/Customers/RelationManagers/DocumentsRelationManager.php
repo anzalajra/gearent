@@ -96,7 +96,7 @@ class DocumentsRelationManager extends RelationManager
 
     protected function checkAndVerifyCustomer($customer): void
     {
-        $requiredTypes = \App\Models\DocumentType::getRequiredTypes();
+        $requiredTypes = \App\Models\DocumentType::getRequiredTypes($customer->customer_category_id);
         $allApproved = true;
 
         foreach ($requiredTypes as $type) {

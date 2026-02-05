@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Filament\Resources\Products\Pages;
+namespace App\Filament\Pages;
 
-use App\Filament\Resources\Products\ProductResource;
 use App\Models\Product;
 use App\Models\Rental;
 use BackedEnum;
@@ -12,34 +11,44 @@ use Filament\Actions\Contracts\HasActions;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
-use Filament\Resources\Pages\Page;
+use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
+use UnitEnum;
+use Livewire\WithPagination;
+use Illuminate\Contracts\Pagination\Paginator;
 
-class ProductSchedule extends Page implements HasActions
+class Schedule extends Page implements HasActions
 {
     use InteractsWithActions;
+    use WithPagination;
 
-    protected static string $resource = ProductResource::class;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
+    protected static string|UnitEnum|null $navigationGroup = 'Rentals';
+    protected static ?string $navigationLabel = 'Schedule';
+    protected static ?string $title = 'Schedule';
+    protected static ?int $navigationSort = 2;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
+    protected string $view = 'filament.pages.schedule';
 
-    protected string $view = 'filament.resources.products.pages.product-schedule';
-
-    public Product $record;
+    public string $activeTab = 'order'; // 'order' or 'unit'
 
     public Carbon $startDate;
     public Carbon $endDate;
     public array $days = [];
 
-    public function mount(Product $record): void
+    public function mount(): void
     {
-        $this->record = $record;
         $this->startDate = now()->startOfMonth();
         $this->endDate = now()->addMonths(2)->endOfMonth();
         $this->calculateDays();
     }
 
+    public function setTab(string $tab): void
+    {
+        $this->activeTab = $tab;
+    }
+
+    // Global Product Schedule Logic
     protected function calculateDays(): void
     {
         $this->days = [];
@@ -62,21 +71,6 @@ class ProductSchedule extends Page implements HasActions
         $this->startDate->subMonth();
         $this->endDate->subMonth();
         $this->calculateDays();
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('viewGlobalSchedule')
-                ->label('View All Product Schedule')
-                ->icon('heroicon-o-calendar')
-                ->url(fn () => \App\Filament\Pages\Schedule::getUrl()),
-        ];
-    }
-
-    public function getTitle(): string
-    {
-        return "Schedule: {$this->record->name}";
     }
 
     public function viewRentalDetailsAction(): Action
@@ -144,34 +138,43 @@ class ProductSchedule extends Page implements HasActions
             ]);
     }
 
-    public function getUnitsWithRentals(): array
+    public function getProductsWithUnitsAndRentals(): Paginator
     {
-        $units = $this->record->units()->with(['rentalItems.rental.customer'])->get();
+        $products = Product::with(['units.rentalItems.rental.customer'])
+            ->whereHas('units')
+            ->paginate(5); // Adjust items per page as needed
         
-        $data = [];
-        foreach ($units as $unit) {
-            $rentals = [];
-            foreach ($unit->rentalItems as $item) {
-                $rental = $item->rental;
-                // Only include rentals that overlap with our view range
-                if ($rental->end_date >= $this->startDate && $rental->start_date <= $this->endDate) {
-                    $rentals[] = [
-                        'id' => $rental->id,
-                        'code' => $rental->rental_code,
-                        'customer' => $rental->customer->name,
-                        'start' => $rental->start_date,
-                        'end' => $rental->end_date,
-                        'status' => $rental->status,
-                        'color' => \App\Models\Rental::getStatusColor($rental->status),
-                    ];
-                }
-            }
-            $data[] = [
-                'unit' => $unit,
-                'rentals' => $rentals,
+        $products->getCollection()->transform(function ($product) {
+            $productData = [
+                'product' => $product,
+                'units' => [],
             ];
-        }
+
+            foreach ($product->units as $unit) {
+                $rentals = [];
+                foreach ($unit->rentalItems as $item) {
+                    $rental = $item->rental;
+                    // Only include rentals that overlap with our view range
+                    if ($rental->end_date >= $this->startDate && $rental->start_date <= $this->endDate) {
+                        $rentals[] = [
+                            'id' => $rental->id,
+                            'code' => $rental->rental_code,
+                            'customer' => $rental->customer->name,
+                            'start' => $rental->start_date,
+                            'end' => $rental->end_date,
+                            'status' => $rental->status,
+                            'color' => \App\Models\Rental::getStatusColor($rental->status),
+                        ];
+                    }
+                }
+                $productData['units'][] = [
+                    'unit' => $unit,
+                    'rentals' => $rentals,
+                ];
+            }
+            return $productData;
+        });
         
-        return $data;
+        return $products;
     }
 }

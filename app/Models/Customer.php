@@ -164,7 +164,7 @@ class Customer extends Authenticatable
 
     public function getMissingRequiredDocuments()
     {
-        $requiredTypes = DocumentType::getRequiredTypes();
+        $requiredTypes = DocumentType::getRequiredTypes($this->customer_category_id);
         $uploadedTypeIds = $this->documents()->pluck('document_type_id')->toArray();
         
         return $requiredTypes->filter(function ($type) use ($uploadedTypeIds) {

@@ -15,6 +15,7 @@ class RentalCalendar extends Page
     protected static ?string $navigationLabel = 'Calendar';
     protected static ?string $title = 'Calendar';
     protected static ?int $navigationSort = 2;
+    protected static bool $shouldRegisterNavigation = false;
 
     // <-- NOTE: view is non-static in the parent Page class, jadi harus non-static di sini
     protected string $view = 'filament.pages.rental-calendar';

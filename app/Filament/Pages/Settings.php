@@ -8,6 +8,7 @@ use App\Models\CustomerCategory;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -303,7 +304,7 @@ class Settings extends Page implements HasForms
                                     ]),
                             ]),
 
-                        Tabs\Tab::make('Document Types')
+                        Tabs\Tab::make('Verification Document')
                             ->icon('heroicon-o-document-text')
                             ->schema([
                                 Repeater::make('document_types')
@@ -365,6 +366,7 @@ class Settings extends Page implements HasForms
                         'sort_order' => $index,
                     ]
                 );
+                
                 $newIds[] = $docType->id;
             }
             // Optional: Hapus yang tidak ada di repeater (hati-hati dengan foreign keys)
