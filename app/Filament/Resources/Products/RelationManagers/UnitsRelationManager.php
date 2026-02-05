@@ -41,12 +41,7 @@ class UnitsRelationManager extends RelationManager
                             ->placeholder('SN-A7IV-001'),
 
                         Select::make('condition')
-                            ->options([
-                                'excellent' => 'Excellent',
-                                'good' => 'Good',
-                                'fair' => 'Fair',
-                                'poor' => 'Poor',
-                            ])
+                            ->options(ProductUnit::getConditionOptions())
                             ->required()
                             ->default('excellent'),
 
@@ -80,12 +75,7 @@ class UnitsRelationManager extends RelationManager
                                 TextInput::make('serial_number')
                                     ->maxLength(255),
                                 Select::make('condition')
-                                    ->options([
-                                        'excellent' => 'Excellent',
-                                        'good' => 'Good',
-                                        'fair' => 'Fair',
-                                        'poor' => 'Poor',
-                                    ])
+                                    ->options(\App\Models\UnitKit::getConditionOptions())
                                     ->required()
                                     ->default('excellent'),
                                 Textarea::make('notes')
@@ -126,6 +116,8 @@ class UnitsRelationManager extends RelationManager
                         'good' => 'info',
                         'fair' => 'warning',
                         'poor' => 'danger',
+                        'broken' => 'danger',
+                        'lost' => 'danger',
                         default => 'gray',
                     }),
 

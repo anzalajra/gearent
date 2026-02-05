@@ -124,15 +124,21 @@
                         <input type="hidden" name="start_date" id="start_date">
                         <input type="hidden" name="end_date" id="end_date">
 
-                        @if($canRent)
-                            <button type="submit" class="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition">
-                                Add to Cart
-                            </button>
-                        @else
-                            <button type="button" disabled class="w-full bg-gray-400 text-white py-3 rounded-lg font-semibold cursor-not-allowed">
-                                Verifikasi Diperlukan
-                            </button>
-                        @endif
+                @if($canRent)
+                    @if($product->isFullyUnderMaintenance())
+                        <button type="button" disabled class="w-full bg-red-500 text-white py-3 rounded-lg font-semibold cursor-not-allowed">
+                            Under Maintenance
+                        </button>
+                    @else
+                        <button type="submit" class="w-full bg-primary-600 text-white py-3 rounded-lg font-semibold hover:bg-primary-700 transition">
+                            Add to Cart
+                        </button>
+                    @endif
+                @else
+                    <button type="button" disabled class="w-full bg-gray-400 text-white py-3 rounded-lg font-semibold cursor-not-allowed">
+                        Verifikasi Diperlukan
+                    </button>
+                @endif
                     </form>
                 @else
                     <div class="bg-yellow-50 text-yellow-700 p-4 rounded-lg">
@@ -180,25 +186,58 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const bookedDates = @json($bookedDates);
+            const pickupTimeInput = document.getElementById('pickup_time');
+            const returnTimeInput = document.getElementById('return_time');
+            
+            // Load saved values
+            const savedDates = localStorage.getItem('gearent_rental_dates');
+            const savedPickup = localStorage.getItem('gearent_pickup_time');
+            const savedReturn = localStorage.getItem('gearent_return_time');
+
+            if (savedPickup) pickupTimeInput.value = savedPickup;
+            if (savedReturn) returnTimeInput.value = savedReturn;
+
             let selectedStart = null;
             let selectedEnd = null;
 
             const updateHiddenDates = () => {
                 if (selectedStart && selectedEnd) {
-                    const pickupTime = document.getElementById('pickup_time').value;
-                    const returnTime = document.getElementById('return_time').value;
+                    const pickupTime = pickupTimeInput.value;
+                    const returnTime = returnTimeInput.value;
                     
                     document.getElementById('start_date').value = `${selectedStart} ${pickupTime}:00`;
                     document.getElementById('end_date').value = `${selectedEnd} ${returnTime}:00`;
+
+                    // Save times to localStorage
+                    if (localStorage.getItem('gearent_pickup_time') !== pickupTime) {
+                        localStorage.setItem('gearent_pickup_time', pickupTime);
+                    }
+                    if (localStorage.getItem('gearent_return_time') !== returnTime) {
+                        localStorage.setItem('gearent_return_time', returnTime);
+                    }
                 }
             };
 
-            flatpickr("#date_range", {
+            const fp = flatpickr("#date_range", {
                 mode: "range",
                 minDate: "today",
                 dateFormat: "Y-m-d",
                 disable: bookedDates,
+                defaultDate: savedDates ? savedDates.split(' to ') : null,
                 onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");
+                        selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
+                        
+                        // Save to localStorage if changed
+                        if (localStorage.getItem('gearent_rental_dates') !== dateStr) {
+                            localStorage.setItem('gearent_rental_dates', dateStr);
+                        }
+                        
+                        updateHiddenDates();
+                    }
+                },
+                onReady: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length === 2) {
                         selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");
                         selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
@@ -207,8 +246,29 @@
                 }
             });
 
-            document.getElementById('pickup_time').addEventListener('change', updateHiddenDates);
-            document.getElementById('return_time').addEventListener('change', updateHiddenDates);
+            pickupTimeInput.addEventListener('change', updateHiddenDates);
+            returnTimeInput.addEventListener('change', updateHiddenDates);
+
+            // Listen for changes from other tabs/windows
+            window.addEventListener('storage', function(e) {
+                if (e.key === 'gearent_rental_dates' && e.newValue) {
+                    if (fp.input.value !== e.newValue) {
+                        fp.setDate(e.newValue.split(' to '), true);
+                    }
+                }
+                if (e.key === 'gearent_pickup_time' && e.newValue) {
+                    if (pickupTimeInput.value !== e.newValue) {
+                        pickupTimeInput.value = e.newValue;
+                        updateHiddenDates();
+                    }
+                }
+                if (e.key === 'gearent_return_time' && e.newValue) {
+                    if (returnTimeInput.value !== e.newValue) {
+                        returnTimeInput.value = e.newValue;
+                        updateHiddenDates();
+                    }
+                }
+            });
         });
     </script>
 @endpush

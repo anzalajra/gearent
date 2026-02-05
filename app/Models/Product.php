@@ -36,6 +36,29 @@ class Product extends Model
         });
     }
 
+    /**
+     * Check if the product is fully under maintenance
+     * Returns true ONLY if all units are in maintenance/broken/lost
+     * Returns false if there is at least 1 unit that is NOT maintenance (even if rented)
+     */
+    public function isFullyUnderMaintenance(): bool
+    {
+        $totalUnits = $this->units()->count();
+        
+        if ($totalUnits === 0) {
+            return false;
+        }
+
+        $maintenanceUnits = $this->units()
+            ->where(function ($query) {
+                $query->where('status', ProductUnit::STATUS_MAINTENANCE)
+                      ->orWhereIn('condition', ['broken', 'lost']);
+            })
+            ->count();
+
+        return $totalUnits === $maintenanceUnits;
+    }
+
     // Relasi ke Category
     public function category(): BelongsTo
     {
@@ -86,12 +109,13 @@ class Product extends Model
         
         $rentals = RentalItem::whereIn('product_unit_id', $unitIds)
             ->whereHas('rental', function ($query) {
-                $query->whereIn('status', [
-                    Rental::STATUS_PENDING,
-                    Rental::STATUS_ACTIVE,
-                    Rental::STATUS_LATE_PICKUP,
-                    Rental::STATUS_LATE_RETURN
-                ]);
+                $query->whereNotIn('status', [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED])
+                    ->whereIn('status', [
+                        Rental::STATUS_PENDING,
+                        Rental::STATUS_ACTIVE,
+                        Rental::STATUS_LATE_PICKUP,
+                        Rental::STATUS_LATE_RETURN
+                    ]);
             })
             ->with(['rental' => function ($query) {
                 $query->select('id', 'start_date', 'end_date');

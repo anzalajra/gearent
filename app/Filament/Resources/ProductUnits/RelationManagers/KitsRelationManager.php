@@ -37,12 +37,7 @@ class KitsRelationManager extends RelationManager
                     ->placeholder('Optional serial number'),
 
                 Select::make('condition')
-                    ->options([
-                        'excellent' => 'Excellent',
-                        'good' => 'Good',
-                        'fair' => 'Fair',
-                        'poor' => 'Poor',
-                    ])
+                    ->options(\App\Models\UnitKit::getConditionOptions())
                     ->default('excellent')
                     ->required(),
 
@@ -71,6 +66,8 @@ class KitsRelationManager extends RelationManager
                         'good' => 'info',
                         'fair' => 'warning',
                         'poor' => 'danger',
+                        'broken' => 'danger',
+                        'lost' => 'danger',
                         default => 'gray',
                     }),
 

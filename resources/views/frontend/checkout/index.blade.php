@@ -84,10 +84,12 @@
                             <span class="text-gray-600">Subtotal</span>
                             <span>Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
                         </div>
+                        @if($deposit > 0)
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Deposit (30%)</span>
+                            <span class="text-gray-600">Deposit</span>
                             <span>Rp {{ number_format($deposit, 0, ',', '.') }}</span>
                         </div>
+                        @endif
                         <hr>
                         <div class="flex justify-between font-bold text-lg">
                             <span>Total</span>

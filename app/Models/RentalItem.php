@@ -52,10 +52,16 @@ class RentalItem extends Model
      */
     public function attachKitsFromUnit(): void
     {
-        $kits = $this->productUnit->kits;
+        $kits = $this->productUnit->kits()
+            ->whereNotIn('condition', ['broken', 'lost']) // Filter out broken/lost kits
+            ->get();
         
         // Skip if kits are already attached and count matches
-        if ($this->rentalItemKits()->count() === $kits->count()) {
+        $currentKitsCount = $this->relationLoaded('rentalItemKits') 
+            ? $this->rentalItemKits->count() 
+            : $this->rentalItemKits()->count();
+
+        if ($currentKitsCount === $kits->count()) {
             return;
         }
 

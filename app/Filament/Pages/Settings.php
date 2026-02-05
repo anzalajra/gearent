@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -86,20 +87,56 @@ class Settings extends Page implements HasForms
                             ->schema([
                                 Grid::make(2)
                                     ->schema([
-                                        TextInput::make('deposit_percentage')
-                                            ->label('Deposit Percentage')
-                                            ->numeric()
-                                            ->suffix('%')
-                                            ->required()
-                                            ->default(30)
-                                            ->minValue(0)
-                                            ->maxValue(100),
-                                        TextInput::make('late_fee_percentage')
-                                            ->label('Late Fee per Day')
-                                            ->numeric()
-                                            ->suffix('%')
-                                            ->default(0)
-                                            ->minValue(0),
+                                        Section::make('Deposit Settings')
+                                            ->schema([
+                                                Checkbox::make('deposit_enabled')
+                                                    ->label('Enable Deposit')
+                                                    ->default(true)
+                                                    ->live(),
+                                                Grid::make(2)
+                                                    ->visible(fn ($get) => $get('deposit_enabled'))
+                                                    ->schema([
+                                                        Select::make('deposit_type')
+                                                            ->options([
+                                                                'percentage' => 'Percentage (%)',
+                                                                'fixed' => 'Fixed Amount (Rp)',
+                                                            ])
+                                                            ->default('percentage')
+                                                            ->live()
+                                                            ->required(),
+                                                        TextInput::make('deposit_amount')
+                                                            ->label(fn ($get) => $get('deposit_type') === 'percentage' ? 'Percentage' : 'Amount')
+                                                            ->numeric()
+                                                            ->suffix(fn ($get) => $get('deposit_type') === 'percentage' ? '%' : null)
+                                                            ->prefix(fn ($get) => $get('deposit_type') === 'fixed' ? 'Rp' : null)
+                                                            ->required()
+                                                            ->default(30)
+                                                            ->minValue(0)
+                                                            ->maxValue(fn ($get) => $get('deposit_type') === 'percentage' ? 100 : null),
+                                                    ]),
+                                            ])->columnSpanFull(),
+
+                                        Section::make('Late Fee Settings')
+                                            ->schema([
+                                                Select::make('late_fee_type')
+                                                    ->label('Late Fee Type')
+                                                    ->options([
+                                                        'percentage' => 'Percentage (%)',
+                                                        'fixed' => 'Fixed Amount (Rp)',
+                                                    ])
+                                                    ->default('percentage')
+                                                    ->live()
+                                                    ->required(),
+                                                TextInput::make('late_fee_amount')
+                                                    ->label(fn ($get) => $get('late_fee_type') === 'percentage' ? 'Percentage per Day' : 'Amount per Day')
+                                                    ->numeric()
+                                                    ->suffix(fn ($get) => $get('late_fee_type') === 'percentage' ? '%' : null)
+                                                    ->prefix(fn ($get) => $get('late_fee_type') === 'fixed' ? 'Rp' : null)
+                                                    ->required()
+                                                    ->default(10)
+                                                    ->minValue(0),
+                                            ])->columnSpanFull(),
+
                                         TextInput::make('min_rental_days')
                                             ->label('Minimum Rental Days')
                                             ->numeric()

@@ -16,11 +16,14 @@ class ProductUnit extends Model
         'purchase_date',
         'purchase_price',
         'notes',
+        'last_checked_at',
+        'maintenance_status',
     ];
 
     protected $casts = [
         'purchase_date' => 'date',
         'purchase_price' => 'decimal:2',
+        'last_checked_at' => 'datetime',
     ];
 
     public const STATUS_AVAILABLE = 'available';
@@ -79,6 +82,8 @@ class ProductUnit extends Model
             'good' => 'Good',
             'fair' => 'Fair',
             'poor' => 'Poor',
+            'broken' => 'Broken',
+            'lost' => 'Lost',
         ];
     }
 

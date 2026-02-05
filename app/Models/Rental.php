@@ -237,6 +237,18 @@ class Rental extends Model
             throw new \Exception('Cannot validate pickup for this rental status.');
         }
 
+        // Check if any unit is physically unavailable (e.g. still rented/late return from another customer)
+        foreach ($this->items as $item) {
+            if ($item->productUnit) {
+                // Refresh status first to be sure
+                $item->productUnit->refreshStatus();
+                
+                if (in_array($item->productUnit->status, [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])) {
+                    throw new \Exception("Unit {$item->productUnit->serial_number} ({$item->productUnit->product->name}) is currently {$item->productUnit->status}. Please swap the unit in the list before validating pickup.");
+                }
+            }
+        }
+
         // Check if all items with kits have their kits checked
         foreach ($this->items as $item) {
             if ($item->productUnit->kits->count() > 0) {
@@ -274,7 +286,7 @@ class Rental extends Model
         $this->discount_code = $discount->code;
         $this->discount = $discountAmount;
         $this->total = $this->subtotal - $discountAmount;
-        $this->deposit = $this->total * (Setting::get('deposit_percentage', 30) / 100);
+        $this->deposit = self::calculateDeposit($this->total);
         $this->save();
         $discount->incrementUsage();
     }
@@ -285,7 +297,7 @@ class Rental extends Model
         $this->discount_code = null;
         $this->discount = 0;
         $this->total = $this->subtotal;
-        $this->deposit = $this->total * (Setting::get('deposit_percentage', 30) / 100);
+        $this->deposit = self::calculateDeposit($this->total);
         $this->save();
     }
 
@@ -296,9 +308,59 @@ class Rental extends Model
             $this->discount = $this->discountRelation->calculateDiscount($this->subtotal);
         }
         $this->total = $this->subtotal - $this->discount;
-        $this->deposit = $this->total * (Setting::get('deposit_percentage', 30) / 100);
+        $this->deposit = self::calculateDeposit($this->total);
         $this->save();
     }
+
+    public static function calculateDeposit(float $amount): float
+    {
+        // Check if deposit is enabled
+        $enabled = Setting::get('deposit_enabled', true);
+        if (!$enabled) {
+            return 0;
+        }
+
+        $type = Setting::get('deposit_type', 'percentage');
+        
+        // Determine default amount based on old setting if available
+        $defaultAmount = 30;
+        if ($type === 'percentage') {
+             $oldValue = Setting::get('deposit_percentage');
+             if ($oldValue !== null) {
+                 $defaultAmount = $oldValue;
+             }
+        }
+        
+        $settingAmount = Setting::get('deposit_amount', $defaultAmount);
+
+        if ($type === 'percentage') {
+            return $amount * ($settingAmount / 100);
+        }
+
+        return $settingAmount;
+    }
+
+    public static function calculateLateFee(float $dailyRate, int $daysLate): float
+    {
+         $type = Setting::get('late_fee_type', 'percentage');
+         
+         $defaultAmount = 10;
+         if ($type === 'percentage') {
+             $oldValue = Setting::get('late_fee_percentage');
+             if ($oldValue !== null) {
+                 $defaultAmount = $oldValue;
+             }
+         }
+         
+         $amount = Setting::get('late_fee_amount', $defaultAmount);
+         
+         if ($type === 'percentage') {
+             return ($dailyRate * ($amount / 100)) * $daysLate;
+         }
+         
+         return $amount * $daysLate;
+    }
+
 
     public function validateReturn(): void
     {

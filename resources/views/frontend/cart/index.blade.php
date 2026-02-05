@@ -25,6 +25,42 @@
     @endif
 
     @if($cartItems->count() > 0)
+        <!-- Global Rental Settings -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">Rental Period (Applies to all items)</h2>
+            <form action="{{ route('cart.update-all') }}" method="POST" id="global-date-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                @csrf
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+                    <div class="relative">
+                        <input type="text" id="global_date_range" class="w-full border rounded-lg px-3 py-2 bg-white cursor-pointer" placeholder="Select dates..." readonly>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Time</label>
+                    <input type="time" id="global_pickup_time" class="w-full border rounded-lg px-3 py-2 bg-white" value="{{ $cartItems->first()->start_date->format('H:i') }}">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Return Time</label>
+                    <input type="time" id="global_return_time" class="w-full border rounded-lg px-3 py-2 bg-white" value="{{ $cartItems->first()->end_date->format('H:i') }}">
+                </div>
+                
+                <input type="hidden" name="start_date" id="global_start_date">
+                <input type="hidden" name="end_date" id="global_end_date">
+                
+                <div class="md:col-span-4 flex justify-end">
+                    <button type="submit" class="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition">
+                        Update All Dates
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Cart Items -->
             <div class="lg:col-span-2">
@@ -33,7 +69,7 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
+                                <!-- Removed individual dates column as it's now global -->
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                                 <th class="px-6 py-3"></th>
@@ -54,13 +90,11 @@
                                             <div>
                                                 <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
                                                 <p class="text-sm text-primary-600">Rp {{ number_format($item->daily_rate, 0, ',', '.') }}/day</p>
+                                                <p class="text-xs text-gray-500 mt-1">
+                                                    {{ $item->start_date->format('d M H:i') }} - {{ $item->end_date->format('d M H:i') }}
+                                                </p>
                                             </div>
                                         </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <p class="text-sm">{{ $item->start_date->format('d M Y H:i') }}</p>
-                                        <p class="text-sm text-gray-500">to</p>
-                                        <p class="text-sm">{{ $item->end_date->format('d M Y H:i') }}</p>
                                     </td>
                                     <td class="px-6 py-4">
                                         <span class="font-semibold">{{ $item->days }}</span> days
@@ -105,10 +139,12 @@
                             <span class="text-gray-600">Subtotal</span>
                             <span>Rp {{ number_format($total, 0, ',', '.') }}</span>
                         </div>
+                        @if($deposit > 0)
                         <div class="flex justify-between">
-                            <span class="text-gray-600">Deposit (30%)</span>
-                            <span>Rp {{ number_format($total * 0.3, 0, ',', '.') }}</span>
+                            <span class="text-gray-600">Deposit</span>
+                            <span>Rp {{ number_format($deposit, 0, ',', '.') }}</span>
                         </div>
+                        @endif
                         <hr>
                         <div class="flex justify-between font-bold text-lg">
                             <span>Total</span>
@@ -143,3 +179,79 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Only run if the global date form exists
+            if (!document.getElementById('global-date-form')) return;
+
+            const pickupTimeInput = document.getElementById('global_pickup_time');
+            const returnTimeInput = document.getElementById('global_return_time');
+            const startDateInput = document.getElementById('global_start_date');
+            const endDateInput = document.getElementById('global_end_date');
+            
+            let selectedStart = null;
+            let selectedEnd = null;
+
+            // Try to initialize from existing cart items (server-side rendered values)
+            // But we can also check localStorage to see if it matches
+            
+            const updateHiddenDates = () => {
+                if (selectedStart && selectedEnd) {
+                    const pickupTime = pickupTimeInput.value;
+                    const returnTime = returnTimeInput.value;
+                    
+                    startDateInput.value = `${selectedStart} ${pickupTime}:00`;
+                    endDateInput.value = `${selectedEnd} ${returnTime}:00`;
+
+                    // Update localStorage so catalog pages stay in sync
+                    if (localStorage.getItem('gearent_pickup_time') !== pickupTime) {
+                        localStorage.setItem('gearent_pickup_time', pickupTime);
+                    }
+                    if (localStorage.getItem('gearent_return_time') !== returnTime) {
+                        localStorage.setItem('gearent_return_time', returnTime);
+                    }
+                    if (localStorage.getItem('gearent_rental_dates') !== `${selectedStart} to ${selectedEnd}`) {
+                        localStorage.setItem('gearent_rental_dates', `${selectedStart} to ${selectedEnd}`);
+                    }
+                }
+            };
+
+            const fp = flatpickr("#global_date_range", {
+                mode: "range",
+                minDate: "today",
+                dateFormat: "Y-m-d",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");
+                        selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
+                        updateHiddenDates();
+                    }
+                },
+                onReady: function(selectedDates, dateStr, instance) {
+                    // Initialize with the dates from the cart (passed from backend or parsed from existing items)
+                    // Since we didn't pass specific variables, we can parse from the first item if needed
+                    // OR rely on the fact that we should default to what the user sees
+                    
+                    // Actually, let's use the values from the first cart item as the source of truth
+                    // We can inject them via PHP
+                    @if($cartItems->count() > 0)
+                        const initialStart = "{{ $cartItems->first()->start_date->format('Y-m-d') }}";
+                        const initialEnd = "{{ $cartItems->first()->end_date->format('Y-m-d') }}";
+                        instance.setDate([initialStart, initialEnd], true);
+                    @endif
+                }
+            });
+
+            pickupTimeInput.addEventListener('change', updateHiddenDates);
+            returnTimeInput.addEventListener('change', updateHiddenDates);
+            
+            // Listen for changes from other tabs? 
+            // Maybe not necessary here as this IS the source of truth when editing.
+            // But if user updates cart in another tab, we should probably refresh?
+            // For now, let's just focus on pushing changes out.
+        });
+    </script>
+@endpush

@@ -141,11 +141,21 @@ class ProcessReturn extends Page implements HasTable
                     ->modalHeading('Check Item')
                     ->modalWidth('md')
                     ->fillForm(function (DeliveryItem $record): array {
+                        $currentCondition = $record->condition;
+
+                        if (! $currentCondition) {
+                            if ($record->rentalItemKit) {
+                                $currentCondition = $record->rentalItemKit->unitKit->condition ?? null;
+                            } else {
+                                $currentCondition = $record->rentalItem->productUnit->condition ?? null;
+                            }
+                        }
+
                         return [
                             'item_name' => $record->rentalItemKit 
                                 ? $record->rentalItemKit->unitKit->name 
                                 : $record->rentalItem->productUnit->product->name,
-                            'condition' => $record->condition,
+                            'condition' => $currentCondition,
                             'is_checked' => $record->is_checked,
                             'notes' => $record->notes,
                         ];
@@ -177,12 +187,32 @@ class ProcessReturn extends Page implements HasTable
                             'notes' => $data['notes'],
                         ]);
 
+                        // SYNC CONDITION TO MASTER DATA
+                        $newCondition = $data['condition'];
+                        $isMaintenance = in_array($newCondition, ['broken', 'lost']);
+                        $updates = ['condition' => $newCondition];
+                        
+                        if ($isMaintenance) {
+                            // Add note about auto maintenance
+                            $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes) . "\n[AUTO] Marked as {$newCondition} during Return.";
+                            
+                            // Only update status for Main Unit, as Kit doesn't have status field
+                            if (!$record->rentalItemKit) {
+                                $updates['status'] = \App\Models\ProductUnit::STATUS_MAINTENANCE;
+                            }
+                        }
+
                         // Sync back to RentalItemKit if it's a kit
                         if ($record->rentalItemKit) {
                             $record->rentalItemKit->update([
                                 'condition_in' => $data['condition'],
                                 'is_returned' => $data['is_checked'],
                             ]);
+                            // Update Unit Kit Master
+                            $record->rentalItemKit->unitKit->update($updates);
+                        } else {
+                            // Update Main Unit Master
+                            $record->rentalItem->productUnit->update($updates);
                         }
 
                         $this->delivery->refresh();

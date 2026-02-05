@@ -41,6 +41,7 @@ Route::middleware('customer.auth')->prefix('customer')->name('customer.')->group
 Route::middleware('customer.auth')->group(function () {
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+    Route::post('/cart/update-all', [CartController::class, 'updateAll'])->name('cart.update-all');
     Route::put('/cart/{cart}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/{cart}', [CartController::class, 'remove'])->name('cart.remove');
     Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');

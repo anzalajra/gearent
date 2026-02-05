@@ -97,7 +97,14 @@ class PickupOperation extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query($this->delivery->items()->getQuery())
+            ->query(
+                $this->delivery->items()->getQuery()
+                    ->with([
+                        'rentalItem.productUnit.product',
+                        'rentalItemKit.unitKit',
+                        'rentalItem.rental', // Needed for swap action form
+                    ])
+            )
             ->columns([
                 TextColumn::make('item_name')
                     ->label('Item')
@@ -115,6 +122,25 @@ class PickupOperation extends Page implements HasTable
                             return $record->rentalItemKit->unitKit->serial_number ?? '-';
                         }
                         return $record->rentalItem->productUnit->serial_number;
+                    })
+                    ->description(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return null;
+                        }
+                        $unit = $record->rentalItem->productUnit;
+                        if (in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
+                            return "⚠️ UNAVAILABLE ({$unit->status})";
+                        }
+                        return null;
+                    })
+                    ->color(function (DeliveryItem $record) {
+                        if (!$record->rentalItemKit) {
+                            $unit = $record->rentalItem->productUnit;
+                            if (in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
+                                return 'danger';
+                            }
+                        }
+                        return null;
                     }),
 
                 TextColumn::make('type')
@@ -140,10 +166,95 @@ class PickupOperation extends Page implements HasTable
                     ->falseColor('danger'),
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('swap_unit')
+                    ->label('Swap')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->color('info')
+                    ->hidden(fn (DeliveryItem $record) => $record->rentalItemKit !== null)
+                    ->form(function (DeliveryItem $record) {
+                        $rental = $record->rentalItem->rental;
+                        $productId = $record->rentalItem->productUnit->product_id;
+                        $currentUnitId = $record->rentalItem->product_unit_id;
+
+                        return [
+                            Select::make('new_product_unit_id')
+                                ->label('Select Available Unit')
+                                ->options(function() use ($rental, $productId, $currentUnitId) {
+                                     return \App\Models\ProductUnit::where('product_id', $productId)
+                                        ->whereNotIn('status', [\App\Models\ProductUnit::STATUS_MAINTENANCE, \App\Models\ProductUnit::STATUS_RETIRED])
+                                        ->where('id', '!=', $currentUnitId)
+                                        ->whereDoesntHave('rentalItems', function ($q) use ($rental) {
+                                            $q->whereHas('rental', function ($r) use ($rental) {
+                                                $r->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+                                                  ->where('id', '!=', $rental->id) // Exclude current rental
+                                                  ->where(function ($d) use ($rental) {
+                                                      $d->where('start_date', '<', $rental->end_date)
+                                                        ->where('end_date', '>', $rental->start_date);
+                                                  });
+                                            });
+                                        })
+                                        ->get()
+                                        ->mapWithKeys(fn($u) => [$u->id => $u->serial_number . ' (' . ucfirst($u->status) . ')']);
+                                })
+                                ->required()
+                                ->searchable()
+                                ->preload()
+                        ];
+                    })
+                    ->action(function (DeliveryItem $record, array $data) {
+                        $rentalItem = $record->rentalItem;
+                        $oldUnitId = $rentalItem->product_unit_id;
+                        $newUnitId = $data['new_product_unit_id'];
+
+                        // 1. Update Main Unit in Rental Item
+                        $rentalItem->update([
+                            'product_unit_id' => $newUnitId
+                        ]);
+
+                        // 2. Remove old kits from Rental Item Kits (since they belong to old unit)
+                        // And delete associated delivery items for those kits
+                        $oldKits = $rentalItem->rentalItemKits;
+                        foreach ($oldKits as $kit) {
+                            // Delete delivery item associated with this kit
+                            $this->delivery->items()->where('rental_item_kit_id', $kit->id)->delete();
+                            $kit->delete();
+                        }
+
+                        // 3. Attach new kits from new unit
+                        $rentalItem->refresh(); // Refresh to get new unit relation
+                        $rentalItem->attachKitsFromUnit();
+
+                        // 4. Create new delivery items for new kits
+                        $rentalItem->refresh(); // Refresh to get new kits
+                        foreach ($rentalItem->rentalItemKits as $kit) {
+                            $this->delivery->items()->firstOrCreate([
+                                'rental_item_id' => $rentalItem->id,
+                                'rental_item_kit_id' => $kit->id,
+                            ], [
+                                'is_checked' => false,
+                                'condition' => $kit->condition_out,
+                            ]);
+                        }
+                        
+                        Notification::make()
+                            ->title('Unit swapped successfully')
+                            ->success()
+                            ->send();
+                            
+                        $this->redirect(request()->header('Referer'));
+                    }),
+
                 \Filament\Actions\Action::make('check_item')
                     ->label(fn (DeliveryItem $record) => $record->is_checked ? 'Edit' : 'Check')
                     ->icon(fn (DeliveryItem $record) => $record->is_checked ? 'heroicon-o-pencil' : 'heroicon-o-check')
                     ->color(fn (DeliveryItem $record) => $record->is_checked ? 'gray' : 'warning')
+                    ->disabled(function (DeliveryItem $record) {
+                        if ($record->rentalItemKit) {
+                            return false; // Kits logic might differ, or rely on unit status? For now enable.
+                        }
+                        $unit = $record->rentalItem->productUnit;
+                        return in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE]);
+                    })
                     ->modalHeading('Check Item')
                     ->modalWidth('md')
                     ->fillForm(function (DeliveryItem $record): array {
@@ -183,11 +294,30 @@ class PickupOperation extends Page implements HasTable
                             'notes' => $data['notes'],
                         ]);
 
-                        // Sync back to RentalItemKit if it's a kit
+                        // SYNC CONDITION TO MASTER DATA
+                        $newCondition = $data['condition'];
+                        $isMaintenance = in_array($newCondition, ['broken', 'lost']);
+                        $updates = ['condition' => $newCondition];
+                        
+                        if ($isMaintenance) {
+                            // Add note about auto maintenance
+                            $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes) . "\n[AUTO] Marked as {$newCondition} during Pickup.";
+                            
+                            // Only update status for Main Unit, as Kit doesn't have status field
+                            if (!$record->rentalItemKit) {
+                                $updates['status'] = \App\Models\ProductUnit::STATUS_MAINTENANCE;
+                            }
+                        }
+
                         if ($record->rentalItemKit) {
                             $record->rentalItemKit->update([
                                 'condition_out' => $data['condition'],
                             ]);
+                            // Update Unit Kit Master
+                            $record->rentalItemKit->unitKit->update($updates);
+                        } else {
+                            // Update Main Unit Master
+                            $record->rentalItem->productUnit->update($updates);
                         }
 
                         $this->delivery->refresh();

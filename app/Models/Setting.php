@@ -27,10 +27,13 @@ class Setting extends Model
 
     public static function set(string $key, $value): void
     {
-        self::updateOrCreate(
-            ['key' => $key],
-            ['value' => $value]
-        );
+        $setting = self::firstOrNew(['key' => $key]);
+        $setting->value = $value;
+        if (!$setting->exists) {
+            $setting->label = ucwords(str_replace('_', ' ', $key));
+        }
+        $setting->save();
+
         Cache::forget("setting.{$key}");
     }
 

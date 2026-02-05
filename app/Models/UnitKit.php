@@ -13,6 +13,12 @@ class UnitKit extends Model
         'serial_number',
         'condition',
         'notes',
+        'last_checked_at',
+        'maintenance_status',
+    ];
+
+    protected $casts = [
+        'last_checked_at' => 'datetime',
     ];
 
     public function productUnit(): BelongsTo
@@ -33,6 +39,8 @@ class UnitKit extends Model
             'good' => 'Good',
             'fair' => 'Fair',
             'poor' => 'Poor',
+            'broken' => 'Broken',
+            'lost' => 'Lost',
         ];
     }
 }

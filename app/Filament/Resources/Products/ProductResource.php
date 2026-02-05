@@ -23,13 +23,28 @@ class ProductResource extends Resource
     protected static ?string $recordTitleAttribute = 'name';
 
     // Navigation Configuration
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
+    // protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
     
-    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    // protected static string|UnitEnum|null $navigationGroup = 'Inventory';
     
-    protected static ?int $navigationSort = 1;
+    // protected static ?int $navigationSort = 1;
     
     protected static ?string $navigationLabel = 'Product';
+
+    public static function getNavigationIcon(): ?string
+    {
+        return 'heroicon-o-cube';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Inventory';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
 
     public static function form(Schema $schema): Schema
     {

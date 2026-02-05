@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cart;
 use App\Models\ProductUnit;
+use App\Models\Rental;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -15,9 +16,10 @@ class CartController extends Controller
         $customer = Auth::guard('customer')->user();
         $cartItems = $customer->carts()->with(['productUnit.product'])->get();
         $total = $cartItems->sum('subtotal');
+        $deposit = Rental::calculateDeposit($total);
         $canCheckout = $customer->canRent();
 
-        return view('frontend.cart.index', compact('cartItems', 'total', 'canCheckout'));
+        return view('frontend.cart.index', compact('cartItems', 'total', 'deposit', 'canCheckout'));
     }
 
     public function add(Request $request)
@@ -36,14 +38,25 @@ class CartController extends Controller
         ]);
 
         $product = \App\Models\Product::findOrFail($request->product_id);
-        $startDate = Carbon::parse($request->start_date);
-        $endDate = Carbon::parse($request->end_date);
+        
+        // Check for existing cart items to enforce global dates
+        $existingCartItem = $customer->carts()->first();
+        if ($existingCartItem) {
+            $startDate = $existingCartItem->start_date;
+            $endDate = $existingCartItem->end_date;
+            $usingGlobalDates = true;
+        } else {
+            $startDate = Carbon::parse($request->start_date);
+            $endDate = Carbon::parse($request->end_date);
+            $usingGlobalDates = false;
+        }
         
         // Find available unit automatically
         $unit = $product->findAvailableUnit($startDate, $endDate);
 
         if (!$unit) {
-            return back()->with('error', 'Maaf, alat ini tidak tersedia untuk tanggal yang dipilih.');
+            $dateMsg = $usingGlobalDates ? " (mengikuti tanggal di keranjang: {$startDate->format('d M Y')})" : "";
+            return back()->with('error', "Maaf, alat ini tidak tersedia untuk tanggal yang dipilih{$dateMsg}.");
         }
 
         $days = max(1, $startDate->diffInDays($endDate));
@@ -58,7 +71,7 @@ class CartController extends Controller
             ->first();
 
         if ($existingCart) {
-            return back()->with('error', 'Item ini sudah ada di keranjang Anda untuk tanggal yang sama.');
+            return back()->with('error', 'Item ini sudah ada di keranjang Anda.');
         }
 
         Cart::create([
@@ -71,7 +84,63 @@ class CartController extends Controller
             'subtotal' => $product->daily_rate * $days,
         ]);
 
-        return back()->with('success', 'Berhasil ditambahkan ke keranjang.');
+        $msg = 'Berhasil ditambahkan ke keranjang.';
+        if ($usingGlobalDates) {
+            $msg .= " Tanggal disesuaikan dengan item lain di keranjang ({$startDate->format('d M')} - {$endDate->format('d M')}).";
+        }
+
+        return back()->with('success', $msg);
+    }
+
+    public function updateAll(Request $request)
+    {
+        $customer = Auth::guard('customer')->user();
+        
+        $request->validate([
+            'start_date' => 'required|date|after_or_equal:today',
+            'end_date' => 'required|date|after:start_date',
+        ]);
+
+        $startDate = Carbon::parse($request->start_date);
+        $endDate = Carbon::parse($request->end_date);
+        $days = max(1, $startDate->diffInDays($endDate));
+        
+        $cartItems = $customer->carts()->with('productUnit.product')->get();
+        $errors = [];
+        $updatedCount = 0;
+
+        foreach ($cartItems as $item) {
+            $product = $item->productUnit->product;
+            
+            // Try to find a unit available for the NEW dates
+            // First check if the CURRENT unit is available (excluding the current cart reservation if it overlaps? 
+            // Actually findAvailableUnit checks rentals. Cart items are not rentals yet, so they don't block availability 
+            // EXCEPT for other cart items. But we are updating THIS cart item.)
+            
+            // However, findAvailableUnit might return a DIFFERENT unit if the current one is booked by someone else.
+            // So we should be flexible.
+            $unit = $product->findAvailableUnit($startDate, $endDate);
+
+            if (!$unit) {
+                $errors[] = "Produk {$product->name} tidak tersedia untuk tanggal baru.";
+                continue;
+            }
+
+            $item->update([
+                'product_unit_id' => $unit->id, // Switch unit if necessary
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'days' => $days,
+                'subtotal' => $product->daily_rate * $days,
+            ]);
+            $updatedCount++;
+        }
+
+        if (count($errors) > 0) {
+            return back()->with('error', implode(' ', $errors) . ' Item lain berhasil diperbarui.');
+        }
+
+        return back()->with('success', 'Semua item di keranjang berhasil diperbarui ke tanggal baru.');
     }
 
     public function update(Request $request, Cart $cart)

@@ -27,7 +27,7 @@ class CheckoutController extends Controller
         }
 
         $subtotal = $cartItems->sum('subtotal');
-        $deposit = $subtotal * 0.3;
+        $deposit = Rental::calculateDeposit($subtotal);
 
         return view('frontend.checkout.index', compact('customer', 'cartItems', 'subtotal', 'deposit'));
     }
