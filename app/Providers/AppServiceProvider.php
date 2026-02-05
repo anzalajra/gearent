@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Rental;
+use App\Models\Setting;
 use App\Observers\RentalObserver;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Cart;
 use App\Policies\CartPolicy;
@@ -21,5 +23,13 @@ class AppServiceProvider extends ServiceProvider
         Rental::observe(RentalObserver::class);
     
         Gate::policy(Cart::class, CartPolicy::class);
+
+        View::composer('pdf.*', function ($view) {
+            $settings = Setting::where('key', 'like', 'doc_%')
+                ->pluck('value', 'key')
+                ->toArray();
+            
+            $view->with('doc_settings', $settings);
+        });
     }
 }

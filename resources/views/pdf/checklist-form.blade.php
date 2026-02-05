@@ -1,212 +1,105 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Checklist Form - {{ $rental->rental_code }}</title>
-    <style>
-        body {
-            font-family: 'DejaVu Sans', sans-serif;
-            font-size: 11px;
-            line-height: 1.4;
-            color: #333;
-            margin: 0;
-            padding: 10px;
-        }
-        .header {
-            margin-bottom: 20px;
-            display: table;
-            width: 100%;
-        }
-        .header-logo {
-            display: table-cell;
-            width: 30%;
-            vertical-align: middle;
-        }
-        .header-logo h2 {
-            margin: 0;
-            color: #333;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .header-info {
-            display: table-cell;
-            width: 70%;
-            text-align: right;
-            vertical-align: middle;
-            font-size: 10px;
-            color: #333;
-        }
-        .renter-info {
-            margin-bottom: 20px;
-        }
-        .renter-info p {
-            margin: 0;
-            font-size: 11px;
-        }
-        .rental-code {
-            font-size: 24px;
-            font-weight: bold;
-            color: #d32f2f;
-            margin: 15px 0;
-        }
-        .meta-table {
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        .meta-table td {
-            padding: 2px 0;
-        }
-        .meta-label {
-            font-weight: bold;
-            width: 110px;
-        }
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-        .items-table th, .items-table td {
-            border: 1px solid #333;
-            padding: 8px;
-            text-align: left;
-        }
-        .items-table th {
-            background-color: #f5f5f5;
-            text-transform: uppercase;
-            font-weight: bold;
-            font-size: 10px;
-        }
-        .checkbox-cell {
-            text-align: center;
-            width: 70px;
-        }
-        .checkbox-box {
-            display: inline-block;
-            width: 15px;
-            height: 15px;
-            border: 1px solid #333;
-            margin: 0 auto;
-        }
-        .kit-row td {
-            font-size: 10px;
-            color: #555;
-            background-color: #fafafa;
-        }
-        .signature-section {
-            margin-top: 50px;
-            page-break-inside: avoid;
-        }
-        .signature-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .signature-table th, .signature-table td {
-            border: 1px solid #333;
-            width: 25%;
-            padding: 10px;
-            text-align: center;
-        }
-        .signature-table th {
-            background-color: #f5f5f5;
-            font-size: 10px;
-            padding: 8px;
-            text-transform: uppercase;
-        }
-        .signature-box {
-            height: 100px;
-        }
-        .note {
-            font-style: italic;
-            font-size: 10px;
-            margin-top: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="header-logo">
-            <h2 style="margin: 0;">Warehouse</h2>
+@extends('pdf.layout')
+
+@section('title', 'Checklist Form - ' . $rental->rental_code)
+
+@section('content')
+    <div class="document-title text-center">CHECKLIST FORM</div>
+    <div class="text-center mb-4" style="color: #666;">
+        Equipment Pickup & Return Verification
+        <br>
+        <strong>{{ $rental->rental_code }}</strong>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-6">
+            <div class="meta-box" style="margin-right: 10px;">
+                <div class="meta-title">Rental Info</div>
+                <table style="width: 100%; border: none;">
+                    <tr>
+                        <td style="padding: 2px; border: none; width: 80px;">Status</td>
+                        <td style="padding: 2px; border: none;">: {{ ucfirst($rental->getRealTimeStatus()) }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 2px; border: none;">Date</td>
+                        <td style="padding: 2px; border: none;">: {{ $rental->start_date->format('d/m/Y H:i') }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 2px; border: none;">Period</td>
+                        <td style="padding: 2px; border: none;">: {{ $rental->start_date->format('d M') }} - {{ $rental->end_date->format('d M Y') }}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
-        <div class="header-info">
-            Warehouse Film dan Televisi UPI<br>
-            Fakultas Pendidikan Seni dan Desain Universitas, Jl. Dr Setiabudhi, Pendidikan Indonesia No.229,<br>
-            Isola, Kec. Sukasari, Kota Bandung, Jawa Barat bandung JB 40154 Indonesia
+        <div class="col-6">
+            <div class="meta-box" style="margin-left: 10px;">
+                <div class="meta-title">Renter Info</div>
+                <p class="mb-1"><strong>{{ $rental->customer->name }}</strong></p>
+                <p class="mb-1">{{ $rental->customer->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $rental->customer->phone ?? '-' }}</p>
+            </div>
         </div>
     </div>
-
-    <div class="renter-info">
-        <p style="font-weight: bold; margin-bottom: 5px;">Equipment Renter:</p>
-        <p style="font-size: 13px; font-weight: bold; margin-bottom: 2px;">{{ $rental->customer->name }}</p>
-        <p>{{ $rental->customer->address ?? '-' }}</p>
-    </div>
-
-    <div class="rental-code">
-        {{ $rental->rental_code }}
-    </div>
-
-    <table class="meta-table">
-        <tr>
-            <td class="meta-label">Order</td>
-            <td>: {{ $rental->rental_code }}</td>
-            <td class="meta-label">Status</td>
-            <td>: {{ ucfirst($rental->getRealTimeStatus()) }}</td>
-            <td class="meta-label">Scheduled Date</td>
-            <td>: {{ $rental->start_date->format('d/m/Y h:i:s A') }}</td>
-        </tr>
-    </table>
 
     <table class="items-table">
         <thead>
             <tr>
                 <th style="width: 40%;">PRODUCT</th>
-                <th style="width: 10%; text-align: center;">QUANTITY</th>
-                <th style="width: 10%; text-align: center;">PICKUP</th>
-                <th style="width: 10%; text-align: center;">RETURN</th>
-                <th style="width: 30%;">LOT/SERIAL NUMBER</th>
+                <th style="width: 10%; text-align: center;">QTY</th>
+                <th style="width: 10%; text-align: center;">OUT</th>
+                <th style="width: 10%; text-align: center;">IN</th>
+                <th style="width: 30%;">SERIAL NUMBER</th>
             </tr>
         </thead>
         <tbody>
             @foreach($rental->items as $item)
                 <tr>
                     <td><strong>{{ $item->productUnit->product->name }}</strong></td>
-                    <td style="text-align: center;">1.00</td>
-                    <td class="checkbox-cell"><div class="checkbox-box"></div></td>
-                    <td class="checkbox-cell"><div class="checkbox-box"></div></td>
+                    <td style="text-align: center;">1</td>
+                    <td style="text-align: center;"><div style="width: 15px; height: 15px; border: 1px solid #333; margin: 0 auto;"></div></td>
+                    <td style="text-align: center;"><div style="width: 15px; height: 15px; border: 1px solid #333; margin: 0 auto;"></div></td>
                     <td>{{ $item->productUnit->serial_number }}</td>
                 </tr>
                 @foreach($item->rentalItemKits as $kit)
-                <tr class="kit-row">
-                    <td style="padding-left: 20px;">↳ {{ $kit->unitKit->name }}</td>
-                    <td style="text-align: center;">1.00</td>
-                    <td class="checkbox-cell"><div class="checkbox-box"></div></td>
-                    <td class="checkbox-cell"><div class="checkbox-box"></div></td>
-                    <td>{{ $kit->unitKit->serial_number ?? '-' }}</td>
+                <tr style="background-color: {{ $doc_settings['doc_secondary_color'] ?? '#fafafa' }};">
+                    <td style="padding-left: 20px; font-size: 11px;">
+                        <span style="display:inline-block; width: 8px; height: 8px; border-left: 1px solid #666; border-bottom: 1px solid #666; margin-right: 2px; margin-bottom: 4px;">&nbsp;</span>
+                        {{ $kit->unitKit->name }}
+                    </td>
+                    <td style="text-align: center; font-size: 11px;">1</td>
+                    <td style="text-align: center;"><div style="width: 12px; height: 12px; border: 1px solid #666; margin: 0 auto;"></div></td>
+                    <td style="text-align: center;"><div style="width: 12px; height: 12px; border: 1px solid #666; margin: 0 auto;"></div></td>
+                    <td style="font-size: 11px;">{{ $kit->unitKit->serial_number ?? '-' }}</td>
                 </tr>
                 @endforeach
             @endforeach
         </tbody>
     </table>
 
-    <div class="signature-section">
-        <table class="signature-table">
+    <div style="margin-top: 50px; page-break-inside: avoid;">
+        <table style="width: 100%; border: 1px solid #333; border-collapse: collapse;">
             <thead>
                 <tr>
-                    <th>PICKUP RENTER</th>
-                    <th>PICKUP CHECKER</th>
-                    <th>RETURN RENTER</th>
-                    <th>RETURN CHECKER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">PICKUP RENTER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">PICKUP CHECKER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">RETURN RENTER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">RETURN CHECKER</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="signature-box"></td>
-                    <td class="signature-box"></td>
-                    <td class="signature-box"></td>
-                    <td class="signature-box"></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
+                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
+                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
+                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
                 </tr>
             </tbody>
         </table>
-        <div class="note">*Isi kolom dengan nama lengkap & tanda tangan</div>
+        <div style="font-style: italic; font-size: 10px; margin-top: 10px;">*Isi kolom dengan nama lengkap & tanda tangan untuk setiap proses.</div>
     </div>
-</body>
-</html>
+@endsection
