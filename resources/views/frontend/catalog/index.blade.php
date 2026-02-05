@@ -2,6 +2,21 @@
 
 @section('title', 'Catalog')
 
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        .flatpickr-day.flatpickr-disabled,
+        .flatpickr-day.flatpickr-disabled:hover {
+            color: #ffffff !important;
+            background: #ef4444 !important;
+            border-color: #ef4444 !important;
+            text-decoration: none !important;
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+        }
+    </style>
+@endpush
+
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex flex-col lg:flex-row gap-8">
@@ -14,6 +29,31 @@
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
                         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search products..." class="w-full border rounded-lg px-3 py-2 text-sm">
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Rental Dates</label>
+                        <div class="relative">
+                            <input type="text" id="date_range" placeholder="Select dates..." 
+                                class="w-full border rounded-lg px-3 py-2 text-sm bg-white cursor-pointer" readonly>
+                            <input type="hidden" name="start_date" id="start_date" value="{{ request('start_date') }}">
+                            <input type="hidden" name="end_date" id="end_date" value="{{ request('end_date') }}">
+                        </div>
+                    </div>
+
+                    <!-- Time -->
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Pickup</label>
+                            <input type="time" name="pickup_time" value="{{ request('pickup_time', '09:00') }}" 
+                                class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Return</label>
+                            <input type="time" name="return_time" value="{{ request('return_time', '09:00') }}" 
+                                class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                        </div>
                     </div>
 
                     <!-- Category -->
@@ -72,7 +112,7 @@
                                 <p class="text-primary-600 font-bold">Rp {{ number_format($product->daily_rate, 0, ',', '.') }}/day</p>
                                 <span class="text-xs text-gray-500">{{ $product->units->where('status', 'available')->count() }} available</span>
                             </div>
-                            <a href="{{ route('catalog.show', $product) }}" class="mt-3 block text-center bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition">
+                            <a href="{{ route('catalog.show', array_merge(['product' => $product], request()->only(['start_date', 'end_date', 'pickup_time', 'return_time']))) }}" class="mt-3 block text-center bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition">
                                 View Details
                             </a>
                         </div>
@@ -92,3 +132,27 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDateInput = document.getElementById('start_date');
+            const endDateInput = document.getElementById('end_date');
+            
+            // Initialize Flatpickr
+            flatpickr("#date_range", {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                defaultDate: [startDateInput.value, endDateInput.value],
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        startDateInput.value = instance.formatDate(selectedDates[0], "Y-m-d");
+                        endDateInput.value = instance.formatDate(selectedDates[1], "Y-m-d");
+                    }
+                }
+            });
+        });
+    </script>
+@endpush

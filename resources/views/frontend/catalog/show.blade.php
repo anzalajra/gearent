@@ -189,13 +189,22 @@
             const pickupTimeInput = document.getElementById('pickup_time');
             const returnTimeInput = document.getElementById('return_time');
             
+            // URL Params
+            const urlStartDate = "{{ request('start_date') }}";
+            const urlEndDate = "{{ request('end_date') }}";
+            const urlPickupTime = "{{ request('pickup_time') }}";
+            const urlReturnTime = "{{ request('return_time') }}";
+
             // Load saved values
             const savedDates = localStorage.getItem('gearent_rental_dates');
             const savedPickup = localStorage.getItem('gearent_pickup_time');
             const savedReturn = localStorage.getItem('gearent_return_time');
 
-            if (savedPickup) pickupTimeInput.value = savedPickup;
-            if (savedReturn) returnTimeInput.value = savedReturn;
+            if (urlPickupTime) pickupTimeInput.value = urlPickupTime;
+            else if (savedPickup) pickupTimeInput.value = savedPickup;
+
+            if (urlReturnTime) returnTimeInput.value = urlReturnTime;
+            else if (savedReturn) returnTimeInput.value = savedReturn;
 
             let selectedStart = null;
             let selectedEnd = null;
@@ -218,12 +227,28 @@
                 }
             };
 
+            let defaultDates = null;
+            if (urlStartDate && urlEndDate) {
+                defaultDates = [urlStartDate, urlEndDate];
+                selectedStart = urlStartDate;
+                selectedEnd = urlEndDate;
+                updateHiddenDates();
+                
+                // Update localStorage to match current selection
+                const dateStr = `${urlStartDate} to ${urlEndDate}`;
+                if (localStorage.getItem('gearent_rental_dates') !== dateStr) {
+                    localStorage.setItem('gearent_rental_dates', dateStr);
+                }
+            } else if (savedDates) {
+                defaultDates = savedDates.split(' to ');
+            }
+
             const fp = flatpickr("#date_range", {
                 mode: "range",
                 minDate: "today",
                 dateFormat: "Y-m-d",
                 disable: bookedDates,
-                defaultDate: savedDates ? savedDates.split(' to ') : null,
+                defaultDate: defaultDates,
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length === 2) {
                         selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");

@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Category;
+use App\Models\Rental;
 use App\Models\ProductUnit;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class CatalogController extends Controller
 {
@@ -13,6 +15,36 @@ class CatalogController extends Controller
     {
         $query = Product::with(['category', 'units'])
             ->where('is_active', true);
+
+        // Filter by date range availability
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            try {
+                $pickupTime = $request->input('pickup_time', '09:00');
+                $returnTime = $request->input('return_time', '09:00');
+                
+                $startDate = Carbon::parse($request->start_date . ' ' . $pickupTime);
+                $endDate = Carbon::parse($request->end_date . ' ' . $returnTime);
+
+                $query->whereHas('units', function ($unitQuery) use ($startDate, $endDate) {
+                    $unitQuery->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+                        ->whereDoesntHave('rentalItems', function ($rentalQuery) use ($startDate, $endDate) {
+                            $rentalQuery->whereHas('rental', function ($rQuery) use ($startDate, $endDate) {
+                                $rQuery->whereIn('status', [
+                                    Rental::STATUS_PENDING,
+                                    Rental::STATUS_ACTIVE,
+                                    Rental::STATUS_LATE_PICKUP,
+                                    Rental::STATUS_LATE_RETURN
+                                ])->where(function ($overlap) use ($startDate, $endDate) {
+                                    $overlap->where('start_date', '<', $endDate)
+                                            ->where('end_date', '>', $startDate);
+                                });
+                            });
+                        });
+                });
+            } catch (\Exception $e) {
+                // Invalid date format, ignore filter
+            }
+        }
 
         // Filter by category
         if ($request->filled('category')) {
