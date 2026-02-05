@@ -93,7 +93,7 @@ class RentalsTable
                         ->icon('heroicon-o-clipboard-document-list')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $record->load(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit']);
+                            $record->load(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
                             
                             $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $record]);
                             
@@ -156,7 +156,7 @@ class RentalsTable
                         ->icon('heroicon-o-document-text')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product'])->find($record->quotation_id);
+                            $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->quotation_id);
                             
                             if (!$quotation) {
                                 Notification::make()
@@ -206,7 +206,7 @@ class RentalsTable
                         ->icon('heroicon-o-document-currency-dollar')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product'])->find($record->invoice_id);
+                            $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->invoice_id);
                             
                             if (!$invoice) {
                                 Notification::make()

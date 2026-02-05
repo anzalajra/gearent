@@ -16,7 +16,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <a href="{{ route('home') }}" class="flex items-center gap-2 text-xl font-bold text-primary-600">
+                    <a href="{{ url('/') }}" class="flex items-center gap-2 text-xl font-bold text-primary-600">
                         @if(\App\Models\Setting::get('site_logo'))
                             <img src="{{ \Illuminate\Support\Facades\Storage::url(\App\Models\Setting::get('site_logo')) }}" alt="{{ \App\Models\Setting::get('site_name', 'Gearent') }}" class="h-10 w-auto">
                         @endif
@@ -25,8 +25,21 @@
                         @endif
                     </a>
                     <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
-                        <a href="{{ route('home') }}" class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium">Home</a>
-                        <a href="{{ route('catalog.index') }}" class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium">Catalog</a>
+                        @php
+                            $mainMenu = \App\Models\NavigationMenu::where('handle', 'main-menu')->first();
+                            $menuItems = $mainMenu ? $mainMenu->items : [
+                                ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                            ];
+                        @endphp
+
+                        @foreach($menuItems as $item)
+                            <a href="{{ $item['url'] }}" 
+                               target="{{ $item['target'] ?? '_self' }}"
+                               class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium {{ request()->url() == $item['url'] ? 'text-primary-600' : '' }}">
+                                {{ $item['label'] }}
+                            </a>
+                        @endforeach
                     </div>
                 </div>
 
@@ -182,8 +195,23 @@
                 <div>
                     <h4 class="font-semibold mb-4">Quick Links</h4>
                     <ul class="space-y-2 text-gray-400">
-                        <li><a href="{{ route('home') }}" class="hover:text-white">Home</a></li>
-                        <li><a href="{{ route('catalog.index') }}" class="hover:text-white">Catalog</a></li>
+                        @php
+                            $footerMenu = \App\Models\NavigationMenu::where('handle', 'footer-menu')->first();
+                            $footerItems = $footerMenu ? $footerMenu->items : [
+                                ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                            ];
+                        @endphp
+                        
+                        @foreach($footerItems as $item)
+                            <li>
+                                <a href="{{ $item['url'] }}" 
+                                   target="{{ $item['target'] ?? '_self' }}"
+                                   class="hover:text-white">
+                                    {{ $item['label'] }}
+                                </a>
+                            </li>
+                        @endforeach
                     </ul>
                 </div>
                 <div>

@@ -53,7 +53,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-clipboard-document-list')
                     ->color('gray')
                     ->action(function () {
-                        $this->rental->load(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit']);
+                        $this->rental->load(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
                         
                         $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $this->rental]);
                         
@@ -113,7 +113,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-document-text')
                     ->color('gray')
                     ->action(function () {
-                        $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product'])->find($this->rental->quotation_id);
+                        $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->quotation_id);
                         
                         if (!$quotation) {
                             Notification::make()
@@ -154,7 +154,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-document-currency-dollar')
                     ->color('gray')
                     ->action(function () {
-                        $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product'])->find($this->rental->invoice_id);
+                        $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->invoice_id);
                         
                         if (!$invoice) {
                             Notification::make()

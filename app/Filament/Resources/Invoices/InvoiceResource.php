@@ -120,7 +120,13 @@ class InvoiceResource extends Resource
                     ->icon('heroicon-o-printer')
                     ->color('gray')
                     ->action(function (Invoice $record) {
-                        $record->load(['customer', 'rentals.items.productUnit.product']);
+                        foreach ($record->rentals as $rental) {
+                            foreach ($rental->items as $item) {
+                                $item->attachKitsFromUnit();
+                            }
+                        }
+                        
+                        $record->load(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
                         
                         $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $record]);
                         

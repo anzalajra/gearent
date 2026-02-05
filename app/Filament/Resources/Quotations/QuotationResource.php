@@ -166,7 +166,13 @@ class QuotationResource extends Resource
                     ->icon('heroicon-o-printer')
                     ->color('gray')
                     ->action(function (Quotation $record) {
-                        $record->load(['customer', 'rentals.items.productUnit.product']);
+                        foreach ($record->rentals as $rental) {
+                            foreach ($rental->items as $item) {
+                                $item->attachKitsFromUnit();
+                            }
+                        }
+
+                        $record->load(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
                         
                         $pdf = Pdf::loadView('pdf.quotation', ['quotation' => $record]);
                         

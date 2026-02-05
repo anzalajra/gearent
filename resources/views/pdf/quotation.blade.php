@@ -52,6 +52,24 @@
                 <td class="text-right">{{ $item->days }}</td>
                 <td class="text-right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
             </tr>
+            @php
+                $kits = $item->rentalItemKits->count() > 0 
+                    ? $item->rentalItemKits->map(fn($k) => $k->unitKit) 
+                    : $item->productUnit->kits;
+            @endphp
+            @foreach($kits as $kit)
+            <tr style="background-color: {{ $doc_settings['doc_secondary_color'] ?? '#fafafa' }};">
+                <td></td>
+                <td style="padding-left: 20px; font-size: 11px;">
+                    <span style="display:inline-block; width: 8px; height: 8px; border-left: 1px solid #666; border-bottom: 1px solid #666; margin-right: 2px; margin-bottom: 4px;">&nbsp;</span>
+                    {{ $kit->name }}
+                </td>
+                <td style="font-size: 11px;">{{ $kit->serial_number ?? '-' }}</td>
+                <td class="text-right" style="font-size: 11px;">-</td>
+                <td class="text-right" style="font-size: 11px;">-</td>
+                <td class="text-right" style="font-size: 11px;">-</td>
+            </tr>
+            @endforeach
             @endforeach
             @endforeach
         </tbody>
