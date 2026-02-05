@@ -24,6 +24,7 @@ class Customer extends Authenticatable
         'verified_at',
         'verified_by',
         'customer_category_id',
+        'custom_fields',
     ];
 
     protected $hidden = [
@@ -36,6 +37,7 @@ class Customer extends Authenticatable
         'verified_at' => 'datetime',
         'is_verified' => 'boolean',
         'password' => 'hashed',
+        'custom_fields' => 'array',
     ];
 
     public function rentals(): HasMany

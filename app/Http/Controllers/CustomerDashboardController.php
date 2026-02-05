@@ -27,22 +27,85 @@ class CustomerDashboardController extends Controller
         $documentTypes = DocumentType::getActiveTypes();
         $uploadedDocuments = $customer->documents()->with('documentType')->get()->keyBy('document_type_id');
         $verificationStatus = $customer->getVerificationStatus();
+        
+        $customFields = json_decode(\App\Models\Setting::get('registration_custom_fields', '[]'), true);
 
-        return view('frontend.dashboard.profile', compact('customer', 'documentTypes', 'uploadedDocuments', 'verificationStatus'));
+        return view('frontend.dashboard.profile', compact('customer', 'documentTypes', 'uploadedDocuments', 'verificationStatus', 'customFields'));
     }
 
     public function updateProfile(Request $request)
     {
         $customer = Auth::guard('customer')->user();
 
-        $request->validate([
+        // Base validation
+        $rules = [
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
             'nik' => 'required|string|size:16',
             'address' => 'nullable|string',
-        ]);
+        ];
 
-        $customer->update($request->only(['name', 'phone', 'nik', 'address']));
+        // Custom fields validation
+        $customFields = json_decode(\App\Models\Setting::get('registration_custom_fields', '[]'), true);
+        $customData = $customer->custom_fields ?? [];
+        
+        if (!empty($customFields)) {
+            foreach ($customFields as $field) {
+                // Check visibility for current customer category
+                $visibleCategories = $field['visible_for_categories'] ?? [];
+                if (!empty($visibleCategories) && !in_array($customer->customer_category_id, $visibleCategories)) {
+                    continue; 
+                }
+
+                $fieldName = 'custom_' . $field['name'];
+                $fieldRules = [];
+
+                if ($field['required'] ?? false) {
+                    $fieldRules[] = 'required';
+                } else {
+                    $fieldRules[] = 'nullable';
+                }
+
+                if ($field['type'] === 'number') {
+                    $fieldRules[] = 'numeric';
+                } elseif ($field['type'] === 'email') {
+                    $fieldRules[] = 'email';
+                } else {
+                    $fieldRules[] = 'string';
+                }
+
+                $rules[$fieldName] = $fieldRules;
+            }
+        }
+
+        $validated = $request->validate($rules);
+
+        // Extract custom fields data
+        if (!empty($customFields)) {
+            foreach ($customFields as $field) {
+                $fieldName = 'custom_' . $field['name'];
+                
+                // Only update if the field was present in the request (it might be hidden/not submitted)
+                // However, since we validate it (if visible), it should be in $validated if we add it to rules
+                // But if it was skipped in validation loop above (not visible), we shouldn't update it (keep old value or null)
+                
+                $visibleCategories = $field['visible_for_categories'] ?? [];
+                if (!empty($visibleCategories) && !in_array($customer->customer_category_id, $visibleCategories)) {
+                    continue; 
+                }
+
+                if (array_key_exists($fieldName, $validated)) {
+                    $customData[$field['name']] = $validated[$fieldName];
+                }
+            }
+        }
+
+        $customer->name = $validated['name'];
+        $customer->phone = $validated['phone'];
+        $customer->nik = $validated['nik'];
+        $customer->address = $validated['address'];
+        $customer->custom_fields = $customData;
+        $customer->save();
 
         return back()->with('success', 'Profile updated successfully.');
     }

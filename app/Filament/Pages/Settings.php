@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\DocumentType;
 use App\Models\Setting;
+use App\Models\CustomerCategory;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
@@ -43,6 +44,12 @@ class Settings extends Page implements HasForms
     public function mount(): void
     {
         $settings = Setting::all()->pluck('value', 'key')->toArray();
+        
+        // Decode JSON settings
+        if (isset($settings['registration_custom_fields'])) {
+            $settings['registration_custom_fields'] = json_decode($settings['registration_custom_fields'], true);
+        }
+
         $this->form->fill([
             ...$settings,
             'document_types' => DocumentType::orderBy('sort_order')->get()->toArray(),
@@ -179,6 +186,71 @@ class Settings extends Page implements HasForms
                                     ->helperText('Send rental notifications via WhatsApp'),
                             ]),
 
+                        Tabs\Tab::make('Registration')
+                            ->icon('heroicon-o-user-plus')
+                            ->schema([
+                                Toggle::make('registration_open')
+                                    ->label('Accept New Registrations')
+                                    ->default(true),
+                                
+                                Toggle::make('auto_verify_registration')
+                                    ->label('Auto Verify Email')
+                                    ->helperText('If enabled, customers will be verified automatically upon registration.')
+                                    ->default(true),
+
+                                Select::make('default_customer_category_id')
+                                    ->label('Default Customer Category')
+                                    ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                                    ->searchable(),
+
+                                Section::make('Custom Registration Fields')
+                                    ->description('Add extra fields to the registration form.')
+                                    ->schema([
+                                        Repeater::make('registration_custom_fields')
+                                            ->label('Fields')
+                                            ->schema([
+                                                Grid::make(2)->schema([
+                                                    TextInput::make('label')->required(),
+                                                    TextInput::make('name')
+                                                        ->required()
+                                                        ->label('Field Key')
+                                                        ->helperText('Unique key for database storage (e.g., student_id)'),
+                                                ]),
+                                                Select::make('type')
+                                                    ->options([
+                                                        'text' => 'Text',
+                                                        'number' => 'Number',
+                                                        'select' => 'Select',
+                                                        'radio' => 'Radio',
+                                                        'checkbox' => 'Checkbox', // For single checkbox (boolean)
+                                                        'textarea' => 'Textarea',
+                                                    ])
+                                                    ->required()
+                                                    ->live(),
+                                                
+                                                Repeater::make('options')
+                                                    ->schema([
+                                                        TextInput::make('value')->required(),
+                                                        TextInput::make('label')->required(),
+                                                    ])
+                                                    ->columns(2)
+                                                    ->visible(fn ($get) => in_array($get('type'), ['select', 'radio'])),
+                                                
+                                                Grid::make(2)->schema([
+                                                    Toggle::make('required'),
+                                                    Select::make('visible_for_categories')
+                                                        ->multiple()
+                                                        ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                                                        ->label('Visible Only for Categories')
+                                                        ->placeholder('All Categories'),
+                                                ]),
+                                            ])
+                                            ->columnSpanFull()
+                                            ->collapsible()
+                                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null),
+                                    ]),
+                            ]),
+
                         Tabs\Tab::make('Document Types')
                             ->icon('heroicon-o-document-text')
                             ->schema([
@@ -211,6 +283,11 @@ class Settings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
+
+        // Handle JSON fields
+        if (isset($data['registration_custom_fields']) && is_array($data['registration_custom_fields'])) {
+            $data['registration_custom_fields'] = json_encode($data['registration_custom_fields']);
+        }
 
         // Handle General/Rental/WhatsApp Settings
         $settingsData = collect($data)->except('document_types')->toArray();

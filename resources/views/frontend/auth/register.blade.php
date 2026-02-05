@@ -5,6 +5,12 @@
 @section('content')
 @php
     $oldCategoryId = old('customer_category_id');
+    
+    // Use default category if set and no old input
+    if (!$oldCategoryId && isset($defaultCategoryId) && $defaultCategoryId) {
+        $oldCategoryId = $defaultCategoryId;
+    }
+
     $oldCategory = $oldCategoryId ? $categories->find($oldCategoryId) : null;
     $umumId = $categories->firstWhere('slug', 'umum')?->id;
     
@@ -168,6 +174,82 @@
                         <label for="password_confirmation" class="block text-sm font-medium text-gray-700">Confirm Password</label>
                         <input id="password_confirmation" name="password_confirmation" type="password" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
                     </div>
+
+                    {{-- Custom Fields --}}
+                    @if(isset($customFields) && count($customFields) > 0)
+                        <div class="space-y-4 pt-4 border-t border-gray-200">
+                            @foreach($customFields as $field)
+                                @php
+                                    $fieldName = 'custom_' . $field['name'];
+                                    $visibleCats = $field['visible_for_categories'] ?? [];
+                                    // Ensure IDs are strings for consistent JS comparison
+                                    $visibleCats = array_map('strval', $visibleCats);
+                                    $visibleCatsJson = json_encode($visibleCats);
+                                    $isRequired = $field['required'] ?? false;
+                                @endphp
+                                <div x-data="{ visibleCats: {{ $visibleCatsJson }} }" 
+                                     x-show="visibleCats.length === 0 || visibleCats.includes(String(categoryId))"
+                                     x-transition>
+                                    
+                                    @if($field['type'] !== 'checkbox')
+                                        <label for="{{ $fieldName }}" class="block text-sm font-medium text-gray-700">
+                                            {{ $field['label'] }}
+                                            @if($isRequired) <span class="text-red-500">*</span> @endif
+                                        </label>
+                                    @endif
+                                    
+                                    @if($field['type'] === 'text' || $field['type'] === 'number' || $field['type'] === 'email')
+                                        <input id="{{ $fieldName }}" name="{{ $fieldName }}" type="{{ $field['type'] === 'number' ? 'number' : 'text' }}" 
+                                            value="{{ old($fieldName) }}"
+                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                                    
+                                    @elseif($field['type'] === 'textarea')
+                                        <textarea id="{{ $fieldName }}" name="{{ $fieldName }}" rows="3" 
+                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">{{ old($fieldName) }}</textarea>
+                                    
+                                    @elseif($field['type'] === 'select')
+                                        <select id="{{ $fieldName }}" name="{{ $fieldName }}" 
+                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                                            <option value="">Select {{ $field['label'] }}</option>
+                                            @foreach($field['options'] ?? [] as $option)
+                                                <option value="{{ $option['value'] }}" {{ old($fieldName) == $option['value'] ? 'selected' : '' }}>
+                                                    {{ $option['label'] }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    
+                                    @elseif($field['type'] === 'radio')
+                                        <div class="mt-2 space-y-2">
+                                            @foreach($field['options'] ?? [] as $option)
+                                                <div class="flex items-center">
+                                                    <input id="{{ $fieldName }}_{{ $option['value'] }}" name="{{ $fieldName }}" type="radio" value="{{ $option['value'] }}"
+                                                        {{ old($fieldName) == $option['value'] ? 'checked' : '' }}
+                                                        class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-gray-300">
+                                                    <label for="{{ $fieldName }}_{{ $option['value'] }}" class="ml-2 block text-sm text-gray-700">
+                                                        {{ $option['label'] }}
+                                                    </label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                    @elseif($field['type'] === 'checkbox')
+                                        <div class="mt-2 flex items-center">
+                                            <input id="{{ $fieldName }}" name="{{ $fieldName }}" type="checkbox" value="1"
+                                                {{ old($fieldName) ? 'checked' : '' }}
+                                                class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-gray-300 rounded">
+                                            <label for="{{ $fieldName }}" class="ml-2 block text-sm text-gray-700">
+                                                {{ $field['label'] }} @if($isRequired) <span class="text-red-500">*</span> @endif
+                                            </label>
+                                        </div>
+                                    @endif
+                                    
+                                    @error($fieldName)
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
                 <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">

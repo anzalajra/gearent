@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -36,19 +37,65 @@ class CustomerAuthController extends Controller
 
     public function showRegistrationForm()
     {
+        if (!Setting::get('registration_open', true)) {
+            return redirect()->route('customer.login')->with('error', 'Pendaftaran anggota baru sedang ditutup.');
+        }
+
         $categories = \App\Models\CustomerCategory::where('is_active', true)->get();
-        return view('frontend.auth.register', compact('categories'));
+        $customFields = json_decode(Setting::get('registration_custom_fields', '[]'), true);
+        $defaultCategoryId = Setting::get('default_customer_category_id');
+        
+        return view('frontend.auth.register', compact('categories', 'customFields', 'defaultCategoryId'));
     }
 
     public function register(Request $request)
     {
-        $request->validate([
+        if (!Setting::get('registration_open', true)) {
+            return back()->with('error', 'Pendaftaran anggota baru sedang ditutup.');
+        }
+
+        // Base Validation
+        $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:customers',
             'phone' => 'required|string|max:20',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'customer_category_id' => 'required|exists:customer_categories,id',
-        ]);
+        ];
+
+        // Custom Fields Validation
+        $customFields = json_decode(Setting::get('registration_custom_fields', '[]'), true);
+        $customData = [];
+        $selectedCategory = $request->customer_category_id;
+
+        if (!empty($customFields)) {
+            foreach ($customFields as $field) {
+                // Check visibility
+                $visibleCategories = $field['visible_for_categories'] ?? [];
+                if (!empty($visibleCategories) && !in_array($selectedCategory, $visibleCategories)) {
+                    continue; // Skip validation if not visible
+                }
+
+                $fieldName = 'custom_' . $field['name']; // Prefix to avoid conflict
+                $rules[$fieldName] = $field['required'] ? 'required' : 'nullable';
+                
+                if ($field['type'] === 'number') {
+                    $rules[$fieldName] .= '|numeric';
+                }
+                if ($field['type'] === 'email') {
+                    $rules[$fieldName] .= '|email';
+                }
+                
+                // Collect data if present
+                if ($request->has($fieldName)) {
+                    $customData[$field['name']] = $request->input($fieldName);
+                }
+            }
+        }
+
+        $request->validate($rules);
+
+        $autoVerify = Setting::get('auto_verify_registration', true);
 
         $customer = Customer::create([
             'name' => $request->name,
@@ -56,7 +103,10 @@ class CustomerAuthController extends Controller
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
             'customer_category_id' => $request->customer_category_id,
-            'email_verified_at' => now(), // Auto verify
+            'email_verified_at' => $autoVerify ? now() : null,
+            'is_verified' => $autoVerify,
+            'verified_at' => $autoVerify ? now() : null,
+            'custom_fields' => !empty($customData) ? $customData : null,
         ]);
 
         Auth::guard('customer')->login($customer);

@@ -159,6 +159,89 @@
                 </div>
             </div>
 
+            @if(isset($customFields) && count($customFields) > 0)
+                <div class="mb-4 pt-4 border-t border-gray-100">
+                    <h3 class="text-sm font-medium text-gray-900 mb-4">Informasi Tambahan</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @foreach($customFields as $field)
+                            @php
+                                $fieldName = 'custom_' . $field['name'];
+                                $visibleCats = $field['visible_for_categories'] ?? [];
+                                $isRequired = $field['required'] ?? false;
+                                $currentValue = $customer->custom_fields[$field['name']] ?? '';
+                                
+                                // Check visibility
+                                if (!empty($visibleCats) && !in_array($customer->customer_category_id, $visibleCats)) {
+                                    continue;
+                                }
+                            @endphp
+                            
+                            <div class="col-span-1">
+                                @if($field['type'] !== 'checkbox')
+                                    <label for="{{ $fieldName }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                        {{ $field['label'] }}
+                                        @if($isRequired) <span class="text-red-500">*</span> @endif
+                                    </label>
+                                @endif
+
+                                @if($field['type'] === 'select')
+                                    <select id="{{ $fieldName }}" name="{{ $fieldName }}" class="w-full border rounded-lg px-3 py-2 bg-white focus:ring-primary-500 focus:border-primary-500">
+                                        <option value="">Pilih {{ $field['label'] }}</option>
+                                        @foreach($field['options'] ?? [] as $option)
+                                            <option value="{{ $option['value'] }}" {{ $currentValue == $option['value'] ? 'selected' : '' }}>
+                                                {{ $option['label'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+
+                                @elseif($field['type'] === 'radio')
+                                    <div class="mt-2 space-y-2">
+                                        @foreach($field['options'] ?? [] as $option)
+                                            <div class="flex items-center">
+                                                <input id="{{ $fieldName }}_{{ $loop->index }}" name="{{ $fieldName }}" type="radio" value="{{ $option['value'] }}" 
+                                                    {{ $currentValue == $option['value'] ? 'checked' : '' }}
+                                                    class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-gray-300">
+                                                <label for="{{ $fieldName }}_{{ $loop->index }}" class="ml-3 block text-sm font-medium text-gray-700">
+                                                    {{ $option['label'] }}
+                                                </label>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                @elseif($field['type'] === 'checkbox')
+                                    <div class="flex items-start mt-2">
+                                        <div class="flex items-center h-5">
+                                            <input id="{{ $fieldName }}" name="{{ $fieldName }}" type="checkbox" value="1" 
+                                                {{ $currentValue ? 'checked' : '' }}
+                                                class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-gray-300 rounded">
+                                        </div>
+                                        <div class="ml-3 text-sm">
+                                            <label for="{{ $fieldName }}" class="font-medium text-gray-700">
+                                                {{ $field['label'] }}
+                                                @if($isRequired) <span class="text-red-500">*</span> @endif
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                @elseif($field['type'] === 'textarea')
+                                    <textarea id="{{ $fieldName }}" name="{{ $fieldName }}" rows="3" 
+                                        class="w-full border rounded-lg px-3 py-2 focus:ring-primary-500 focus:border-primary-500">{{ $currentValue }}</textarea>
+
+                                @else
+                                    <input id="{{ $fieldName }}" name="{{ $fieldName }}" type="{{ $field['type'] === 'number' ? 'number' : 'text' }}" 
+                                        value="{{ $currentValue }}"
+                                        class="w-full border rounded-lg px-3 py-2 focus:ring-primary-500 focus:border-primary-500">
+                                @endif
+                                
+                                @error($fieldName)
+                                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
                 <textarea name="address" rows="3" class="w-full border rounded-lg px-3 py-2">{{ old('address', $customer->address) }}</textarea>
