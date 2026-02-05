@@ -12,6 +12,8 @@ class Rental extends Model
         'rental_code',
         'customer_id',
         'discount_id',
+        'quotation_id',
+        'invoice_id',
         'discount_code',
         'start_date',
         'end_date',
@@ -96,6 +98,16 @@ class Rental extends Model
     public function discountRelation(): BelongsTo
     {
         return $this->belongsTo(Discount::class, 'discount_id');
+    }
+
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
     }
 
     public function items(): HasMany

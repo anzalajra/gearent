@@ -1,6 +1,6 @@
 @extends('pdf.layout')
 
-@section('title', 'Invoice - ' . $rental->rental_code)
+@section('title', 'Invoice - ' . $invoice->number)
 
 @section('content')
     <div class="document-title">INVOICE</div>
@@ -9,11 +9,12 @@
         <div class="col-6">
             <div class="meta-box" style="margin-right: 10px;">
                 <div class="meta-title">Invoice Details</div>
-                <p class="mb-1"><strong>Invoice #:</strong> INV-{{ $rental->rental_code }}</p>
-                <p class="mb-1"><strong>Date:</strong> {{ now()->format('d F Y') }}</p>
+                <p class="mb-1"><strong>Invoice #:</strong> {{ $invoice->number }}</p>
+                <p class="mb-1"><strong>Date:</strong> {{ $invoice->date ? $invoice->date->format('d F Y') : '-' }}</p>
+                <p class="mb-1"><strong>Due Date:</strong> {{ $invoice->due_date ? $invoice->due_date->format('d F Y') : '-' }}</p>
                 <p class="mb-1"><strong>Status:</strong> 
-                    <span class="badge {{ $rental->status === 'completed' ? 'badge-success' : 'badge-danger' }}">
-                        {{ $rental->status === 'completed' ? 'LUNAS' : 'BELUM LUNAS' }}
+                    <span class="badge {{ $invoice->status === 'paid' ? 'badge-success' : 'badge-danger' }}">
+                        {{ strtoupper($invoice->status) }}
                     </span>
                 </p>
             </div>
@@ -21,20 +22,10 @@
         <div class="col-6">
             <div class="meta-box" style="margin-left: 10px;">
                 <div class="meta-title">Bill To</div>
-                <p class="mb-1"><strong>{{ $rental->customer->name }}</strong></p>
-                <p class="mb-1">{{ $rental->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $rental->customer->phone ?? '-' }}</p>
-                <p class="mb-1">Email: {{ $rental->customer->email ?? '-' }}</p>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mb-4">
-        <div class="col-6">
-            <div class="meta-box" style="margin-right: 10px;">
-                <div class="meta-title">Rental Period</div>
-                <p class="mb-1"><strong>Start:</strong> {{ $rental->start_date->format('d M Y H:i') }}</p>
-                <p class="mb-1"><strong>End:</strong> {{ $rental->end_date->format('d M Y H:i') }}</p>
+                <p class="mb-1"><strong>{{ $invoice->customer->name }}</strong></p>
+                <p class="mb-1">{{ $invoice->customer->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $invoice->customer->phone ?? '-' }}</p>
+                <p class="mb-1">Email: {{ $invoice->customer->email ?? '-' }}</p>
             </div>
         </div>
     </div>
@@ -51,6 +42,12 @@
             </tr>
         </thead>
         <tbody>
+            @foreach($invoice->rentals as $rental)
+            <tr>
+                <td colspan="6" style="background-color: #f3f4f6; font-weight: bold; font-size: 11px;">
+                    Rental: {{ $rental->rental_code }} | Period: {{ $rental->start_date->format('d M Y H:i') }} - {{ $rental->end_date->format('d M Y H:i') }}
+                </td>
+            </tr>
             @foreach($rental->items as $index => $item)
             <tr>
                 <td>{{ $index + 1 }}</td>
@@ -60,6 +57,7 @@
                 <td class="text-right">{{ $item->days }}</td>
                 <td class="text-right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
             </tr>
+            @endforeach
             @endforeach
         </tbody>
     </table>
@@ -75,10 +73,10 @@
                 </div>
             @endif
 
-            @if($rental->notes)
+            @if($invoice->notes)
             <div class="meta-box" style="margin-right: 10px; margin-top: 10px;">
                 <div class="meta-title">Notes</div>
-                <p style="font-size: 11px;">{{ $rental->notes }}</p>
+                <p style="font-size: 11px;">{{ $invoice->notes }}</p>
             </div>
             @endif
         </div>
@@ -86,24 +84,21 @@
             <table style="width: 100%; margin-left: 10px;">
                 <tr>
                     <td style="border: none; padding: 5px;">Subtotal</td>
-                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($rental->subtotal, 0, ',', '.') }}</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($invoice->subtotal, 0, ',', '.') }}</td>
                 </tr>
-                @if($rental->discount > 0)
+                @php
+                    $totalDiscount = $invoice->rentals->sum('discount');
+                @endphp
+                @if($totalDiscount > 0)
                 <tr>
                     <td style="border: none; padding: 5px;">Discount</td>
-                    <td style="border: none; padding: 5px;" class="text-right">- Rp {{ number_format($rental->discount, 0, ',', '.') }}</td>
+                    <td style="border: none; padding: 5px;" class="text-right">- Rp {{ number_format($totalDiscount, 0, ',', '.') }}</td>
                 </tr>
                 @endif
                 <tr style="font-weight: bold; font-size: 14px; background-color: {{ $doc_settings['doc_secondary_color'] ?? '#f3f4f6' }};">
                     <td style="padding: 10px;">TOTAL</td>
-                    <td style="padding: 10px;" class="text-right">Rp {{ number_format($rental->total, 0, ',', '.') }}</td>
+                    <td style="padding: 10px;" class="text-right">Rp {{ number_format($invoice->total, 0, ',', '.') }}</td>
                 </tr>
-                @if($rental->deposit > 0)
-                <tr>
-                    <td style="border: none; padding: 5px;">Deposit (Refundable)</td>
-                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($rental->deposit, 0, ',', '.') }}</td>
-                </tr>
-                @endif
             </table>
         </div>
     </div>

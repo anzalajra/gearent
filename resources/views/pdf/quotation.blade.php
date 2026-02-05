@@ -1,6 +1,6 @@
 @extends('pdf.layout')
 
-@section('title', 'Quotation - ' . $rental->rental_code)
+@section('title', 'Quotation - ' . $quotation->number)
 
 @section('content')
     <div class="document-title text-center">QUOTATION</div>
@@ -10,18 +10,17 @@
         <div class="col-6">
             <div class="meta-box" style="margin-right: 10px;">
                 <div class="meta-title">Customer Info</div>
-                <p class="mb-1"><strong>{{ $rental->customer->name }}</strong></p>
-                <p class="mb-1">{{ $rental->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $rental->customer->phone ?? '-' }}</p>
+                <p class="mb-1"><strong>{{ $quotation->customer->name }}</strong></p>
+                <p class="mb-1">{{ $quotation->customer->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $quotation->customer->phone ?? '-' }}</p>
             </div>
         </div>
         <div class="col-6">
             <div class="meta-box" style="margin-left: 10px;">
                 <div class="meta-title">Quotation Details</div>
-                <p class="mb-1"><strong>Code:</strong> {{ $rental->rental_code }}</p>
-                <p class="mb-1"><strong>Date:</strong> {{ now()->format('d F Y') }}</p>
-                <p class="mb-1"><strong>Valid Until:</strong> {{ now()->addDays(7)->format('d F Y') }}</p>
-                <p class="mb-1"><strong>Period:</strong> {{ $rental->start_date->format('d M Y H:i') }} - {{ $rental->end_date->format('d M Y H:i') }}</p>
+                <p class="mb-1"><strong>Code:</strong> {{ $quotation->number }}</p>
+                <p class="mb-1"><strong>Date:</strong> {{ $quotation->date ? $quotation->date->format('d F Y') : '-' }}</p>
+                <p class="mb-1"><strong>Valid Until:</strong> {{ $quotation->valid_until ? $quotation->valid_until->format('d F Y') : '-' }}</p>
             </div>
         </div>
     </div>
@@ -38,6 +37,12 @@
             </tr>
         </thead>
         <tbody>
+            @foreach($quotation->rentals as $rental)
+            <tr>
+                <td colspan="6" style="background-color: #f3f4f6; font-weight: bold; font-size: 11px;">
+                    Rental: {{ $rental->rental_code }} | Period: {{ $rental->start_date->format('d M Y H:i') }} - {{ $rental->end_date->format('d M Y H:i') }}
+                </td>
+            </tr>
             @foreach($rental->items as $index => $item)
             <tr>
                 <td>{{ $index + 1 }}</td>
@@ -47,6 +52,7 @@
                 <td class="text-right">{{ $item->days }}</td>
                 <td class="text-right">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
             </tr>
+            @endforeach
             @endforeach
         </tbody>
     </table>
@@ -64,10 +70,10 @@
                 </ul>
             </div>
             
-            @if($rental->notes)
+            @if($quotation->notes)
             <div class="meta-box" style="margin-right: 10px; margin-top: 10px;">
                 <div class="meta-title">Notes</div>
-                <p style="font-size: 11px;">{{ $rental->notes }}</p>
+                <p style="font-size: 11px;">{{ $quotation->notes }}</p>
             </div>
             @endif
         </div>
@@ -75,22 +81,31 @@
             <table style="width: 100%; margin-left: 10px;">
                 <tr>
                     <td style="border: none; padding: 5px;">Subtotal</td>
-                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($rental->subtotal, 0, ',', '.') }}</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($quotation->subtotal, 0, ',', '.') }}</td>
                 </tr>
-                @if($rental->discount > 0)
+                {{-- Discount is per rental in current model, but quotation might have global discount? 
+                     Currently Quotation model has subtotal/total but not explicit discount field logic yet?
+                     Let's sum up discounts from rentals if needed or just use total-subtotal difference --}}
+                @php
+                    $totalDiscount = $quotation->rentals->sum('discount');
+                @endphp
+                @if($totalDiscount > 0)
                 <tr>
                     <td style="border: none; padding: 5px;">Discount</td>
-                    <td style="border: none; padding: 5px;" class="text-right">- Rp {{ number_format($rental->discount, 0, ',', '.') }}</td>
+                    <td style="border: none; padding: 5px;" class="text-right">- Rp {{ number_format($totalDiscount, 0, ',', '.') }}</td>
                 </tr>
                 @endif
                 <tr style="font-weight: bold; font-size: 14px; background-color: {{ $doc_settings['doc_secondary_color'] ?? '#f3f4f6' }};">
                     <td style="padding: 10px;">Total</td>
-                    <td style="padding: 10px;" class="text-right">Rp {{ number_format($rental->total, 0, ',', '.') }}</td>
+                    <td style="padding: 10px;" class="text-right">Rp {{ number_format($quotation->total, 0, ',', '.') }}</td>
                 </tr>
-                @if($rental->deposit > 0)
+                @php
+                    $totalDeposit = $quotation->rentals->sum('deposit');
+                @endphp
+                @if($totalDeposit > 0)
                 <tr>
                     <td style="border: none; padding: 5px;">Deposit</td>
-                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($rental->deposit, 0, ',', '.') }}</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($totalDeposit, 0, ',', '.') }}</td>
                 </tr>
                 @endif
             </table>

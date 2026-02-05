@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Filament\Resources\Quotations\QuotationResource;
 use App\Models\Rental;
+use App\Models\Quotation;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -61,37 +63,115 @@ class ViewRental extends Page
                         );
                     }),
 
-                // Quotation PDF
+                // Make Quotation
+                Action::make('make_quotation')
+                    ->label('Make Quotation')
+                    ->icon('heroicon-o-document-plus')
+                    ->color('success')
+                    ->action(function () {
+                        $quotation = Quotation::create([
+                            'customer_id' => $this->rental->customer_id,
+                            'date' => now(),
+                            'valid_until' => now()->addDays(7),
+                            'status' => Quotation::STATUS_ON_QUOTE,
+                            'subtotal' => $this->rental->subtotal,
+                            'tax' => 0,
+                            'total' => $this->rental->total,
+                            'notes' => $this->rental->notes,
+                        ]);
+
+                        $this->rental->update(['quotation_id' => $quotation->id]);
+
+                        Notification::make()
+                            ->title('Quotation created successfully')
+                            ->success()
+                            ->send();
+
+                        return redirect()->to(QuotationResource::getUrl('edit', ['record' => $quotation]));
+                    })
+                    ->visible(function () {
+                        // If invoice exists, do not show Make Quotation (level up)
+                        if ($this->rental->invoice_id) {
+                            return false;
+                        }
+
+                        if (!$this->rental->quotation_id) {
+                            return true;
+                        }
+                        
+                        $quotation = Quotation::find($this->rental->quotation_id);
+                        if (!$quotation) {
+                            return true;
+                        }
+
+                        return $this->rental->updated_at->gt($quotation->created_at->addMinutes(1));
+                    }),
+
+                // Download Quotation
                 Action::make('download_quotation')
                     ->label('Download Quotation')
                     ->icon('heroicon-o-document-text')
                     ->color('gray')
                     ->action(function () {
-                        $this->rental->load(['customer', 'items.productUnit.product']);
+                        $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product'])->find($this->rental->quotation_id);
                         
-                        $pdf = Pdf::loadView('pdf.quotation', ['rental' => $this->rental]);
+                        if (!$quotation) {
+                            Notification::make()
+                                ->title('Quotation not found')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $pdf = Pdf::loadView('pdf.quotation', ['quotation' => $quotation]);
                         
                         return response()->streamDownload(
                             fn () => print($pdf->output()),
-                            'Quotation-' . $this->rental->rental_code . '.pdf'
+                            'Quotation-' . $quotation->number . '.pdf'
                         );
+                    })
+                    ->visible(function () {
+                        // If invoice exists, do not show Download Quotation (level up)
+                        if ($this->rental->invoice_id) {
+                            return false;
+                        }
+
+                        if (!$this->rental->quotation_id) {
+                            return false;
+                        }
+
+                        $quotation = Quotation::find($this->rental->quotation_id);
+                        if (!$quotation) {
+                            return false;
+                        }
+
+                        return !$this->rental->updated_at->gt($quotation->created_at->addMinutes(1));
                     }),
 
-                // Invoice PDF
+                // Download Invoice
                 Action::make('download_invoice')
                     ->label('Download Invoice')
                     ->icon('heroicon-o-document-currency-dollar')
                     ->color('gray')
                     ->action(function () {
-                        $this->rental->load(['customer', 'items.productUnit.product']);
+                        $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product'])->find($this->rental->invoice_id);
                         
-                        $pdf = Pdf::loadView('pdf.invoice', ['rental' => $this->rental]);
+                        if (!$invoice) {
+                            Notification::make()
+                                ->title('Invoice not found')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $invoice]);
                         
                         return response()->streamDownload(
                             fn () => print($pdf->output()),
-                            'Invoice-' . $this->rental->rental_code . '.pdf'
+                            'Invoice-' . $invoice->number . '.pdf'
                         );
-                    }),
+                    })
+                    ->visible(fn () => !empty($this->rental->invoice_id)),
             ])
             ->label('Print')
             ->icon('heroicon-o-printer')

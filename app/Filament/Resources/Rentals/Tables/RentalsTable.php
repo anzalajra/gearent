@@ -3,8 +3,11 @@
 namespace App\Filament\Resources\Rentals\Tables;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Filament\Resources\Quotations\QuotationResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Delivery;
 use App\Models\Rental;
+use App\Models\Quotation;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -23,41 +26,36 @@ class RentalsTable
         return $table
             ->columns([
                 TextColumn::make('rental_code')
-                    ->label('Rental Code')
                     ->searchable()
                     ->sortable(),
-
                 TextColumn::make('customer.name')
-                    ->label('Customer')
                     ->searchable()
                     ->sortable(),
-
                 TextColumn::make('start_date')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime()
                     ->sortable(),
-
                 TextColumn::make('end_date')
-                    ->dateTime('d M Y H:i')
+                    ->dateTime()
                     ->sortable(),
-
                 TextColumn::make('status')
                     ->badge()
-                    ->getStateUsing(fn (Rental $record): string => $record->getRealTimeStatus())
-                    ->color(fn (string $state): string => Rental::getStatusColor($state))
-                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
-
+                    ->color(fn (string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'active' => 'success',
+                        'completed' => 'primary',
+                        'cancelled' => 'danger',
+                        'late_pickup' => 'danger',
+                        'late_return' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('total')
                     ->money('IDR')
                     ->sortable(),
-
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('created_at', 'desc')
-            ->filters([])
-            ->recordActions([
+            ->filters([
+                //
+            ])
+            ->actions([
                 // Pickup button
                 Action::make('pickup')
                     ->label('Pickup')
@@ -105,37 +103,127 @@ class RentalsTable
                             );
                         }),
 
-                    // Quotation PDF
+                    // Make Quotation
+                    Action::make('make_quotation')
+                        ->label('Make Quotation')
+                        ->icon('heroicon-o-document-plus')
+                        ->color('success')
+                        ->action(function (Rental $record) {
+                            $quotation = Quotation::create([
+                                'customer_id' => $record->customer_id,
+                                'date' => now(),
+                                'valid_until' => now()->addDays(7),
+                                'status' => Quotation::STATUS_ON_QUOTE,
+                                'subtotal' => $record->subtotal,
+                                'tax' => 0,
+                                'total' => $record->total,
+                                'notes' => $record->notes,
+                            ]);
+
+                            $record->update(['quotation_id' => $quotation->id]);
+
+                            Notification::make()
+                                ->title('Quotation created successfully')
+                                ->success()
+                                ->send();
+
+                            return redirect()->to(QuotationResource::getUrl('edit', ['record' => $quotation]));
+                        })
+                        ->visible(function (Rental $record) {
+                            // If invoice exists, do not show Make Quotation (level up)
+                            if ($record->invoice_id) {
+                                return false;
+                            }
+
+                            // Visible if NO quotation exists OR rental has been modified AFTER quotation creation
+                            if (!$record->quotation_id) {
+                                return true;
+                            }
+                            
+                            $quotation = Quotation::find($record->quotation_id);
+                            if (!$quotation) {
+                                return true;
+                            }
+
+                            // Check if rental updated_at is greater than quotation created_at
+                            // Using a small buffer (e.g. 1 minute) to avoid immediate re-show
+                            return $record->updated_at->gt($quotation->created_at->addMinutes(1));
+                        }),
+
+                    // Download Quotation
                     Action::make('download_quotation')
                         ->label('Download Quotation')
                         ->icon('heroicon-o-document-text')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $record->load(['customer', 'items.productUnit.product']);
+                            $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product'])->find($record->quotation_id);
                             
-                            $pdf = Pdf::loadView('pdf.quotation', ['rental' => $record]);
+                            if (!$quotation) {
+                                Notification::make()
+                                    ->title('Quotation not found')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $pdf = Pdf::loadView('pdf.quotation', ['quotation' => $quotation]);
                             
                             return response()->streamDownload(
                                 fn () => print($pdf->output()),
-                                'Quotation-' . $record->rental_code . '.pdf'
+                                'Quotation-' . $quotation->number . '.pdf'
                             );
+                        })
+                        ->visible(function (Rental $record) {
+                            // If invoice exists, do not show Download Quotation (level up)
+                            if ($record->invoice_id) {
+                                return false;
+                            }
+
+                            // Visible if quotation exists AND (rental NOT modified OR Make Quotation is hidden)
+                            // Actually, just "Visible if quotation exists" is simpler, but user said "buttons change".
+                            // If "Make Quotation" is visible, "Download" should probably be hidden?
+                            // User said: "kalau rental sudah terdeteksi ada di quotation, tidak bisa buat quotation lagi... semua tombol ganti jadi 'download quotation'"
+                            // AND "kecuali rental ada edit... quotation bisa dibuat lagi".
+                            // So if "Make" is visible, "Download" should be hidden.
+                            
+                            if (!$record->quotation_id) {
+                                return false;
+                            }
+
+                            $quotation = Quotation::find($record->quotation_id);
+                            if (!$quotation) {
+                                return false;
+                            }
+
+                            // If rental modified after quotation, show "Make", hide "Download"?
+                            // Or show both? User said "ganti jadi", implies swap.
+                            return !$record->updated_at->gt($quotation->created_at->addMinutes(1));
                         }),
 
-                    // Invoice PDF
+                    // Download Invoice
                     Action::make('download_invoice')
                         ->label('Download Invoice')
                         ->icon('heroicon-o-document-currency-dollar')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $record->load(['customer', 'items.productUnit.product']);
+                            $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product'])->find($record->invoice_id);
                             
-                            $pdf = Pdf::loadView('pdf.invoice', ['rental' => $record]);
+                            if (!$invoice) {
+                                Notification::make()
+                                    ->title('Invoice not found')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $invoice]);
                             
                             return response()->streamDownload(
                                 fn () => print($pdf->output()),
-                                'Invoice-' . $record->rental_code . '.pdf'
+                                'Invoice-' . $invoice->number . '.pdf'
                             );
-                        }),
+                        })
+                        ->visible(fn (Rental $record) => !empty($record->invoice_id)),
                 ]),
 
                 // Edit button
