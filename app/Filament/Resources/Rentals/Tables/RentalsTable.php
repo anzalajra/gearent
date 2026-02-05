@@ -172,7 +172,6 @@ class RentalsTable
                 // Delete button
                 DeleteAction::make()
                     ->visible(fn (Rental $record) => in_array($record->status, [
-                        Rental::STATUS_PENDING,
                         Rental::STATUS_CANCELLED,
                         Rental::STATUS_COMPLETED,
                     ])),

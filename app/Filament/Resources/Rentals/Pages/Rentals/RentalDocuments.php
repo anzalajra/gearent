@@ -33,7 +33,7 @@ class RentalDocuments extends Page implements HasTable
 
     public function getTitle(): string|Htmlable
     {
-        return 'Rental Documents - ' . $this->rental->rental_code;
+        return 'Rental Delivery - ' . $this->rental->rental_code;
     }
 
     public function table(Table $table): Table

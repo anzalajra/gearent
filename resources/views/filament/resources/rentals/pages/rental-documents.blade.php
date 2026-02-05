@@ -26,7 +26,7 @@
 
     <x-filament::section>
         <x-slot name="heading">
-            Delivery Documents (Surat Jalan)
+            Rental Delivery (Surat Jalan)
         </x-slot>
 
         {{ $this->table }}
