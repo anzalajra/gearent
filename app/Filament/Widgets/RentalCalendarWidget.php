@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Rental;
+use Illuminate\Database\Eloquent\Model;
 use Saade\FilamentFullCalendar\Widgets\FullCalendarWidget;
 use Saade\FilamentFullCalendar\Data\EventData;
 use Filament\Actions\Action;
@@ -15,6 +16,26 @@ use Filament\Forms\Components\Textarea;
 class RentalCalendarWidget extends FullCalendarWidget implements HasActions
 {
     use InteractsWithActions;
+
+    public function getRecord(): ?Model
+    {
+        return null;
+    }
+
+    protected function modalActions(): array
+    {
+        return [];
+    }
+
+    protected function viewAction(): Action
+    {
+        return Action::make('view')->hidden();
+    }
+
+    public function onEventClick(array $event): void
+    {
+        $this->mountAction('viewRentalDetails', ['rentalId' => $event['id']]);
+    }
 
     public function viewRentalDetailsAction(): Action
     {
