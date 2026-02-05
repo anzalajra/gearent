@@ -52,13 +52,36 @@
                                             $current->addDay();
                                         }
                                     }
+                                    $skipDays = 0;
                                 @endphp
 
-                                @foreach($days as $day)
+                                @foreach($days as $index => $day)
+                                    @if($skipDays > 0)
+                                        @php $skipDays--; @endphp
+                                        @continue
+                                    @endif
+
                                     @php
                                         $dateStr = $day->format('Y-m-d');
                                         $rental = $occupiedDays[$dateStr] ?? null;
-                                        $isStart = $rental && $rental['start']->isSameDay($day);
+                                        
+                                        $colspan = 1;
+                                        if ($rental) {
+                                            // Calculate how many subsequent days have the same rental
+                                            $remainingDays = count($days) - $index;
+                                            for ($i = 1; $i < $remainingDays; $i++) {
+                                                $nextDateStr = $days[$index + $i]->format('Y-m-d');
+                                                $nextRental = $occupiedDays[$nextDateStr] ?? null;
+                                                if ($nextRental && $nextRental['id'] === $rental['id']) {
+                                                    $colspan++;
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+                                            $skipDays = $colspan - 1;
+                                        }
+
+                                        $isStart = $rental && ($rental['start']->isSameDay($day) || $index == 0);
                                         
                                         $colorMap = [
                                             'pending' => ['bg' => 'bg-amber-500', 'text' => 'text-white'],
@@ -71,18 +94,16 @@
                                         $status = $rental['status'] ?? '';
                                         $colors = $colorMap[$status] ?? ['bg' => 'bg-gray-100 dark:bg-white/5', 'text' => 'text-transparent'];
                                     @endphp
-                                    <td class="p-0 border-r border-b border-gray-200 dark:border-white/10 relative {{ $day->isToday() ? 'bg-primary-50/20' : '' }}">
+                                    <td colspan="{{ $colspan }}" class="p-0 border-r border-gray-200 dark:border-white/10 relative {{ $day->isToday() && !$rental ? 'bg-primary-50/20' : '' }}">
                                         @if($rental)
                                             <div 
                                                 wire:click="mountAction('viewRentalDetails', { rentalId: {{ $rental['id'] }} })"
-                                                class="absolute inset-y-1 left-0 right-0 {{ $colors['bg'] }} z-10 flex items-center px-1 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                                                class="absolute inset-y-1 left-0 right-0 {{ $colors['bg'] }} z-10 flex items-center px-1 shadow-sm cursor-pointer hover:opacity-80 transition-opacity mx-0.5 rounded-sm"
                                                 title="{{ $rental['code'] }} - {{ $rental['customer'] }} ({{ ucfirst($status) }})"
                                             >
-                                                @if($isStart)
-                                                    <span class="text-[9px] font-bold {{ $colors['text'] }} truncate whitespace-nowrap leading-none">
-                                                        {{ $rental['customer'] }}
-                                                    </span>
-                                                @endif
+                                                <span class="text-[9px] font-bold {{ $colors['text'] }} truncate whitespace-nowrap leading-none px-1">
+                                                    {{ $rental['customer'] }}
+                                                </span>
                                             </div>
                                         @endif
                                     </td>
