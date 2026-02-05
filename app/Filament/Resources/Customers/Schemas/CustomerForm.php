@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use App\Models\CustomerCategory;
 
 class CustomerForm
 {
@@ -28,6 +30,12 @@ class CustomerForm
                         TextInput::make('phone')
                             ->tel()
                             ->maxLength(20),
+
+                        Select::make('customer_category_id')
+                            ->label('Category')
+                            ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload(),
 
                         TextInput::make('nik')
                             ->label('NIK (No. KTP)')

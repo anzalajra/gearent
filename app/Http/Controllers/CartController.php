@@ -15,11 +15,29 @@ class CartController extends Controller
     {
         $customer = Auth::guard('customer')->user();
         $cartItems = $customer->carts()->with(['productUnit.product'])->get();
-        $total = $cartItems->sum('subtotal');
-        $deposit = Rental::calculateDeposit($total);
+        
+        // Calculate totals
+        $netTotal = $cartItems->sum('subtotal');
+        
+        // Calculate gross total (what it would be without discount)
+        $grossTotal = 0;
+        foreach ($cartItems as $item) {
+            // We need the original daily rate of the product
+            $originalDailyRate = $item->productUnit->product->daily_rate;
+            $grossTotal += $originalDailyRate * $item->days;
+        }
+        
+        $discountAmount = $grossTotal - $netTotal;
+        $discountPercentage = $customer->getCategoryDiscountPercentage();
+        $categoryName = $customer->category ? $customer->category->name : null;
+
+        $deposit = Rental::calculateDeposit($netTotal);
         $canCheckout = $customer->canRent();
 
-        return view('frontend.cart.index', compact('cartItems', 'total', 'deposit', 'canCheckout'));
+        return view('frontend.cart.index', compact(
+            'cartItems', 'netTotal', 'grossTotal', 'discountAmount', 
+            'deposit', 'canCheckout', 'discountPercentage', 'categoryName'
+        ));
     }
 
     public function add(Request $request)
@@ -45,6 +63,15 @@ class CartController extends Controller
         $endDate = Carbon::parse($request->end_date);
         
         $product = \App\Models\Product::findOrFail($request->product_id);
+
+        // Check product visibility for customer
+        if (!$product->isVisibleForCustomer($customer)) {
+            $msg = "Produk ini tidak tersedia untuk kategori akun Anda.";
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $msg], 403);
+            }
+            return back()->with('error', $msg);
+        }
         
         // Find available unit for the requested product
         $unit = $product->findAvailableUnit($startDate, $endDate);
@@ -154,14 +181,21 @@ class CartController extends Controller
                 return back()->with('error', 'Item ini sudah ada di keranjang Anda.');
             }
 
+            // Calculate discounted daily rate
+            $discountPercentage = $customer->getCategoryDiscountPercentage();
+            $dailyRate = $product->daily_rate;
+            if ($discountPercentage > 0) {
+                $dailyRate = $dailyRate - ($dailyRate * ($discountPercentage / 100));
+            }
+
             Cart::create([
                 'customer_id' => $customer->id,
                 'product_unit_id' => $unit->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'days' => $days,
-                'daily_rate' => $product->daily_rate,
-                'subtotal' => $product->daily_rate * $days,
+                'daily_rate' => $dailyRate,
+                'subtotal' => $dailyRate * $days,
             ]);
         }
 

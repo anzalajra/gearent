@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Builder;
 
 class Product extends Model
 {
@@ -80,6 +82,39 @@ class Product extends Model
     public function rentalItems(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
     {
         return $this->hasManyThrough(RentalItem::class, ProductUnit::class);
+    }
+
+    public function excludedCustomerCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(CustomerCategory::class, 'product_visibility_exclusions', 'product_id', 'customer_category_id');
+    }
+
+    /**
+     * Scope to filter products visible for a specific customer
+     */
+    public function scopeVisibleForCustomer(Builder $query, ?Customer $customer): Builder
+    {
+        if (!$customer || !$customer->customer_category_id) {
+            return $query;
+        }
+
+        return $query->whereDoesntHave('excludedCustomerCategories', function ($q) use ($customer) {
+            $q->where('customer_categories.id', $customer->customer_category_id);
+        });
+    }
+
+    /**
+     * Check if product is visible for specific customer instance
+     */
+    public function isVisibleForCustomer(?Customer $customer): bool
+    {
+        if (!$customer || !$customer->customer_category_id) {
+            return true;
+        }
+
+        return !$this->excludedCustomerCategories()
+            ->where('customer_categories.id', $customer->customer_category_id)
+            ->exists();
     }
 
     /**

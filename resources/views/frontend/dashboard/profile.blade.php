@@ -3,35 +3,134 @@
 @section('title', 'Profile')
 
 @section('content')
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="{ activeTab: 'profile' }">
     <h1 class="text-2xl font-bold mb-8">Profile & Verification</h1>
 
-    <!-- Verification Status Card -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-lg font-semibold">Status Verifikasi</h2>
-                <p class="text-sm text-gray-600 mt-1">
+    <!-- Account Status & Verification Card -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Verification Status -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <svg class="w-24 h-24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            
+            <div class="relative z-10">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Status Verifikasi
+                </h2>
+
+                <div class="mb-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
+                        @if($verificationStatus === 'verified') bg-green-100 text-green-800
+                        @elseif($verificationStatus === 'pending') bg-yellow-100 text-yellow-800
+                        @else bg-red-100 text-red-800 @endif">
+                        <span class="w-2 h-2 mr-2 rounded-full 
+                            @if($verificationStatus === 'verified') bg-green-500
+                            @elseif($verificationStatus === 'pending') bg-yellow-500
+                            @else bg-red-500 @endif"></span>
+                        {{ $customer->getVerificationStatusLabel() }}
+                    </span>
+                </div>
+
+                <p class="text-sm text-gray-600 leading-relaxed">
                     @if($verificationStatus === 'verified')
-                        Akun Anda sudah terverifikasi dan dapat melakukan rental.
+                        Selamat! Akun Anda telah terverifikasi. Anda dapat menikmati layanan rental kami sepenuhnya.
                     @elseif($verificationStatus === 'pending')
-                        Dokumen Anda sedang ditinjau oleh admin.
+                        Dokumen Anda sedang dalam proses peninjauan oleh tim kami. Mohon menunggu 1x24 jam.
                     @else
-                        Lengkapi dokumen yang diperlukan untuk dapat melakukan rental.
+                        Untuk dapat melakukan transaksi rental, mohon lengkapi dokumen verifikasi identitas Anda.
                     @endif
                 </p>
+
+                @if($verificationStatus !== 'verified' && $verificationStatus !== 'pending')
+                    <button @click="activeTab = 'documents'" class="mt-4 text-sm text-primary-600 font-medium hover:text-primary-700 flex items-center gap-1">
+                        Upload Dokumen
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        </svg>
+                    </button>
+                @endif
             </div>
-            <span class="px-4 py-2 rounded-full text-sm font-semibold
-                @if($verificationStatus === 'verified') bg-green-100 text-green-800
-                @elseif($verificationStatus === 'pending') bg-yellow-100 text-yellow-800
-                @else bg-red-100 text-red-800 @endif">
-                {{ $customer->getVerificationStatusLabel() }}
-            </span>
+        </div>
+
+        <!-- Account Category Status -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <svg class="w-24 h-24 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                </svg>
+            </div>
+
+            <div class="relative z-10">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
+                        </svg>
+                        Status Akun
+                    </h2>
+                </div>
+
+                <div class="mb-6">
+                    @if($customer->category)
+                        <div class="text-3xl font-bold mb-1" style="color: {{ $customer->category->badge_color ?? '#fbbf24' }}">
+                            {{ $customer->category->name }}
+                        </div>
+                        <p class="text-gray-500 text-sm">Level Keanggotaan Anda saat ini</p>
+                    @else
+                        <div class="text-3xl font-bold mb-1 text-gray-400">
+                            Regular Member
+                        </div>
+                        <p class="text-gray-500 text-sm">Tingkatkan transaksi untuk naik level</p>
+                    @endif
+                </div>
+
+                <div class="border-t border-gray-100 pt-4">
+                    <p class="text-sm font-medium text-gray-700 mb-3">Keuntungan:</p>
+                    @if($customer->category && !empty($customer->category->benefits))
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($customer->category->benefits as $benefit)
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    {{ $benefit }}
+                                </span>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-500 italic">Belum ada keuntungan khusus.</p>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Tabs Navigation -->
+    <div class="mb-6 border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button @click="activeTab = 'profile'"
+                :class="{ 'border-primary-500 text-primary-600': activeTab === 'profile', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile' }"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Informasi Pribadi
+            </button>
+            <button @click="activeTab = 'documents'"
+                :class="{ 'border-primary-500 text-primary-600': activeTab === 'documents', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'documents' }"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Dokumen Verifikasi
+            </button>
+            <button @click="activeTab = 'password'"
+                :class="{ 'border-primary-500 text-primary-600': activeTab === 'password', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'password' }"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                Ubah Password
+            </button>
+        </nav>
+    </div>
+
     <!-- Profile Form -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div x-show="activeTab === 'profile'" class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-lg font-semibold mb-4">Informasi Pribadi</h2>
         
         <form action="{{ route('customer.profile.update') }}" method="POST">
@@ -72,7 +171,7 @@
     </div>
 
     <!-- Document Upload -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div x-show="activeTab === 'documents'" class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-lg font-semibold mb-4">Dokumen Verifikasi</h2>
         <p class="text-sm text-gray-600 mb-6">Upload dokumen yang diperlukan untuk verifikasi akun. Format: JPG, PNG, PDF. Maksimal 500KB.</p>
 
@@ -152,7 +251,7 @@
     </div>
 
     <!-- Password Form -->
-    <div class="bg-white rounded-lg shadow p-6">
+    <div x-show="activeTab === 'password'" class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold mb-4">Ubah Password</h2>
         
         <form action="{{ route('customer.password.update') }}" method="POST">

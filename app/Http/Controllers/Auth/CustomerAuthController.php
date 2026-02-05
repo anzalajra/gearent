@@ -36,7 +36,8 @@ class CustomerAuthController extends Controller
 
     public function showRegistrationForm()
     {
-        return view('frontend.auth.register');
+        $categories = \App\Models\CustomerCategory::where('is_active', true)->get();
+        return view('frontend.auth.register', compact('categories'));
     }
 
     public function register(Request $request)
@@ -46,6 +47,7 @@ class CustomerAuthController extends Controller
             'email' => 'required|string|email|max:255|unique:customers',
             'phone' => 'required|string|max:20',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'customer_category_id' => 'required|exists:customer_categories,id',
         ]);
 
         $customer = Customer::create([
@@ -53,6 +55,7 @@ class CustomerAuthController extends Controller
             'email' => $request->email,
             'phone' => $request->phone,
             'password' => Hash::make($request->password),
+            'customer_category_id' => $request->customer_category_id,
             'email_verified_at' => now(), // Auto verify
         ]);
 

@@ -9,12 +9,15 @@ use App\Models\ProductUnit;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
+use Illuminate\Support\Facades\Auth;
+
 class CatalogController extends Controller
 {
     public function index(Request $request)
     {
         $query = Product::with(['category', 'units'])
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->visibleForCustomer(Auth::guard('customer')->user());
 
         // Filter by date range availability
         if ($request->filled('start_date') && $request->filled('end_date')) {

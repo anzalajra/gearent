@@ -2,6 +2,10 @@
 
 @section('title', 'Shopping Cart')
 
+@push('styles')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+@endpush
+
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <h1 class="text-2xl font-bold mb-8">Shopping Cart</h1>
@@ -137,8 +141,16 @@
                     <div class="space-y-3 mb-6">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Subtotal</span>
-                            <span>Rp {{ number_format($total, 0, ',', '.') }}</span>
+                            <span>Rp {{ number_format($grossTotal, 0, ',', '.') }}</span>
                         </div>
+
+                        @if($discountAmount > 0)
+                            <div class="flex justify-between text-green-600">
+                                <span>Discount ({{ $categoryName }})</span>
+                                <span>- Rp {{ number_format($discountAmount, 0, ',', '.') }}</span>
+                            </div>
+                        @endif
+
                         @if($deposit > 0)
                         <div class="flex justify-between">
                             <span class="text-gray-600">Deposit</span>
@@ -148,7 +160,7 @@
                         <hr>
                         <div class="flex justify-between font-bold text-lg">
                             <span>Total</span>
-                            <span class="text-primary-600">Rp {{ number_format($total, 0, ',', '.') }}</span>
+                            <span class="text-primary-600">Rp {{ number_format($netTotal, 0, ',', '.') }}</span>
                         </div>
                     </div>
 

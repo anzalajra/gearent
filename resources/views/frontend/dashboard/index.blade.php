@@ -4,7 +4,14 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-2xl font-bold mb-8">Welcome, {{ $customer->name }}!</h1>
+    <div class="flex items-center gap-3 mb-8">
+        <h1 class="text-2xl font-bold">Welcome, {{ $customer->name }}!</h1>
+        @if($customer->category)
+            <span class="px-3 py-1 rounded-full text-sm font-medium text-white shadow-sm" style="background-color: {{ $customer->category->badge_color ?? '#6b7280' }}">
+                {{ $customer->category->name }}
+            </span>
+        @endif
+    </div>
 
     <!-- Verification Warning -->
     @if($verificationStatus !== 'verified')

@@ -23,6 +23,7 @@ class Customer extends Authenticatable
         'is_verified',
         'verified_at',
         'verified_by',
+        'customer_category_id',
     ];
 
     protected $hidden = [
@@ -55,6 +56,16 @@ class Customer extends Authenticatable
     public function verifiedByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(CustomerCategory::class, 'customer_category_id');
+    }
+
+    public function getCategoryDiscountPercentage(): float
+    {
+        return $this->category ? (float) $this->category->discount_percentage : 0.0;
     }
 
     public function getActiveRentals()

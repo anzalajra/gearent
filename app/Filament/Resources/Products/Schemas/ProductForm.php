@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Products\Schemas;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\CustomerCategory;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -60,6 +62,13 @@ class ProductForm
 
                 Toggle::make('is_active')
                     ->default(true),
+
+                CheckboxList::make('excludedCustomerCategories')
+                    ->label('Hide from Customer Categories')
+                    ->relationship('excludedCustomerCategories', 'name')
+                    ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                    ->columns(2)
+                    ->helperText('Selected categories will NOT be able to see this product.'),
             ]);
     }
 }

@@ -32,6 +32,12 @@ class CustomersTable
                     ->label('NIK')
                     ->searchable(),
 
+                TextColumn::make('category.name')
+                    ->label('Category')
+                    ->badge()
+                    ->color(fn ($record) => $record->category?->badge_color ?? 'gray')
+                    ->sortable(),
+
                 TextColumn::make('verification_status')
                     ->label('Verification')
                     ->badge()
