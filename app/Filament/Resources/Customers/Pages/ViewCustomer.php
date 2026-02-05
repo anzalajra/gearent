@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers\Pages;
 
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\CustomerDocument;
+use App\Notifications\DocumentVerifiedNotification;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
@@ -51,6 +52,14 @@ class ViewCustomer extends ViewRecord
                 ->modalDescription('Are you sure you want to revoke this customer\'s verification?')
                 ->visible(fn () => $this->record->is_verified)
                 ->action(function () {
+                    $this->record->documents()
+                        ->where('status', CustomerDocument::STATUS_APPROVED)
+                        ->update([
+                            'status' => CustomerDocument::STATUS_PENDING,
+                            'verified_by' => null,
+                            'verified_at' => null,
+                        ]);
+
                     $this->record->unverify();
 
                     Notification::make()

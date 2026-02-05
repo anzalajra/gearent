@@ -41,6 +41,85 @@
                                 <span class="absolute -top-2 -right-2 bg-primary-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ $cartCount }}</span>
                             @endif
                         </a>
+
+                        <!-- Notifications -->
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" class="relative text-gray-600 hover:text-primary-600 focus:outline-none pt-1">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                </svg>
+                                @php
+                                    $unreadCount = auth('customer')->user()->unreadNotifications->count();
+                                @endphp
+                                @if($unreadCount > 0)
+                                    <span class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{{ $unreadCount }}</span>
+                                @endif
+                            </button>
+
+                            <div x-show="open" 
+                                 @click.away="open = false"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 scale-95"
+                                 x-transition:enter-end="opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="opacity-100 scale-100"
+                                 x-transition:leave-end="opacity-0 scale-95"
+                                 class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-50 overflow-hidden ring-1 ring-black ring-opacity-5"
+                                 style="display: none;">
+                                
+                                <div class="px-4 py-2 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                    <h3 class="text-sm font-semibold text-gray-700">Notifications</h3>
+                                    @if($unreadCount > 0)
+                                        <form action="{{ route('customer.notifications.read-all') }}" method="POST">
+                                            @csrf
+                                            <button type="submit" class="text-xs text-primary-600 hover:text-primary-800 font-medium">Mark all read</button>
+                                        </form>
+                                    @endif
+                                </div>
+
+                                <div class="max-h-96 overflow-y-auto">
+                                    @forelse(auth('customer')->user()->notifications->take(10) as $notification)
+                                        <a href="{{ route('customer.notifications.read', $notification->id) }}" class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 {{ $notification->read_at ? 'opacity-75' : 'bg-blue-50' }}">
+                                            <div class="flex items-start gap-3">
+                                                <div class="flex-shrink-0 mt-1">
+                                                    @if(isset($notification->data['icon']))
+                                                        <x-dynamic-component :component="$notification->data['icon']" class="w-5 h-5 text-gray-500" />
+                                                    @else
+                                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                    @endif
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium text-gray-900 truncate">{{ $notification->data['title'] ?? 'Notification' }}</p>
+                                                    <p class="text-xs text-gray-500 line-clamp-2">{{ $notification->data['body'] ?? '' }}</p>
+                                                    <p class="mt-1 text-xs text-gray-400">{{ $notification->created_at->diffForHumans() }}</p>
+                                                </div>
+                                                @if(!$notification->read_at)
+                                                    <div class="flex-shrink-0 self-center">
+                                                        <span class="block h-2 w-2 rounded-full bg-primary-600 ring-2 ring-white"></span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </a>
+                                    @empty
+                                        <div class="px-4 py-6 text-center text-sm text-gray-500 flex flex-col items-center">
+                                            <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                                            </svg>
+                                            <p>No notifications</p>
+                                        </div>
+                                    @endforelse
+                                </div>
+                                
+                                @if(auth('customer')->user()->notifications->count() > 10)
+                                    <div class="bg-gray-50 px-4 py-2 text-center border-t border-gray-100">
+                                        <a href="#" class="text-xs font-medium text-primary-600 hover:text-primary-500">View all notifications</a>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center text-sm font-medium text-gray-700 hover:text-primary-600">
                                 {{ auth('customer')->user()->name }}

@@ -35,6 +35,10 @@ Route::middleware('customer.auth')->prefix('customer')->name('customer.')->group
     Route::put('/password', [CustomerDashboardController::class, 'updatePassword'])->name('password.update');
     Route::get('/rentals', [CustomerDashboardController::class, 'rentals'])->name('rentals');
     Route::get('/rentals/{id}', [CustomerDashboardController::class, 'rentalDetail'])->name('rental.detail');
+
+    // Notifications
+    Route::get('/notifications/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 // Cart

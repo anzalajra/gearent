@@ -173,17 +173,69 @@ class Settings extends Page implements HasForms
                                     ]),
                             ]),
 
-                        Tabs\Tab::make('WhatsApp')
-                            ->icon('heroicon-o-chat-bubble-left-right')
+                        Tabs\Tab::make('Notification')
+                            ->icon('heroicon-o-bell')
                             ->schema([
-                                TextInput::make('whatsapp_number')
-                                    ->label('WhatsApp Number')
-                                    ->placeholder('6281234567890')
-                                    ->helperText('Format: country code + number (without + or spaces)')
-                                    ->maxLength(20),
-                                Checkbox::make('whatsapp_enabled')
-                                    ->label('Enable WhatsApp Notifications')
-                                    ->helperText('Send rental notifications via WhatsApp'),
+                                Section::make('Channels')
+                                    ->schema([
+                                        Toggle::make('notification_app_enabled')
+                                            ->label('Enable In-App Notifications')
+                                            ->default(true),
+                                        Toggle::make('notification_email_enabled')
+                                            ->label('Enable Email Notifications')
+                                            ->default(true)
+                                            ->live(),
+                                        Toggle::make('notification_whatsapp_enabled')
+                                            ->label('Enable WhatsApp Notifications')
+                                            ->default(false)
+                                            ->live(),
+                                    ])->columns(3),
+
+                                Section::make('Email Settings')
+                                    ->description('Configure SMTP settings for email notifications.')
+                                    ->visible(fn ($get) => $get('notification_email_enabled'))
+                                    ->schema([
+                                        TextInput::make('mail_mailer')
+                                            ->label('Mailer')
+                                            ->default('smtp')
+                                            ->disabled(),
+                                        TextInput::make('mail_host')
+                                            ->label('Host')
+                                            ->placeholder('smtp.mailtrap.io'),
+                                        TextInput::make('mail_port')
+                                            ->label('Port')
+                                            ->placeholder('2525')
+                                            ->numeric(),
+                                        TextInput::make('mail_username')
+                                            ->label('Username'),
+                                        TextInput::make('mail_password')
+                                            ->label('Password')
+                                            ->password()
+                                            ->revealable(),
+                                        TextInput::make('mail_encryption')
+                                            ->label('Encryption')
+                                            ->placeholder('tls'),
+                                        TextInput::make('mail_from_address')
+                                            ->label('From Address')
+                                            ->placeholder('hello@example.com')
+                                            ->email(),
+                                        TextInput::make('mail_from_name')
+                                            ->label('From Name')
+                                            ->placeholder('Gearent'),
+                                    ])->columns(2),
+
+                                Section::make('WhatsApp Settings')
+                                    ->visible(fn ($get) => $get('notification_whatsapp_enabled'))
+                                    ->schema([
+                                        \Filament\Forms\Components\Placeholder::make('whatsapp_status')
+                                            ->label('Status')
+                                            ->content('Under Development'),
+                                        TextInput::make('whatsapp_number')
+                                            ->label('WhatsApp Number')
+                                            ->placeholder('6281234567890')
+                                            ->helperText('Format: country code + number (without + or spaces)')
+                                            ->maxLength(20),
+                                    ]),
                             ]),
 
                         Tabs\Tab::make('Registration')

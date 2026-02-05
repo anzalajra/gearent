@@ -17,5 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->reportable(function (\Throwable $e) {
+            try {
+                $admins = \App\Models\User::all();
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\SystemErrorNotification($e->getMessage()));
+            } catch (\Throwable $t) {
+                // Squelch errors during error reporting to prevent infinite loops
+            }
+        });
     })->create();

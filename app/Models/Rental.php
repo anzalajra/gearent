@@ -43,6 +43,17 @@ class Rental extends Model
 
     protected static function booted()
     {
+        static::created(function ($rental) {
+            // Admin Notification
+            $admins = \App\Models\User::all();
+            \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewBookingNotification($rental));
+
+            // Customer Notification
+            if ($rental->customer) {
+                $rental->customer->notify(new \App\Notifications\BookingConfirmedNotification($rental));
+            }
+        });
+
         static::saved(function ($rental) {
             $rental->refreshUnitStatuses();
         });

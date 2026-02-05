@@ -13,3 +13,9 @@ Schedule::command('rentals:check-late')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/late-rentals.log'));
+
+Schedule::command('app:send-rental-reminders')
+    ->dailyAt('09:00')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/rental-reminders.log'));

@@ -40,6 +40,15 @@ class Customer extends Authenticatable
         'custom_fields' => 'array',
     ];
 
+    protected static function booted()
+    {
+        static::updated(function ($customer) {
+            if ($customer->isDirty('is_verified') && $customer->is_verified) {
+                $customer->notify(new \App\Notifications\DocumentVerifiedNotification());
+            }
+        });
+    }
+
     public function rentals(): HasMany
     {
         return $this->hasMany(Rental::class);

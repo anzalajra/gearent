@@ -65,6 +65,7 @@ class AdminPanelProvider extends PanelProvider
             ->plugins([
                 FilamentFullCalendarPlugin::make(),
             ])
+            ->databaseNotifications()
             // Navigation Groups Order - mengatur urutan group di sidebar
             ->navigationGroups([
                 'Rentals',
