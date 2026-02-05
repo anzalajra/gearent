@@ -7,11 +7,13 @@ use App\Models\Setting;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -59,10 +61,20 @@ class Settings extends Page implements HasForms
                             ->schema([
                                 Grid::make(2)
                                     ->schema([
+                                        FileUpload::make('site_logo')
+                                            ->label('Logo')
+                                            ->image()
+                                            ->disk('public')
+                                            ->directory('settings')
+                                            ->visibility('public')
+                                            ->columnSpanFull(),
                                         TextInput::make('site_name')
                                             ->label('Site Name')
                                             ->required()
                                             ->maxLength(255),
+                                        Toggle::make('site_name_in_header')
+                                            ->label('Show Site Name in Header')
+                                            ->default(true),
                                         TextInput::make('site_tagline')
                                             ->label('Tagline')
                                             ->maxLength(255),
@@ -79,6 +91,10 @@ class Settings extends Page implements HasForms
                                     ->label('Address')
                                     ->rows(3)
                                     ->maxLength(500)
+                                    ->columnSpanFull(),
+                                TextInput::make('site_copyright')
+                                    ->label('Footer Copyright Text')
+                                    ->placeholder('e.g. © 2024 Gearent. All rights reserved.')
                                     ->columnSpanFull(),
                             ]),
 
@@ -199,6 +215,9 @@ class Settings extends Page implements HasForms
         // Handle General/Rental/WhatsApp Settings
         $settingsData = collect($data)->except('document_types')->toArray();
         foreach ($settingsData as $key => $value) {
+            if (is_array($value)) {
+                $value = array_values($value)[0] ?? null;
+            }
             Setting::set($key, $value ?? '');
         }
 

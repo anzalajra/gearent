@@ -16,8 +16,13 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
-                    <a href="{{ route('home') }}" class="text-xl font-bold text-primary-600">
-                        GEARENT
+                    <a href="{{ route('home') }}" class="flex items-center gap-2 text-xl font-bold text-primary-600">
+                        @if(\App\Models\Setting::get('site_logo'))
+                            <img src="{{ \Illuminate\Support\Facades\Storage::url(\App\Models\Setting::get('site_logo')) }}" alt="{{ \App\Models\Setting::get('site_name', 'Gearent') }}" class="h-10 w-auto">
+                        @endif
+                        @if(\App\Models\Setting::get('site_name_in_header', true))
+                            <span>{{ \App\Models\Setting::get('site_name', 'Gearent') }}</span>
+                        @endif
                     </a>
                     <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
                         <a href="{{ route('home') }}" class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium">Home</a>
@@ -89,8 +94,11 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
-                    <h3 class="text-xl font-bold mb-4">GEARENT</h3>
-                    <p class="text-gray-400">Your trusted equipment rental partner.</p>
+                    <h3 class="text-xl font-bold mb-4">{{ \App\Models\Setting::get('site_name', 'Gearent') }}</h3>
+                    <p class="text-gray-400">{{ \App\Models\Setting::get('site_tagline', 'Your trusted equipment rental partner.') }}</p>
+                    @if(\App\Models\Setting::get('site_address'))
+                        <p class="text-gray-400 mt-4 text-sm font-light leading-relaxed whitespace-pre-line">{{ \App\Models\Setting::get('site_address') }}</p>
+                    @endif
                 </div>
                 <div>
                     <h4 class="font-semibold mb-4">Quick Links</h4>
@@ -102,8 +110,8 @@
                 <div>
                     <h4 class="font-semibold mb-4">Contact</h4>
                     <ul class="space-y-2 text-gray-400">
-                        <li>Phone: 021-1234567</li>
-                        <li>Email: info@gearent.com</li>
+                        <li>Phone: {{ \App\Models\Setting::get('site_phone', '021-1234567') }}</li>
+                        <li>Email: {{ \App\Models\Setting::get('site_email', 'info@gearent.com') }}</li>
                     </ul>
                 </div>
                 <div>
@@ -115,7 +123,11 @@
                 </div>
             </div>
             <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-                &copy; {{ date('Y') }} Gearent. All rights reserved.
+                @if(\App\Models\Setting::get('site_copyright'))
+                    {{ \App\Models\Setting::get('site_copyright') }}
+                @else
+                    &copy; {{ date('Y') }} {{ \App\Models\Setting::get('site_name', 'Gearent') }}. All rights reserved.
+                @endif
             </div>
         </div>
     </footer>
