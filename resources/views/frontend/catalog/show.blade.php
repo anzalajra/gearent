@@ -4,6 +4,7 @@
 
 @push('styles')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         .flatpickr-day.flatpickr-disabled,
         .flatpickr-day.flatpickr-disabled:hover {
@@ -91,7 +92,7 @@
 
                 @if($availableUnits->count() > 0)
                     <!-- Booking Form -->
-                    <form action="{{ route('cart.add') }}" method="POST" class="bg-gray-50 rounded-lg p-6">
+                    <form id="addToCartForm" action="{{ route('cart.add') }}" method="POST" class="bg-gray-50 rounded-lg p-6">
                         @csrf
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
                         
@@ -183,8 +184,117 @@
 
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Handle Add to Cart with Smart Sync
+            const form = document.getElementById('addToCartForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(form);
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    const originalBtnText = submitBtn.innerHTML;
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = 'Processing...';
+
+                    fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                    .then(({ status, body }) => {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+
+                        if (status === 200) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success',
+                                text: body.message,
+                                showConfirmButton: false,
+                                timer: 1500
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else if (status === 409) {
+                            // Conflict detected
+                            const conflictsList = body.conflicts.map(item => `<li>• ${item}</li>`).join('');
+                            
+                            Swal.fire({
+                                title: 'Perubahan Tanggal Sewa',
+                                html: `
+                                    <p class="mb-4">Mengubah tanggal sewa akan menghapus item berikut dari keranjang karena tidak tersedia di tanggal baru:</p>
+                                    <ul class="text-left bg-gray-100 p-4 rounded mb-4 text-sm font-medium text-red-600">
+                                        ${conflictsList}
+                                    </ul>
+                                    <p>Apakah Anda ingin melanjutkan?</p>
+                                `,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonColor: '#d33',
+                                cancelButtonColor: '#3085d6',
+                                confirmButtonText: 'Ya, Lanjutkan',
+                                cancelButtonText: 'Batal'
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    // Retry with confirmation
+                                    formData.append('confirm_changes', '1');
+                                    
+                                    // Recursive call or just duplicate logic? Duplicate for simplicity here
+                                    submitBtn.disabled = true;
+                                    submitBtn.innerHTML = 'Updating...';
+                                    
+                                    fetch(form.action, {
+                                        method: 'POST',
+                                        headers: {
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                            'Accept': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                        },
+                                        body: formData
+                                    })
+                                    .then(res => res.json().then(d => ({ s: res.status, b: d })))
+                                    .then(({ s, b }) => {
+                                        if (s === 200) {
+                                            Swal.fire('Updated!', b.message, 'success').then(() => window.location.reload());
+                                        } else {
+                                            Swal.fire('Error', b.message || 'Something went wrong', 'error');
+                                            submitBtn.disabled = false;
+                                            submitBtn.innerHTML = originalBtnText;
+                                        }
+                                    });
+                                }
+                            });
+                        } else {
+                            // Validation or other error
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Oops...',
+                                text: body.message || 'Something went wrong!'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Network error occurred. Please try again.'
+                        });
+                    });
+                });
+            }
+
             const bookedDates = @json($bookedDates);
             const pickupTimeInput = document.getElementById('pickup_time');
             const returnTimeInput = document.getElementById('return_time');
