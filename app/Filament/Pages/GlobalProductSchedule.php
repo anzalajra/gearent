@@ -15,9 +15,13 @@ use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use UnitEnum;
 
+use Livewire\WithPagination;
+use Illuminate\Contracts\Pagination\Paginator;
+
 class GlobalProductSchedule extends Page implements HasActions
 {
     use InteractsWithActions;
+    use WithPagination;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
     
@@ -129,12 +133,13 @@ class GlobalProductSchedule extends Page implements HasActions
             ]);
     }
 
-    public function getProductsWithUnitsAndRentals(): array
+    public function getProductsWithUnitsAndRentals(): Paginator
     {
-        $products = Product::with(['units.rentalItems.rental.customer'])->whereHas('units')->get();
+        $products = Product::with(['units.rentalItems.rental.customer'])
+            ->whereHas('units')
+            ->paginate(5); // Adjust items per page as needed
         
-        $data = [];
-        foreach ($products as $product) {
+        $products->getCollection()->transform(function ($product) {
             $productData = [
                 'product' => $product,
                 'units' => [],
@@ -162,9 +167,9 @@ class GlobalProductSchedule extends Page implements HasActions
                     'rentals' => $rentals,
                 ];
             }
-            $data[] = $productData;
-        }
+            return $productData;
+        });
         
-        return $data;
+        return $products;
     }
 }

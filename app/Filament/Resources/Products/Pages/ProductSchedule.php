@@ -64,9 +64,14 @@ class ProductSchedule extends Page implements HasActions
         $this->calculateDays();
     }
 
-    protected function getHeaderWidgets(): array
+    protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('viewGlobalSchedule')
+                ->label('View All Product Schedule')
+                ->icon('heroicon-o-calendar')
+                ->url(fn () => \App\Filament\Pages\GlobalProductSchedule::getUrl()),
+        ];
     }
 
     public function getTitle(): string

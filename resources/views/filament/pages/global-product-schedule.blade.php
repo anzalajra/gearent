@@ -127,6 +127,10 @@
                     </tbody>
                 </table>
             </div>
+            
+            <div class="p-4 border-t border-gray-200 dark:border-white/10">
+                {{ $this->getProductsWithUnitsAndRentals()->links() }}
+            </div>
         </div>
 
         {{-- Legend --}}
