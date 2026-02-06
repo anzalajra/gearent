@@ -11,6 +11,19 @@ use Illuminate\Support\Facades\Route;
 // use App\Http\Controllers\Admin\PageBuilderController;
 use App\Http\Controllers\PublicDocumentController;
 
+use App\Http\Controllers\SetupController;
+
+// Setup Routes
+Route::prefix('setup')->name('setup.')->group(function () {
+    Route::get('/', [SetupController::class, 'index'])->name('index');
+    Route::get('/step1', [SetupController::class, 'step1'])->name('step1');
+    Route::post('/step2', [SetupController::class, 'step2'])->name('step2');
+    Route::get('/step3', [SetupController::class, 'step3'])->name('step3');
+    Route::get('/step4', [SetupController::class, 'step4'])->name('step4');
+    Route::get('/step5', [SetupController::class, 'step5'])->name('step5');
+    Route::post('/step6', [SetupController::class, 'step6'])->name('step6');
+});
+
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
