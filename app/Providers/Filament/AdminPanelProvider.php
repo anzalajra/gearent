@@ -22,6 +22,11 @@ use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public function register(): void
+    {
+        parent::register();
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel

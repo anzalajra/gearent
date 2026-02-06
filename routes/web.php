@@ -8,6 +8,8 @@ use App\Http\Controllers\CustomerDashboardController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Admin\PageBuilderController;
+
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -60,4 +62,10 @@ Route::middleware('customer.auth')->group(function () {
 Route::middleware('customer.auth')->group(function () {
     Route::post('/customer/documents/upload', [App\Http\Controllers\CustomerDocumentController::class, 'upload'])->name('customer.documents.upload');
     Route::delete('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'delete'])->name('customer.documents.delete');
+});
+
+// Admin Page Builder
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+    Route::get('/pages/{page}/builder', [PageBuilderController::class, 'edit'])->name('page.builder.edit');
+    Route::post('/pages/{page}/builder', [PageBuilderController::class, 'update'])->name('page.builder.update');
 });
