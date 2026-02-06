@@ -88,6 +88,17 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                // Global App Config
+                $siteName = Setting::get('site_name');
+                if ($siteName) {
+                    config(['app.name' => $siteName]);
+                    
+                    // Set default mail from name to site name if not explicitly configured
+                    if (!Setting::get('mail_from_name')) {
+                        config(['mail.from.name' => $siteName]);
+                    }
+                }
+
                 if (Setting::get('notification_email_enabled')) {
                     $mailConfig = [];
                     

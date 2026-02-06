@@ -34,9 +34,22 @@ class AdminPanelProvider extends PanelProvider
     {
         $primaryColor = Color::Amber;
         $navigationLayout = 'sidebar';
+        $brandName = config('app.name');
+        $brandLogo = null;
+        $favicon = null;
 
         try {
             if (Schema::hasTable('settings')) {
+                $siteName = Setting::get('site_name');
+                if ($siteName) {
+                    $brandName = $siteName;
+                }
+                $logo = Setting::get('logo');
+                if ($logo) {
+                    $brandLogo = asset('storage/' . $logo);
+                    $favicon = asset('storage/' . $logo);
+                }
+
                 $themePreset = Setting::get('theme_preset', 'default');
                 $themeColor = Setting::get('theme_color');
                 $navigationLayout = Setting::get('navigation_layout', 'sidebar');
@@ -96,6 +109,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName($brandName)
+            ->brandLogo($brandLogo)
+            ->favicon($favicon)
             ->colors([
                 'primary' => $primaryColor,
             ])
