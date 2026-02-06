@@ -256,8 +256,21 @@ class Rental extends Model
      */
     public function validatePickup(): void
     {
-        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
+        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
             throw new \Exception('Cannot validate pickup for this rental status.');
+        }
+
+        // Check availability of rental items (conflicts with other active rentals)
+        $conflicts = $this->checkAvailability();
+        if (! empty($conflicts)) {
+            $messages = [];
+            foreach ($conflicts as $conflict) {
+                $unitName = $conflict['product_unit']->product->name;
+                $serial = $conflict['product_unit']->serial_number;
+                $messages[] = "$unitName ($serial)";
+            }
+            $unitList = implode(', ', $messages);
+            throw new \Exception("Cannot validate pickup. The following units have scheduling conflicts: $unitList. Please swap them.");
         }
 
         // Check if any unit is physically unavailable (e.g. still rented/late return from another customer)
@@ -265,7 +278,7 @@ class Rental extends Model
             if ($item->productUnit) {
                 // Refresh status first to be sure
                 $item->productUnit->refreshStatus();
-                
+
                 if (in_array($item->productUnit->status, [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])) {
                     throw new \Exception("Unit {$item->productUnit->serial_number} ({$item->productUnit->product->name}) is currently {$item->productUnit->status}. Please swap the unit in the list before validating pickup.");
                 }

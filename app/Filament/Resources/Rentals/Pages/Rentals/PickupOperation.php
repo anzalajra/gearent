@@ -109,6 +109,25 @@ class PickupOperation extends Page implements HasTable
             ->label('Mark All as Checked')
             ->icon('heroicon-o-check-circle')
             ->color('warning')
+            ->disabled(function () {
+                $items = $this->delivery->items;
+                if ($items->isEmpty()) {
+                    return true;
+                }
+
+                // Check if ALL items are unavailable
+                $allUnavailable = true;
+                foreach ($items as $item) {
+                    $unit = $item->rentalItem->productUnit;
+                    // Check if unit is available
+                    if (! in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
+                        $allUnavailable = false;
+                        break;
+                    }
+                }
+
+                return $allUnavailable;
+            })
             ->steps([
                 \Filament\Schemas\Components\Wizard\Step::make('Verification')
                     ->description('Please verify that all tools have been checked properly and carefully.')
@@ -123,10 +142,23 @@ class PickupOperation extends Page implements HasTable
             ])
             ->action(function () {
                 $items = $this->delivery->items;
+                $updatedCount = 0;
+                $skippedCount = 0;
+
                 foreach ($items as $record) {
+                    // Check availability before checking
+                    $unit = $record->rentalItem->productUnit;
+                    $unit->refresh(); // Ensure fresh status
+
+                    if (in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
+                        $skippedCount++;
+
+                        continue;
+                    }
+
                     // Use existing condition or default to 'good'
                     $condition = $record->condition ?? 'good';
-                    
+
                     $record->update([
                         'is_checked' => true,
                         'condition' => $condition,
@@ -134,30 +166,45 @@ class PickupOperation extends Page implements HasTable
 
                     // Logic from check_item action
                     $isMaintenance = in_array($condition, ['broken', 'lost']);
-                    
+
                     if ($isMaintenance) {
-                         $updates = ['condition' => $condition];
-                         // Add note about auto maintenance
-                         $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes) . "\n[AUTO] Marked as {$condition} during Pickup.";
-                        
-                        if (!$record->rentalItemKit) {
+                        $updates = ['condition' => $condition];
+                        // Add note about auto maintenance
+                        $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes)."\n[AUTO] Marked as {$condition} during Pickup.";
+
+                        if (! $record->rentalItemKit) {
                             $updates['status'] = \App\Models\ProductUnit::STATUS_MAINTENANCE;
                         }
-                         // Update Unit Kit Master or Main Unit Master
+                        // Update Unit Kit Master or Main Unit Master
                         if ($record->rentalItemKit) {
                             $record->rentalItemKit->unitKit->update($updates);
                         } else {
                             $record->rentalItem->productUnit->update($updates);
                         }
                     }
+                    $updatedCount++;
                 }
 
                 $this->delivery->refresh();
-                
-                Notification::make()
-                    ->title('All items marked as checked')
-                    ->success()
-                    ->send();
+
+                if ($updatedCount === 0 && $skippedCount > 0) {
+                    Notification::make()
+                        ->title('Cannot mark items as checked')
+                        ->body('All items are currently unavailable (rented or maintenance).')
+                        ->danger()
+                        ->send();
+                } elseif ($skippedCount > 0) {
+                    Notification::make()
+                        ->title('Some items were skipped')
+                        ->body("Marked {$updatedCount} items as checked. {$skippedCount} items were skipped because they are unavailable.")
+                        ->warning()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title('All items marked as checked')
+                        ->success()
+                        ->send();
+                }
             });
     }
 
