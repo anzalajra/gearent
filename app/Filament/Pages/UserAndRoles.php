@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
+use UnitEnum;
+use BackedEnum;
+
+class UserAndRoles extends Page
+{
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
+
+    protected static string|UnitEnum|null $navigationGroup = 'Setting';
+
+    protected static ?int $navigationSort = 5;
+
+    protected string $view = 'filament.pages.user-and-roles';
+}
