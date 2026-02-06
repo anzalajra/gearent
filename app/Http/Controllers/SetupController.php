@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\File;
+use Spatie\Permission\Models\Role;
 
 class SetupController extends Controller
 {
@@ -105,6 +106,8 @@ class SetupController extends Controller
 
         // Create Admin User
         try {
+            DB::beginTransaction();
+
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -112,8 +115,18 @@ class SetupController extends Controller
                 'email_verified_at' => now(),
             ]);
 
-            $user->assignRole('super_admin');
+            // Ensure super_admin role exists
+            $role = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+            
+            // Assign role
+            $user->assignRole($role);
+
+            // Clear permission cache to ensure immediate effect
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+            DB::commit();
         } catch (\Exception $e) {
+             DB::rollBack();
              return back()->withErrors(['user' => 'Failed to create user: ' . $e->getMessage()]);
         }
         
