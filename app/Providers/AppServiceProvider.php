@@ -32,6 +32,60 @@ class AppServiceProvider extends ServiceProvider
             $view->with('doc_settings', $settings);
         });
 
+        // Inject Theme Colors
+        View::composer(['layouts.app', 'layouts.frontend', 'layouts.guest'], function ($view) {
+            $primaryColor = \Filament\Support\Colors\Color::Blue; // Default
+            
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                    $themePreset = Setting::get('theme_preset', 'default');
+                    $themeColor = Setting::get('theme_color');
+
+                    if ($themePreset === 'custom' && $themeColor) {
+                        $primaryColor = \Filament\Support\Colors\Color::hex($themeColor);
+                    } elseif ($themePreset && $themePreset !== 'default') {
+                         $colors = [
+                            'slate' => \Filament\Support\Colors\Color::Slate,
+                            'gray' => \Filament\Support\Colors\Color::Gray,
+                            'zinc' => \Filament\Support\Colors\Color::Zinc,
+                            'neutral' => \Filament\Support\Colors\Color::Neutral,
+                            'stone' => \Filament\Support\Colors\Color::Stone,
+                            'red' => \Filament\Support\Colors\Color::Red,
+                            'orange' => \Filament\Support\Colors\Color::Orange,
+                            'amber' => \Filament\Support\Colors\Color::Amber,
+                            'yellow' => \Filament\Support\Colors\Color::Yellow,
+                            'lime' => \Filament\Support\Colors\Color::Lime,
+                            'green' => \Filament\Support\Colors\Color::Green,
+                            'emerald' => \Filament\Support\Colors\Color::Emerald,
+                            'teal' => \Filament\Support\Colors\Color::Teal,
+                            'cyan' => \Filament\Support\Colors\Color::Cyan,
+                            'sky' => \Filament\Support\Colors\Color::Sky,
+                            'blue' => \Filament\Support\Colors\Color::Blue,
+                            'indigo' => \Filament\Support\Colors\Color::Indigo,
+                            'violet' => \Filament\Support\Colors\Color::Violet,
+                            'purple' => \Filament\Support\Colors\Color::Purple,
+                            'fuchsia' => \Filament\Support\Colors\Color::Fuchsia,
+                            'pink' => \Filament\Support\Colors\Color::Pink,
+                            'rose' => \Filament\Support\Colors\Color::Rose,
+                        ];
+
+                        if (isset($colors[$themePreset])) {
+                            $primaryColor = $colors[$themePreset];
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Fallback
+            }
+
+            $cssVariables = [];
+            foreach ($primaryColor as $shade => $value) {
+                $cssVariables[] = "--primary-{$shade}: {$value};";
+            }
+            
+            $view->with('themeCssVariables', implode(' ', $cssVariables));
+        });
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
                 if (Setting::get('notification_email_enabled')) {

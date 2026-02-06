@@ -9,6 +9,13 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
+    @if(isset($themeCssVariables))
+        <style>
+            :root {
+                {!! $themeCssVariables !!}
+            }
+        </style>
+    @endif
 </head>
 <body class="font-sans antialiased bg-gray-50">
     <!-- Navigation -->
