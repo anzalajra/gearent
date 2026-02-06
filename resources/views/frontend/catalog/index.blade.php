@@ -21,8 +21,17 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="flex flex-col lg:flex-row gap-8">
         <!-- Sidebar Filters -->
-        <aside class="lg:w-64 flex-shrink-0">
-            <div class="bg-white rounded-lg shadow p-6">
+        <aside class="lg:w-64 flex-shrink-0" x-data="{ filtersOpen: false }">
+            <div class="lg:hidden mb-4">
+                <button @click="filtersOpen = !filtersOpen" type="button" class="w-full flex justify-between items-center bg-white p-4 rounded-lg shadow text-gray-700 hover:bg-gray-50">
+                    <span class="font-semibold">Filters</span>
+                    <svg class="w-5 h-5 transition-transform duration-200" :class="{'rotate-180': filtersOpen}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6 hidden lg:block" :class="{'hidden': !filtersOpen, 'block': filtersOpen}">
                 <h3 class="font-semibold mb-4">Filters</h3>
                 <form action="{{ route('catalog.index') }}" method="GET">
                     <!-- Search -->
@@ -83,6 +92,9 @@
                     <button type="submit" class="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700">
                         Apply Filters
                     </button>
+                    <a href="{{ route('catalog.index') }}" class="block w-full text-center mt-3 text-sm text-gray-500 hover:text-gray-700">
+                        Reset Filters
+                    </a>
                 </form>
             </div>
         </aside>

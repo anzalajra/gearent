@@ -31,7 +31,9 @@ class ProductUnitsTable
                         'good' => 'info',
                         'fair' => 'warning',
                         'poor' => 'danger',
-                    }),
+                    })
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('status')
                     ->badge()
@@ -42,16 +44,20 @@ class ProductUnitsTable
                         'maintenance' => 'info',
                         'retired' => 'gray',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
 
                 TextColumn::make('purchase_date')
                     ->date()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('purchase_price')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('created_at')
                     ->dateTime()

@@ -26,20 +26,27 @@ class CustomerCategoriesTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 ColorColumn::make('badge_color')
-                    ->label('Badge Color'),
+                    ->label('Badge Color')
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('discount_percentage')
                     ->label('Discount')
                     ->suffix('%')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('customers_count')
                     ->counts('customers')
-                    ->label('Customers'),
+                    ->label('Customers')
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 ToggleColumn::make('is_active')
                     ->label('Active')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->dateTime()

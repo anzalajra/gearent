@@ -21,33 +21,44 @@ class DeliveriesTable
                 TextColumn::make('delivery_number')
                     ->label('Delivery Number')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('rental.rental_code')
                     ->label('Rental')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('rental.customer.name')
                     ->label('Customer')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('type')
                     ->badge()
                     ->color(fn (string $state): string => Delivery::getTypeColor($state))
-                    ->formatStateUsing(fn (string $state): string => $state === 'out' ? 'Keluar' : 'Masuk'),
+                    ->formatStateUsing(fn (string $state): string => $state === 'out' ? 'Keluar' : 'Masuk')
+                    ->toggleable(),
 
                 TextColumn::make('date')
                     ->date('d M Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => Delivery::getStatusColor($state))
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->toggleable(),
 
                 TextColumn::make('checkedBy.name')
-                    ->label('Checked By'),
+                    ->label('Checked By')
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('created_at')
                     ->dateTime()

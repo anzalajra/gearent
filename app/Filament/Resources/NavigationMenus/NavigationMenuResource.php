@@ -71,8 +71,8 @@ class NavigationMenuResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')->searchable(),
-                TextColumn::make('handle')->searchable(),
-                TextColumn::make('updated_at')->dateTime(),
+                TextColumn::make('handle')->searchable()->toggleable()->visibleFrom('sm'),
+                TextColumn::make('updated_at')->dateTime()->toggleable()->visibleFrom('lg'),
             ])
             ->filters([
                 //

@@ -30,10 +30,12 @@ class CategoriesTable
 
                 TextColumn::make('description')
                     ->limit(50)
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 IconColumn::make('is_active')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->dateTime()

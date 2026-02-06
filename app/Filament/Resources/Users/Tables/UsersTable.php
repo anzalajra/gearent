@@ -18,13 +18,19 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('email')
                     ->label('Email address')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
                 TextColumn::make('roles.name')
                     ->badge()
-                    ->label('Roles'),
+                    ->label('Roles')
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

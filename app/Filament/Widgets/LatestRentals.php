@@ -20,27 +20,36 @@ class LatestRentals extends BaseWidget
             ->columns([
                 TextColumn::make('rental_code')
                     ->label('Code')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('customer.name')
                     ->label('Customer')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('start_date')
                     ->label('Period')
-                    ->formatStateUsing(fn (Rental $record) => $record->start_date->format('d M') . ' - ' . $record->end_date->format('d M Y')),
+                    ->formatStateUsing(fn (Rental $record) => $record->start_date->format('d M') . ' - ' . $record->end_date->format('d M Y'))
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('total')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => Rental::getStatusColor($state)),
+                    ->color(fn (string $state) => Rental::getStatusColor($state))
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Created')
-                    ->since(),
+                    ->since()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
             ])
             ->paginated(false);
     }

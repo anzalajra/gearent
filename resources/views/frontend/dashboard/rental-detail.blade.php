@@ -60,9 +60,9 @@
         <div class="space-y-4">
             @foreach($rental->items as $item)
                 <div class="border rounded-lg p-4">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="flex items-center">
-                            <div class="h-16 w-16 bg-gray-200 rounded flex items-center justify-center mr-4">
+                            <div class="h-16 w-16 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center mr-4">
                                 <span class="text-2xl">📷</span>
                             </div>
                             <div>
@@ -70,7 +70,7 @@
                                 <p class="text-sm text-gray-500">{{ $item->days }} days × Rp {{ number_format($item->daily_rate, 0, ',', '.') }}</p>
                             </div>
                         </div>
-                        <p class="font-semibold">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
+                        <p class="font-semibold text-right sm:text-left">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
                     </div>
 
                     @if($item->rentalItemKits->count() > 0)

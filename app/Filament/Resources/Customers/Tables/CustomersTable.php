@@ -23,20 +23,28 @@ class CustomersTable
 
                 TextColumn::make('email')
                     ->label('Email')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('phone')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('nik')
                     ->label('NIK')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('category.name')
                     ->label('Category')
                     ->badge()
                     ->color(fn ($record) => $record->category?->badge_color ?? 'gray')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('verification_status')
                     ->label('Verification')
@@ -57,7 +65,9 @@ class CustomersTable
 
                 TextColumn::make('rentals_count')
                     ->label('Rentals')
-                    ->counts('rentals'),
+                    ->counts('rentals')
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('created_at')
                     ->dateTime()

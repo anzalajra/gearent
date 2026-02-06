@@ -66,7 +66,9 @@ class DocumentTypeResource extends Resource
             ->columns([
                 TextColumn::make('sort_order')
                     ->label('#')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('name')
                     ->searchable()
@@ -74,15 +76,19 @@ class DocumentTypeResource extends Resource
 
                 TextColumn::make('code')
                     ->badge()
-                    ->color('gray'),
+                    ->color('gray')
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 IconColumn::make('is_required')
                     ->label('Required')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(),
 
                 IconColumn::make('is_active')
                     ->label('Active')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(),
             ])
             ->defaultSort('sort_order')
             ->reorderable('sort_order')

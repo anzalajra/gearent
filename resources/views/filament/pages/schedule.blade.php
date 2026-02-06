@@ -71,7 +71,7 @@
                     <table class="w-full text-left border-collapse table-fixed min-w-max border-spacing-0">
                         <thead>
                             <tr>
-                                <th class="sticky left-0 z-30 p-3 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-white/10 w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400">
+                                <th class="sticky left-0 z-30 p-3 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-white/10 w-32 md:w-64 text-xs font-bold uppercase text-gray-600 dark:text-gray-400">
                                     Product / Unit
                                 </th>
                                 @foreach($days as $day)

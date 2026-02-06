@@ -19,10 +19,25 @@
 </head>
 <body class="font-sans antialiased bg-gray-50">
     <!-- Navigation -->
-    <nav class="bg-white shadow-sm sticky top-0 z-50">
+    <nav class="bg-white shadow-sm sticky top-0 z-50" x-data="{ mobileMenuOpen: false }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
+                    <!-- Mobile menu button -->
+                    <div class="-ml-2 mr-2 flex items-center sm:hidden">
+                        <button @click="mobileMenuOpen = !mobileMenuOpen" type="button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500" aria-controls="mobile-menu" aria-expanded="false">
+                            <span class="sr-only">Open main menu</span>
+                            <!-- Icon when menu is closed. -->
+                            <svg x-show="!mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                            <!-- Icon when menu is open. -->
+                            <svg x-show="mobileMenuOpen" class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display: none;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
                     <a href="{{ url('/') }}" class="flex items-center gap-2 text-xl font-bold text-primary-600">
                         @if(\App\Models\Setting::get('site_logo'))
                             <img src="{{ \Illuminate\Support\Facades\Storage::url(\App\Models\Setting::get('site_logo')) }}" alt="{{ \App\Models\Setting::get('site_name', 'Gearent') }}" class="h-10 w-auto">
@@ -140,7 +155,7 @@
                             </div>
                         </div>
 
-                        <div class="relative" x-data="{ open: false }">
+                        <div class="relative hidden sm:block" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center text-sm font-medium text-gray-700 hover:text-primary-600">
                                 {{ auth('customer')->user()->name }}
                                 <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -162,6 +177,56 @@
                         <a href="{{ route('customer.register') }}" class="bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-700">Register</a>
                     @endauth
                 </div>
+            </div>
+        </div>
+
+        <!-- Mobile menu, show/hide based on menu state. -->
+        <div x-show="mobileMenuOpen" class="sm:hidden" id="mobile-menu" style="display: none;">
+            <div class="space-y-1 pt-2 pb-3">
+                @php
+                    $mainMenu = \App\Models\NavigationMenu::where('handle', 'main-menu')->first();
+                    $menuItems = $mainMenu ? $mainMenu->items : [
+                        ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                        ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                    ];
+                @endphp
+
+                @foreach($menuItems as $item)
+                    <a href="{{ $item['url'] }}" 
+                       target="{{ $item['target'] ?? '_self' }}"
+                       class="block border-l-4 py-2 pl-3 pr-4 text-base font-medium {{ request()->url() == $item['url'] ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700' }}">
+                        {{ $item['label'] }}
+                    </a>
+                @endforeach
+            </div>
+            <div class="border-t border-gray-200 pt-4 pb-3">
+                @auth('customer')
+                    <div class="flex items-center px-4">
+                        <div class="flex-shrink-0">
+                            <div class="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-lg">
+                                {{ substr(auth('customer')->user()->name, 0, 1) }}
+                            </div>
+                        </div>
+                        <div class="ml-3">
+                            <div class="text-base font-medium text-gray-800">{{ auth('customer')->user()->name }}</div>
+                            <div class="text-sm font-medium text-gray-500">{{ auth('customer')->user()->email }}</div>
+                        </div>
+                    </div>
+                    <div class="mt-3 space-y-1">
+                        <a href="{{ route('customer.dashboard') }}" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">Dashboard</a>
+                        <a href="{{ route('customer.rentals') }}" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">My Rentals</a>
+                        <a href="{{ route('customer.profile') }}" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">Profile</a>
+                        <form method="POST" action="{{ route('customer.logout') }}">
+                            @csrf
+                            <button type="submit" class="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">Logout</button>
+                        </form>
+                    </div>
+                @else
+                    <div class="mt-3 space-y-1">
+                        <a href="{{ route('customer.login') }}" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">Login</a>
+                        <a href="{{ route('customer.register') }}" class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">Register</a>
+                    </div>
+                @endauth
             </div>
         </div>
     </nav>

@@ -12,6 +12,13 @@ class StatsOverview extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    protected int | array | null $columns = [
+        'default' => 1,
+        'sm' => 2,
+        'md' => 3,
+        'xl' => 3,
+    ];
+
     protected function getStats(): array
     {
         $todayRentals = Rental::whereDate('created_at', today())->count();

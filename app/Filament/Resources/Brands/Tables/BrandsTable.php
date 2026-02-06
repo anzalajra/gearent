@@ -29,10 +29,12 @@ class BrandsTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('website')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 IconColumn::make('is_active')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->dateTime()

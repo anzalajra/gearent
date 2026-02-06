@@ -123,12 +123,12 @@
         @if($activeRentals->count() > 0)
             <div class="divide-y">
                 @foreach($activeRentals as $rental)
-                    <div class="p-6 flex items-center justify-between">
+                    <div class="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                             <p class="font-semibold">{{ $rental->rental_code }}</p>
                             <p class="text-sm text-gray-600">{{ $rental->start_date->format('d M Y') }} - {{ $rental->end_date->format('d M Y') }}</p>
                         </div>
-                        <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-start">
                             <span class="px-3 py-1 rounded-full text-sm font-medium
                                 @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
                                 @elseif($rental->status == 'active') bg-green-100 text-green-800

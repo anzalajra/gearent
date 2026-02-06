@@ -80,13 +80,19 @@ class InvoiceResource extends Resource
                     ->sortable(),
                 TextColumn::make('date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('due_date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
                 TextColumn::make('total')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -96,7 +102,8 @@ class InvoiceResource extends Resource
                         Invoice::STATUS_PAID => 'success',
                         Invoice::STATUS_PARTIAL => 'info',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
             ])
             ->filters([
                 //

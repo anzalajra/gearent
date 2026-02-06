@@ -27,16 +27,22 @@ class RentalsTable
             ->columns([
                 TextColumn::make('rental_code')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('customer.name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('start_date')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
                 TextColumn::make('end_date')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => Rental::getStatusOptions()[$state] ?? $state)
@@ -48,10 +54,13 @@ class RentalsTable
                         'late_pickup' => 'danger',
                         'late_return' => 'danger',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
                 TextColumn::make('total')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
             ])
             ->filters([
                 //

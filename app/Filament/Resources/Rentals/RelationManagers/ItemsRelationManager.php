@@ -36,28 +36,38 @@ class ItemsRelationManager extends RelationManager
                 TextColumn::make('productUnit.product.name')
                     ->label('Product')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('productUnit.serial_number')
                     ->label('Serial Number')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('daily_rate')
                     ->label('Daily Rate')
-                    ->money('IDR'),
+                    ->money('IDR')
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('days')
-                    ->label('Days'),
+                    ->label('Days')
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('subtotal')
                     ->label('Subtotal')
-                    ->money('IDR'),
+                    ->money('IDR')
+                    ->toggleable(),
 
                 TextColumn::make('rentalItemKits_count')
                     ->label('Kits')
                     ->counts('rentalItemKits')
                     ->badge()
-                    ->color('info'),
+                    ->color('info')
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 IconColumn::make('all_kits_returned')
                     ->label('Kits Returned')
@@ -66,7 +76,8 @@ class ItemsRelationManager extends RelationManager
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
                     ->trueColor('success')
-                    ->falseColor('danger'),
+                    ->falseColor('danger')
+                    ->toggleable(),
             ])
             ->filters([
                 //

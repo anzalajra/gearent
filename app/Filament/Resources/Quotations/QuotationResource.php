@@ -84,10 +84,14 @@ class QuotationResource extends Resource
                     ->sortable(),
                 TextColumn::make('date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('total')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -95,7 +99,8 @@ class QuotationResource extends Resource
                         Quotation::STATUS_SENT => 'info',
                         Quotation::STATUS_ACCEPTED => 'success',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
             ])
             ->filters([
                 //

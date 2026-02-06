@@ -93,22 +93,29 @@ class RoleResource extends Resource
                 TextColumn::make('guard_name')
                     ->badge()
                     ->color('warning')
-                    ->label(__('filament-shield::filament-shield.column.guard_name')),
+                    ->label(__('filament-shield::filament-shield.column.guard_name'))
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('team.name')
                     ->default('Global')
                     ->badge()
                     ->color(fn (mixed $state): string => str($state)->contains('Global') ? 'gray' : 'primary')
                     ->label(__('filament-shield::filament-shield.column.team'))
                     ->searchable()
-                    ->visible(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled()),
+                    ->visible(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled())
+                    ->toggleable(),
                 TextColumn::make('permissions_count')
                     ->badge()
                     ->label(__('filament-shield::filament-shield.column.permissions'))
                     ->counts('permissions')
-                    ->color('primary'),
+                    ->color('primary')
+                    ->toggleable()
+                    ->visibleFrom('md'),
                 TextColumn::make('updated_at')
                     ->label(__('filament-shield::filament-shield.column.updated_at'))
-                    ->dateTime(),
+                    ->dateTime()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
             ])
             ->filters([
                 //

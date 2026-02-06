@@ -8,14 +8,13 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Checkout Form -->
-        <div class="lg:col-span-2">
-            <form action="{{ route('checkout.process') }}" method="POST">
-                @csrf
-
+        <form action="{{ route('checkout.process') }}" method="POST" class="contents">
+            @csrf
+            <div class="lg:col-span-2">
                 <!-- Customer Info -->
                 <div class="bg-white rounded-lg shadow p-6 mb-6">
                     <h2 class="text-lg font-semibold mb-4">Customer Information</h2>
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
                             <p class="text-gray-900">{{ $customer->name }}</p>

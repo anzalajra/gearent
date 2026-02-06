@@ -116,24 +116,33 @@ class DiscountResource extends Resource
 
                 TextColumn::make('type')
                     ->badge()
-                    ->color(fn (string $state) => $state === 'percentage' ? 'info' : 'success'),
+                    ->color(fn (string $state) => $state === 'percentage' ? 'info' : 'success')
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('value')
                     ->formatStateUsing(fn (Discount $record) => $record->type === 'percentage' 
                         ? $record->value . '%' 
-                        : 'Rp ' . number_format($record->value, 0, ',', '.')),
+                        : 'Rp ' . number_format($record->value, 0, ',', '.'))
+                    ->toggleable()
+                    ->visibleFrom('sm'),
 
                 TextColumn::make('usage')
-                    ->getStateUsing(fn (Discount $record) => $record->usage_count . ($record->usage_limit ? '/' . $record->usage_limit : '')),
+                    ->getStateUsing(fn (Discount $record) => $record->usage_count . ($record->usage_limit ? '/' . $record->usage_limit : ''))
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('end_date')
                     ->label('Valid Until')
                     ->date()
-                    ->color(fn (Discount $record) => $record->end_date?->isPast() ? 'danger' : null),
+                    ->color(fn (Discount $record) => $record->end_date?->isPast() ? 'danger' : null)
+                    ->toggleable()
+                    ->visibleFrom('lg'),
 
                 IconColumn::make('is_active')
                     ->label('Active')
-                    ->boolean(),
+                    ->boolean()
+                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('type')

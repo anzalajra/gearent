@@ -27,12 +27,12 @@
         <span class="text-gray-900">{{ $product->name }}</span>
     </nav>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         <!-- Product Image -->
         <div>
-            <div class="bg-gray-200 rounded-lg h-96 flex items-center justify-center">
+            <div class="bg-gray-200 rounded-lg h-64 md:h-96 flex items-center justify-center overflow-hidden">
                 @if($product->image)
-                    <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-cover rounded-lg">
+                    <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-cover rounded-lg hover:scale-105 transition duration-500">
                 @else
                     <span class="text-9xl">📷</span>
                 @endif
@@ -109,7 +109,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Jam Pickup</label>
                                 <input type="time" name="pickup_time" id="pickup_time" required value="09:00"

@@ -68,7 +68,45 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Cart Items -->
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg shadow overflow-hidden">
+                <!-- Mobile Cart View -->
+                <div class="space-y-4 md:hidden mb-6">
+                    @foreach($cartItems as $item)
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex gap-4">
+                                <div class="h-20 w-20 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
+                                    @if($item->productUnit->product->image)
+                                        <img src="{{ Storage::url($item->productUnit->product->image) }}" alt="" class="h-full w-full object-cover rounded">
+                                    @else
+                                        <span class="text-2xl">📷</span>
+                                    @endif
+                                </div>
+                                <div>
+                                    <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
+                                    <p class="text-sm text-primary-600">Rp {{ number_format($item->daily_rate, 0, ',', '.') }}/day</p>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        {{ $item->start_date->format('d M H:i') }} - {{ $item->end_date->format('d M H:i') }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+                                <div>
+                                    <span class="text-sm font-semibold">{{ $item->days }}</span> <span class="text-xs text-gray-500">days</span>
+                                    <p class="font-bold text-gray-900">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
+                                </div>
+                                <form action="{{ route('cart.remove', $item) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                        Remove
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Desktop Cart View -->
+                <div class="hidden md:block bg-white rounded-lg shadow overflow-hidden">
                     <table class="w-full">
                         <thead class="bg-gray-50">
                             <tr>

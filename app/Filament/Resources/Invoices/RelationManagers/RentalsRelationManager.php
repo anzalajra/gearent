@@ -35,18 +35,26 @@ class RentalsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('rental_code')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('start_date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('md'),
                 TextColumn::make('end_date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
                 TextColumn::make('total')
                     ->money('IDR')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->toggleable(),
             ])
             ->filters([
                 //

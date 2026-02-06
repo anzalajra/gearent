@@ -4,52 +4,57 @@
             Rental Information
         </x-slot>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <tbody>
-                    <tr class="border-b border-gray-200">
-                        <td class="py-3 pr-6 font-medium text-gray-500" style="width: 15%;">Rental Code</td>
-                        <td class="py-3 pr-6 font-semibold" style="width: 35%;">{{ $rental->rental_code }}</td>
-                        <td class="py-3 pr-6 font-medium text-gray-500" style="width: 15%;">Start Date</td>
-                        <td class="py-3 font-semibold" style="width: 35%;">{{ $rental->start_date->format('d M Y H:i') }}</td>
-                    </tr>
-                    <tr class="border-b border-gray-200">
-                        <td class="py-3 pr-6 font-medium text-gray-500">Customer</td>
-                        <td class="py-3 pr-6 font-semibold">
-                            <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="text-primary-600 hover:underline">
-                                {{ $rental->customer->name }}
-                            </a>
-                        </td>
-                        <td class="py-3 pr-6 font-medium text-gray-500">End Date</td>
-                        <td class="py-3 font-semibold">{{ $rental->end_date->format('d M Y H:i') }}</td>
-                    </tr>
-                    <tr class="border-b border-gray-200">
-                        <td class="py-3 pr-6 font-medium text-gray-500">Phone</td>
-                        <td class="py-3 pr-6 font-semibold">{{ $rental->customer->phone ?? '-' }}</td>
-                        <td class="py-3 pr-6 font-medium text-gray-500">Availability</td>
-                        <td class="py-3">
-                            @php $availability = $this->getAvailabilityStatus(); @endphp
-                            @if($availability['available'])
-                                <x-filament::badge color="success">Available</x-filament::badge>
-                            @elseif(!empty($availability['unavailable_units']))
-                                <x-filament::badge color="danger">Problem</x-filament::badge>
-                            @else
-                                <x-filament::badge color="danger">Unavailable</x-filament::badge>
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="py-3 pr-6 font-medium text-gray-500">Status</td>
-                        <td class="py-3 pr-6">
-                            <x-filament::badge :color="in_array($rental->status, ['pending']) ? 'warning' : 'danger'">
-                                {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
-                            </x-filament::badge>
-                        </td>
-                        <td class="py-3 pr-6 font-medium text-gray-500">Notes</td>
-                        <td class="py-3 font-semibold">{{ $rental->notes ?? '-' }}</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Rental Code</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ $rental->rental_code }}</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Start Date</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ $rental->start_date->format('d M Y H:i') }}</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Customer</span>
+                <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="font-semibold text-primary-600 hover:underline">
+                    {{ $rental->customer->name }}
+                </a>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">End Date</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ $rental->end_date->format('d M Y H:i') }}</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Phone</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ $rental->customer->phone ?? '-' }}</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Availability</span>
+                <div>
+                    @php $availability = $this->getAvailabilityStatus(); @endphp
+                    @if($availability['available'])
+                        <x-filament::badge color="success">Available</x-filament::badge>
+                    @elseif(!empty($availability['unavailable_units']))
+                        <x-filament::badge color="danger">Problem</x-filament::badge>
+                    @else
+                        <x-filament::badge color="danger">Unavailable</x-filament::badge>
+                    @endif
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2 md:border-b-0">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Status</span>
+                <div>
+                    <x-filament::badge :color="in_array($rental->status, ['pending']) ? 'warning' : 'danger'">
+                        {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
+                    </x-filament::badge>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2 md:border-b-0">
+                <span class="font-medium text-gray-500 dark:text-gray-400">Notes</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ $rental->notes ?? '-' }}</span>
+            </div>
         </div>
     </x-filament::section>
 

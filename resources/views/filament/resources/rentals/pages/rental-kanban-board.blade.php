@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4 h-[calc(100vh-12rem)]">
+    <div class="flex flex-col md:flex-row gap-4 md:overflow-x-auto pb-4 h-auto md:h-[calc(100vh-12rem)]">
         @foreach($this->getStatuses() as $status => $label)
             @php
                 $records = $this->getRecords()->get($status, collect());
@@ -21,7 +21,7 @@
                 };
             @endphp
             
-            <div class="flex-shrink-0 w-80 flex flex-col {{ $color }} rounded-lg border h-full">
+            <div class="flex-shrink-0 w-full md:w-80 flex flex-col {{ $color }} rounded-lg border md:h-full">
                 <!-- Column Header -->
                 <div class="p-3 font-semibold text-sm flex justify-between items-center rounded-t-lg {{ $headerColor }}">
                     <span>{{ $label }}</span>

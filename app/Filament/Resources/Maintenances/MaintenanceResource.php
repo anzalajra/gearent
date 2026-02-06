@@ -111,16 +111,22 @@ class MaintenanceResource extends Resource
                         'Good' => 'info',
                         'Unit Lost', 'Unit Broken', 'Kit Lost', 'Kit Broken' => 'danger',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable()
+                    ->visibleFrom('sm'),
                 TextColumn::make('maintenance_status')
                     ->label('Maintenance Progress')
                     ->badge()
                     ->color('warning')
-                    ->placeholder('-'),
+                    ->placeholder('-')
+                    ->toggleable()
+                    ->visibleFrom('md'),
                 TextColumn::make('last_checked_at')
                     ->label('Last QC')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable()
+                    ->visibleFrom('lg'),
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('condition')
