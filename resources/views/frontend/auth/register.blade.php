@@ -7,9 +7,9 @@
     $oldCategoryId = old('customer_category_id');
     
     // Use default category if set and no old input
-    if (!$oldCategoryId && isset($defaultCategoryId) && $defaultCategoryId) {
-        $oldCategoryId = $defaultCategoryId;
-    }
+    // if (!$oldCategoryId && isset($defaultCategoryId) && $defaultCategoryId) {
+    //     $oldCategoryId = $defaultCategoryId;
+    // }
 
     $oldCategory = $oldCategoryId ? $categories->find($oldCategoryId) : null;
     $umumId = $categories->firstWhere('slug', 'umum')?->id;
