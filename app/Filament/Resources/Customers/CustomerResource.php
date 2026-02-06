@@ -31,6 +31,16 @@ class CustomerResource extends Resource
     
     protected static ?string $navigationLabel = 'Customers';
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::where('is_verified', false)->count() ?: null;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return static::getModel()::where('is_verified', false)->count() . ' need verification';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CustomerForm::configure($schema);

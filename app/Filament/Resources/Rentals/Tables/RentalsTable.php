@@ -39,6 +39,7 @@ class RentalsTable
                     ->sortable(),
                 TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => Rental::getStatusOptions()[$state] ?? $state)
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
                         'active' => 'success',
@@ -264,6 +265,7 @@ class RentalsTable
                         Rental::STATUS_COMPLETED,
                     ])),
             ])
+            ->defaultSort('created_at', 'desc')
             ->recordUrl(fn (Rental $record) => RentalResource::getUrl('view', ['record' => $record]))
             ->poll('30s');
     }

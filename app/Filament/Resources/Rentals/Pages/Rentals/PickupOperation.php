@@ -82,10 +82,22 @@ class PickupOperation extends Page implements HasTable
     public function getAvailabilityStatus(): array
     {
         $conflicts = $this->rental->checkAvailability();
+        
+        $unavailableUnits = [];
+        foreach ($this->rental->items as $item) {
+            if ($item->productUnit) {
+                // Ensure we have the latest status
+                $item->productUnit->refresh();
+                if (in_array($item->productUnit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
+                    $unavailableUnits[] = $item->productUnit;
+                }
+            }
+        }
 
         return [
-            'available' => empty($conflicts),
+            'available' => empty($conflicts) && empty($unavailableUnits),
             'conflicts' => $conflicts,
+            'unavailable_units' => $unavailableUnits,
         ];
     }
 
@@ -249,9 +261,7 @@ class PickupOperation extends Page implements HasTable
                     ->icon(fn (DeliveryItem $record) => $record->is_checked ? 'heroicon-o-pencil' : 'heroicon-o-check')
                     ->color(fn (DeliveryItem $record) => $record->is_checked ? 'gray' : 'warning')
                     ->disabled(function (DeliveryItem $record) {
-                        if ($record->rentalItemKit) {
-                            return false; // Kits logic might differ, or rely on unit status? For now enable.
-                        }
+                        // Check parent unit status for both Unit and Kit items
                         $unit = $record->rentalItem->productUnit;
                         return in_array($unit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE]);
                     })

@@ -7,16 +7,47 @@ use App\Models\Rental;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class ListRentals extends ListRecords
 {
     protected static string $resource = RentalResource::class;
+
+    protected string $view = 'filament.resources.rentals.pages.list-rentals';
+
+    public string $currentView = 'list';
 
     public function mount(): void
     {
         $this->updateLateStatuses();
         
         parent::mount();
+    }
+
+    public function setView(string $view): void
+    {
+        $this->currentView = $view;
+    }
+
+    public function getStatuses(): array
+    {
+        return [
+            Rental::STATUS_PENDING => 'Pending',
+            Rental::STATUS_LATE_PICKUP => 'Late Pickup',
+            Rental::STATUS_ACTIVE => 'Active',
+            Rental::STATUS_LATE_RETURN => 'Late Return',
+            Rental::STATUS_COMPLETED => 'Completed',
+            Rental::STATUS_CANCELLED => 'Cancelled',
+        ];
+    }
+
+    public function getKanbanRecords(): Collection
+    {
+        return Rental::query()
+            ->with(['customer', 'items'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('status');
     }
 
     protected function updateLateStatuses(): void

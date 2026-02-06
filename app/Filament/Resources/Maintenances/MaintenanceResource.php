@@ -46,6 +46,11 @@ class MaintenanceResource extends Resource
         return 2;
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::whereIn('condition', ['lost', 'broken'])->count() ?: null;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

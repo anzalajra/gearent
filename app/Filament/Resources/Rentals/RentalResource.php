@@ -8,6 +8,7 @@ use App\Filament\Resources\Rentals\Pages\ListRentals;
 use App\Filament\Resources\Rentals\Pages\PickupOperation;
 use App\Filament\Resources\Rentals\Pages\ProcessReturn;
 use App\Filament\Resources\Rentals\Pages\RentalDocuments;
+use App\Filament\Resources\Rentals\Pages\RentalKanbanBoard;
 use App\Filament\Resources\Rentals\Pages\ViewRental;
 use App\Filament\Resources\Rentals\Schemas\RentalForm;
 use App\Filament\Resources\Rentals\Tables\RentalsTable;
@@ -32,6 +33,41 @@ class RentalResource extends Resource
     protected static ?int $navigationSort = 1;
     
     protected static ?string $navigationLabel = 'Rentals';
+
+    public static function getNavigationBadge(): ?string
+    {
+        $pending = static::getModel()::where('status', Rental::STATUS_PENDING)->count();
+        $late = static::getModel()::whereIn('status', [Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])->count();
+
+        if ($pending === 0 && $late === 0) {
+            return null;
+        }
+
+        if ($late > 0) {
+             return $pending > 0 ? "{$pending} | {$late}" : (string) $late;
+        }
+
+        return (string) $pending;
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        $pending = static::getModel()::where('status', Rental::STATUS_PENDING)->count();
+        $late = static::getModel()::whereIn('status', [Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])->count();
+        
+        $parts = [];
+        if ($pending > 0) $parts[] = "{$pending} Pending";
+        if ($late > 0) $parts[] = "{$late} Late Rental";
+        
+        return implode(' & ', $parts);
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return static::getModel()::whereIn('status', [Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])->exists() 
+            ? 'danger' 
+            : 'warning';
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -60,6 +96,7 @@ class RentalResource extends Resource
             'return' => ProcessReturn::route('/{record}/return'),
             'documents' => RentalDocuments::route('/{record}/documents'),
             'view' => ViewRental::route('/{record}/view'),
+            'kanban' => RentalKanbanBoard::route('/kanban'),
         ];
     }
 }

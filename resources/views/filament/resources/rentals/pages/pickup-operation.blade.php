@@ -31,6 +31,8 @@
                             @php $availability = $this->getAvailabilityStatus(); @endphp
                             @if($availability['available'])
                                 <x-filament::badge color="success">Available</x-filament::badge>
+                            @elseif(!empty($availability['unavailable_units']))
+                                <x-filament::badge color="danger">Problem</x-filament::badge>
                             @else
                                 <x-filament::badge color="danger">Unavailable</x-filament::badge>
                             @endif
