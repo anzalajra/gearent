@@ -54,6 +54,56 @@ class ProcessDelivery extends Page implements HasTable
         return $type . ' - ' . $this->delivery->delivery_number;
     }
 
+    public function getMarkAllCheckedAction(): Action
+    {
+        return Action::make('markAllChecked')
+            ->label('Mark All as Checked')
+            ->icon('heroicon-o-check-circle')
+            ->color('warning')
+            ->steps([
+                \Filament\Schemas\Components\Wizard\Step::make('Verification')
+                    ->description('Please verify that all tools have been checked properly and carefully.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('I confirm that I have physically checked all items and they are present.'),
+                    ]),
+                \Filament\Schemas\Components\Wizard\Step::make('Final Confirmation')
+                    ->description('This will mark all items as checked.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('All items and kits will be marked as checked. You can still change the condition per item. Are you sure?'),
+                    ]),
+            ])
+            ->action(function () {
+                $items = $this->delivery->items;
+                foreach ($items as $record) {
+                    $condition = $record->condition ?? 'good';
+                    
+                    $record->update([
+                        'is_checked' => true,
+                        'condition' => $condition,
+                    ]);
+
+                    if ($this->delivery->type === 'out' && $record->rentalItemKit) {
+                        $record->rentalItemKit->update(['condition_out' => $condition]);
+                    }
+
+                    if ($this->delivery->type === 'in' && $record->rentalItemKit) {
+                        $record->rentalItemKit->update([
+                            'condition_in' => $condition,
+                            'is_returned' => true,
+                        ]);
+                    }
+                }
+
+                $this->delivery->refresh();
+                
+                Notification::make()
+                    ->title('All items marked as checked')
+                    ->success()
+                    ->send();
+            });
+    }
+
+
     public function table(Table $table): Table
     {
         return $table
@@ -167,7 +217,9 @@ class ProcessDelivery extends Page implements HasTable
                     })
                     ->visible(fn () => $this->delivery->status === Delivery::STATUS_DRAFT),
             ])
-            ->headerActions([])
+            ->headerActions([
+                $this->getMarkAllCheckedAction(),
+            ])
             ->paginated(false);
     }
 

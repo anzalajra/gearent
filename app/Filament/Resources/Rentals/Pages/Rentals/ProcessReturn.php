@@ -78,6 +78,83 @@ class ProcessReturn extends Page implements HasTable
         return 'Return Operation - ' . $this->rental->rental_code;
     }
 
+    protected function getActions(): array
+    {
+        return [];
+    }
+
+    public function getMarkAllCheckedAction(): Action
+    {
+        return Action::make('markAllChecked')
+            ->label('Mark All as Checked')
+            ->icon('heroicon-o-check-circle')
+            ->color('warning')
+            ->steps([
+                \Filament\Schemas\Components\Wizard\Step::make('Verification')
+                    ->description('Please verify that all tools have been checked properly and carefully.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('I confirm that I have physically checked all items and they are present.'),
+                    ]),
+                \Filament\Schemas\Components\Wizard\Step::make('Final Confirmation')
+                    ->description('This will mark all items as checked.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('All items and kits will be marked as checked. You can still change the condition per item. Are you sure?'),
+                    ]),
+            ])
+            ->action(function () {
+                $items = $this->delivery->items;
+                foreach ($items as $record) {
+                    // Determine condition
+                    $condition = $record->condition;
+                    if (! $condition) {
+                        if ($record->rentalItemKit) {
+                            $condition = $record->rentalItemKit->unitKit->condition ?? 'good';
+                        } else {
+                            $condition = $record->rentalItem->productUnit->condition ?? 'good';
+                        }
+                    }
+                    
+                    $record->update([
+                        'is_checked' => true,
+                        'condition' => $condition,
+                    ]);
+
+                    // Logic from check_item action
+                    $isMaintenance = in_array($condition, ['broken', 'lost']);
+                    $updates = ['condition' => $condition];
+                    
+                    if ($isMaintenance) {
+                         $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes) . "\n[AUTO] Marked as {$condition} during Return.";
+                        
+                        if (!$record->rentalItemKit) {
+                            $updates['status'] = \App\Models\ProductUnit::STATUS_MAINTENANCE;
+                        }
+                    }
+
+                    // Sync back to RentalItemKit if it's a kit
+                    if ($record->rentalItemKit) {
+                        $record->rentalItemKit->update([
+                            'condition_in' => $condition,
+                            'is_returned' => true,
+                        ]);
+                        // Update Unit Kit Master
+                        $record->rentalItemKit->unitKit->update($updates);
+                    } else {
+                        // Update Main Unit Master
+                        $record->rentalItem->productUnit->update($updates);
+                    }
+                }
+
+                $this->delivery->refresh();
+                
+                Notification::make()
+                    ->title('All items marked as checked')
+                    ->success()
+                    ->send();
+            });
+    }
+
+
     public function allItemsChecked(): bool
     {
         return $this->delivery->items->where('is_checked', false)->count() === 0;
@@ -223,7 +300,9 @@ class ProcessReturn extends Page implements HasTable
                             ->send();
                     }),
             ])
-            ->headerActions([])
+            ->headerActions([
+                $this->getMarkAllCheckedAction(),
+            ])
             ->paginated(false);
     }
 

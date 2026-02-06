@@ -101,6 +101,69 @@ class PickupOperation extends Page implements HasTable
         ];
     }
 
+    protected function getActions(): array
+    {
+        return [];
+    }
+
+    public function getMarkAllCheckedAction(): Action
+    {
+        return Action::make('markAllChecked')
+            ->label('Mark All as Checked')
+            ->icon('heroicon-o-check-circle')
+            ->color('warning')
+            ->steps([
+                \Filament\Schemas\Components\Wizard\Step::make('Verification')
+                    ->description('Please verify that all tools have been checked properly and carefully.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('I confirm that I have physically checked all items and they are present.'),
+                    ]),
+                \Filament\Schemas\Components\Wizard\Step::make('Final Confirmation')
+                    ->description('This will mark all items as checked.')
+                    ->schema([
+                        \Filament\Schemas\Components\Text::make('All items and kits will be marked as checked. You can still change the condition per item. Are you sure?'),
+                    ]),
+            ])
+            ->action(function () {
+                $items = $this->delivery->items;
+                foreach ($items as $record) {
+                    // Use existing condition or default to 'good'
+                    $condition = $record->condition ?? 'good';
+                    
+                    $record->update([
+                        'is_checked' => true,
+                        'condition' => $condition,
+                    ]);
+
+                    // Logic from check_item action
+                    $isMaintenance = in_array($condition, ['broken', 'lost']);
+                    
+                    if ($isMaintenance) {
+                         $updates = ['condition' => $condition];
+                         // Add note about auto maintenance
+                         $updates['notes'] = ($record->rentalItemKit ? $record->rentalItemKit->unitKit->notes : $record->rentalItem->productUnit->notes) . "\n[AUTO] Marked as {$condition} during Pickup.";
+                        
+                        if (!$record->rentalItemKit) {
+                            $updates['status'] = \App\Models\ProductUnit::STATUS_MAINTENANCE;
+                        }
+                         // Update Unit Kit Master or Main Unit Master
+                        if ($record->rentalItemKit) {
+                            $record->rentalItemKit->unitKit->update($updates);
+                        } else {
+                            $record->rentalItem->productUnit->update($updates);
+                        }
+                    }
+                }
+
+                $this->delivery->refresh();
+                
+                Notification::make()
+                    ->title('All items marked as checked')
+                    ->success()
+                    ->send();
+            });
+    }
+
     public function allItemsChecked(): bool
     {
         return $this->delivery->items->where('is_checked', false)->count() === 0;
@@ -338,7 +401,9 @@ class PickupOperation extends Page implements HasTable
                             ->send();
                     }),
             ])
-            ->headerActions([])
+            ->headerActions([
+                $this->getMarkAllCheckedAction(),
+            ])
             ->paginated(false);
     }
 
