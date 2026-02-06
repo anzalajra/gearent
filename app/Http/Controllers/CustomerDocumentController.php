@@ -14,7 +14,7 @@ class CustomerDocumentController extends Controller
     {
         $request->validate([
             'files' => 'required|array',
-            'files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:512',
+            'files.*' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
         ]);
 
         $customer = Auth::guard('customer')->user();
@@ -41,12 +41,12 @@ class CustomerDocumentController extends Controller
                 if ($existing->status === CustomerDocument::STATUS_APPROVED) {
                     continue;
                 }
-                Storage::delete($existing->file_path);
+                Storage::disk('local')->delete($existing->file_path);
                 $existing->delete();
             }
 
-            // Store new file
-            $path = $file->store('customer-documents/' . $customer->id, 'public');
+            // Store new file in local (private) disk
+            $path = $file->store('customer-documents/' . $customer->id, 'local');
 
             CustomerDocument::create([
                 'customer_id' => $customer->id,
@@ -80,9 +80,37 @@ class CustomerDocumentController extends Controller
             return back()->with('error', 'Cannot delete approved document.');
         }
 
-        Storage::delete($document->file_path);
+        Storage::disk('local')->delete($document->file_path);
         $document->delete();
 
         return back()->with('success', 'Document deleted.');
+    }
+
+    public function view(CustomerDocument $document)
+    {
+        // Check if the current user is the owner of the document
+        if (Auth::guard('customer')->id() !== $document->customer_id) {
+            abort(403);
+        }
+
+        if (!Storage::disk('local')->exists($document->file_path)) {
+            abort(404);
+        }
+
+        return response()->file(storage_path('app/private/' . $document->file_path));
+    }
+
+    public function viewForAdmin(CustomerDocument $document)
+    {
+        // Check if the current user is an admin (authenticated via default guard)
+        if (!Auth::check()) {
+            abort(403);
+        }
+
+        if (!Storage::disk('local')->exists($document->file_path)) {
+            abort(404);
+        }
+
+        return response()->file(storage_path('app/private/' . $document->file_path));
     }
 }

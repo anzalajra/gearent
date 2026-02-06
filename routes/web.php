@@ -35,9 +35,9 @@ Route::post('/catalog/check-availability/{unit}', [CatalogController::class, 'ch
 // Customer Auth
 Route::middleware('customer.guest')->group(function () {
     Route::get('/login', [CustomerAuthController::class, 'showLoginForm'])->name('customer.login');
-    Route::post('/login', [CustomerAuthController::class, 'login']);
+    Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:6,1');
     Route::get('/register', [CustomerAuthController::class, 'showRegistrationForm'])->name('customer.register');
-    Route::post('/register', [CustomerAuthController::class, 'register']);
+    Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:6,1');
 });
 
 Route::post('/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout')->middleware('customer.auth');
@@ -75,6 +75,7 @@ Route::middleware('customer.auth')->group(function () {
 // Customer Documents
 Route::middleware('customer.auth')->group(function () {
     Route::post('/customer/documents/upload', [App\Http\Controllers\CustomerDocumentController::class, 'upload'])->name('customer.documents.upload');
+    Route::get('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'view'])->name('customer.documents.view');
     Route::delete('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'delete'])->name('customer.documents.delete');
 });
 
@@ -83,6 +84,11 @@ Route::middleware('customer.auth')->group(function () {
 //    Route::get('/pages/{page}/builder', [PageBuilderController::class, 'edit'])->name('page.builder.edit');
 //    Route::post('/pages/{page}/builder', [PageBuilderController::class, 'update'])->name('page.builder.update');
 // });
+
+// Admin Document View
+Route::middleware(['auth'])->group(function () {
+    Route::get('/admin/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'viewForAdmin'])->name('admin.documents.view');
+});
 
 // Public Signed Documents
 Route::prefix('public-documents')->name('public-documents.')->group(function () {

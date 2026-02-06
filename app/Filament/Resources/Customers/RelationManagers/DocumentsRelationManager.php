@@ -49,7 +49,7 @@ class DocumentsRelationManager extends RelationManager
                 Action::make('view')
                     ->label('View')
                     ->icon('heroicon-o-eye')
-                    ->url(fn (CustomerDocument $record) => Storage::url($record->file_path))
+                    ->url(fn (CustomerDocument $record) => route('admin.documents.view', $record))
                     ->openUrlInNewTab(),
 
                 Action::make('approve')

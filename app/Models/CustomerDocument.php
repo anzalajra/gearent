@@ -45,7 +45,7 @@ class CustomerDocument extends Model
 
     public function getFileUrl(): string
     {
-        return Storage::url($this->file_path);
+        return route('customer.documents.view', $this);
     }
 
     public function getFileSizeFormatted(): string
