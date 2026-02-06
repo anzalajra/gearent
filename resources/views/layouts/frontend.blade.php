@@ -307,6 +307,9 @@
                 @else
                     &copy; {{ date('Y') }} {{ \App\Models\Setting::get('site_name', 'Gearent') }}. All rights reserved.
                 @endif
+                <div class="mt-2 text-xs text-gray-500">
+                    v{{ config('app.version') }}
+                </div>
             </div>
         </div>
     </footer>

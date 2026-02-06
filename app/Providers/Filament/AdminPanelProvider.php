@@ -103,6 +103,10 @@ class AdminPanelProvider extends PanelProvider
                 'panels::global-search.after',
                 fn () => view('filament.hooks.qr-scanner')
             )
+            ->renderHook(
+                'panels::footer',
+                fn () => view('filament.hooks.footer')
+            )
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
