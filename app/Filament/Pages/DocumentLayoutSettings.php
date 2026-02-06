@@ -51,6 +51,8 @@ class DocumentLayoutSettings extends Page implements HasForms
             'doc_show_logo' => true,
             'doc_table_striped' => false,
             'doc_table_bordered' => false,
+            'doc_qr_delivery_note' => true,
+            'doc_qr_checklist_form' => true,
         ];
 
         $this->form->fill(array_merge($defaults, $settings));
@@ -159,6 +161,23 @@ class DocumentLayoutSettings extends Page implements HasForms
                                     ->label('Bank Account Details')
                                     ->helperText('Payment instructions to be displayed on Invoices')
                                     ->toolbarButtons(['bold', 'italic', 'bulletList']),
+                            ]),
+
+                        Tab::make('QR Code')
+                            ->icon('heroicon-o-qr-code')
+                            ->schema([
+                                Section::make('QR Code Visibility')
+                                    ->description('Manage where QR codes should appear on generated documents')
+                                    ->schema([
+                                        Toggle::make('doc_qr_delivery_note')
+                                            ->label('Show QR Code on Delivery Note (Surat Jalan)')
+                                            ->helperText('Enables scanning for Delivery IN/OUT operations')
+                                            ->default(true),
+                                        Toggle::make('doc_qr_checklist_form')
+                                            ->label('Show QR Code on Checklist Form')
+                                            ->helperText('Enables scanning to view Rental details')
+                                            ->default(true),
+                                    ]),
                             ]),
                     ]),
             ]);

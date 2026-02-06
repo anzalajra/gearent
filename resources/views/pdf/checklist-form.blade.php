@@ -11,8 +11,8 @@
     </div>
 
     <div class="row mb-4">
-        <div class="col-6">
-            <div class="meta-box" style="margin-right: 10px;">
+        <div style="float: left; width: 40%;">
+            <div class="meta-box" style="margin-right: 5px;">
                 <div class="meta-title">Rental Info</div>
                 <table style="width: 100%; border: none;">
                     <tr>
@@ -30,13 +30,18 @@
                 </table>
             </div>
         </div>
-        <div class="col-6">
-            <div class="meta-box" style="margin-left: 10px;">
+        <div style="float: left; width: 40%;">
+            <div class="meta-box" style="margin-left: 5px; margin-right: 5px;">
                 <div class="meta-title">Renter Info</div>
                 <p class="mb-1"><strong>{{ $rental->customer->name }}</strong></p>
                 <p class="mb-1">{{ $rental->customer->address ?? '-' }}</p>
                 <p class="mb-1">Phone: {{ $rental->customer->phone ?? '-' }}</p>
             </div>
+        </div>
+        <div style="float: left; width: 20%; text-align: right;">
+            @if(!empty($doc_settings['doc_qr_checklist_form']))
+                <img src="{{ (new \chillerlan\QRCode\QRCode)->render(\App\Filament\Resources\Rentals\RentalResource::getUrl('view', ['record' => $rental])) }}" style="width: 100px; height: 100px;">
+            @endif
         </div>
     </div>
 

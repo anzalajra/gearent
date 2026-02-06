@@ -11,8 +11,8 @@
     </div>
 
     <div class="row mb-4">
-        <div class="col-6">
-            <div class="meta-box" style="margin-right: 10px;">
+        <div style="float: left; width: 40%;">
+            <div class="meta-box" style="margin-right: 5px;">
                 <div class="meta-title">Delivery Info</div>
                 <table style="width: 100%; border: none;">
                     <tr>
@@ -30,13 +30,23 @@
                 </table>
             </div>
         </div>
-        <div class="col-6">
-            <div class="meta-box" style="margin-left: 10px;">
+        <div style="float: left; width: 40%;">
+            <div class="meta-box" style="margin-left: 5px; margin-right: 5px;">
                 <div class="meta-title">Customer Info</div>
                 <p class="mb-1"><strong>{{ $delivery->rental->customer->name }}</strong></p>
                 <p class="mb-1">{{ $delivery->rental->customer->address ?? '-' }}</p>
                 <p class="mb-1">Phone: {{ $delivery->rental->customer->phone ?? '-' }}</p>
             </div>
+        </div>
+        <div style="float: left; width: 20%; text-align: right;">
+            @if(!empty($doc_settings['doc_qr_delivery_note']))
+                @php
+                    $url = $delivery->type === 'out'
+                        ? \App\Filament\Resources\Rentals\RentalResource::getUrl('pickup', ['record' => $delivery->rental_id])
+                        : \App\Filament\Resources\Rentals\RentalResource::getUrl('return', ['record' => $delivery->rental_id]);
+                @endphp
+                <img src="{{ (new \chillerlan\QRCode\QRCode)->render($url) }}" style="width: 100px; height: 100px;">
+            @endif
         </div>
     </div>
 

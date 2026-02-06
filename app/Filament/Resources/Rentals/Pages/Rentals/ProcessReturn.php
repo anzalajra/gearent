@@ -230,20 +230,39 @@ class ProcessReturn extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('download_pdf')
-                ->label('Download PDF')
-                ->icon('heroicon-o-document-arrow-down')
-                ->color('info')
-                ->action(function () {
-                    $this->delivery->load(['rental.customer', 'items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit', 'checkedBy']);
-                    
-                    $pdf = Pdf::loadView('pdf.delivery-note', ['delivery' => $this->delivery]);
-                    
-                    return response()->streamDownload(
-                        fn () => print($pdf->output()),
-                        $this->delivery->delivery_number . '.pdf'
-                    );
-                }),
+            \Filament\Actions\ActionGroup::make([
+                Action::make('download_checklist')
+                    ->label('Download Checklist Form')
+                    ->icon('heroicon-o-clipboard-document-list')
+                    ->action(function () {
+                        $this->rental->load(['customer', 'items.productUnit.product', 'items.rentalItemKits.unitKit']);
+                        
+                        $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $this->rental]);
+                        
+                        return response()->streamDownload(
+                            fn () => print($pdf->output()),
+                            'Checklist-' . $this->rental->rental_code . '.pdf'
+                        );
+                    }),
+
+                Action::make('download_delivery_note')
+                    ->label('Download Delivery Note')
+                    ->icon('heroicon-o-truck')
+                    ->action(function () {
+                        $this->delivery->load(['rental.customer', 'items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit', 'checkedBy']);
+                        
+                        $pdf = Pdf::loadView('pdf.delivery-note', ['delivery' => $this->delivery]);
+                        
+                        return response()->streamDownload(
+                            fn () => print($pdf->output()),
+                            $this->delivery->delivery_number . '.pdf'
+                        );
+                    }),
+            ])
+            ->label('Print')
+            ->icon('heroicon-o-printer')
+            ->color('info')
+            ->button(),
 
             Action::make('rental_documents')
                 ->label('Delivery')
