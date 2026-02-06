@@ -101,10 +101,7 @@ class PickupOperation extends Page implements HasTable
         ];
     }
 
-    protected function getActions(): array
-    {
-        return [];
-    }
+
 
     public function getMarkAllCheckedAction(): Action
     {
@@ -410,6 +407,44 @@ class PickupOperation extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\ActionGroup::make([
+                Action::make('send_whatsapp_reminder')
+                    ->label('Pickup Reminder (WhatsApp)')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->url(function () {
+                        $rental = $this->rental;
+                        $customer = $rental->customer;
+                        
+                        $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.rental.checklist', ['rental' => $rental]);
+                        
+                        $data = [
+                            'customer_name' => $customer->name,
+                            'rental_ref' => $rental->rental_code,
+                            'pickup_date' => \Carbon\Carbon::parse($rental->start_date)->format('d M Y H:i'),
+                            'link_pdf' => $pdfLink,
+                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                        ];
+                        
+                        $message = \App\Helpers\WhatsAppHelper::parseTemplate('whatsapp_template_rental_pickup', $data);
+                        
+                        return \App\Helpers\WhatsAppHelper::getLink($customer->phone, $message);
+                    })
+                    ->openUrlInNewTab(),
+                
+                Action::make('send_email_reminder')
+                    ->label('Pickup Reminder (Email)')
+                    ->icon('heroicon-o-envelope')
+                    ->color('gray')
+                    ->disabled()
+                    ->tooltip('Coming Soon'),
+            ])
+            ->label('Send')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('info')
+            ->button(),
+
             \Filament\Actions\ActionGroup::make([
                 Action::make('download_checklist')
                     ->label('Download Checklist Form')

@@ -47,6 +47,49 @@ class ViewRental extends Page
     {
         return [
             ActionGroup::make([
+                Action::make('send_whatsapp')
+                    ->label('via WhatsApp')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->url(function () {
+                        $rental = $this->rental;
+                        $customer = $rental->customer;
+                        
+                        $itemsList = $rental->items->map(function ($item) {
+                             return "- " . $item->productUnit->product->name . " (" . $item->productUnit->unit_code . ")";
+                        })->join("\n");
+                        
+                        $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.rental.checklist', ['rental' => $rental]);
+                        
+                        $data = [
+                            'customer_name' => $customer->name,
+                            'rental_ref' => $rental->rental_code,
+                            'items_list' => $itemsList,
+                            'pickup_date' => \Carbon\Carbon::parse($rental->start_date)->format('d M Y H:i'),
+                            'return_date' => \Carbon\Carbon::parse($rental->end_date)->format('d M Y H:i'),
+                            'link_pdf' => $pdfLink,
+                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                        ];
+                        
+                        $message = \App\Helpers\WhatsAppHelper::parseTemplate('whatsapp_template_rental_detail', $data);
+                        
+                        return \App\Helpers\WhatsAppHelper::getLink($customer->phone, $message);
+                    })
+                    ->openUrlInNewTab(),
+                
+                Action::make('send_email')
+                    ->label('via Email')
+                    ->icon('heroicon-o-envelope')
+                    ->disabled()
+                    ->tooltip('Coming Soon'),
+            ])
+            ->label('Send')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('info')
+            ->button(),
+
+            ActionGroup::make([
                 // Checklist Form PDF
                 Action::make('download_checklist')
                     ->label('Download Checklist Form')

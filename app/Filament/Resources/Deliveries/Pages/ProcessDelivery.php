@@ -54,6 +54,8 @@ class ProcessDelivery extends Page implements HasTable
         return $type . ' - ' . $this->delivery->delivery_number;
     }
 
+
+
     public function getMarkAllCheckedAction(): Action
     {
         return Action::make('markAllChecked')
@@ -231,6 +233,48 @@ class ProcessDelivery extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\ActionGroup::make([
+                Action::make('send_whatsapp_delivery')
+                    ->label('Send Delivery Note (WhatsApp)')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->url(function () {
+                        $delivery = $this->delivery;
+                        $rental = $delivery->rental;
+                        $customer = $rental->customer;
+                        
+                        $templateKey = $delivery->type === 'out' 
+                            ? 'whatsapp_template_rental_delivery_in' // To Customer
+                            : 'whatsapp_template_rental_delivery_out'; // Return
+                            
+                        $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.rental.delivery-note', ['rental' => $rental]);
+                        
+                        $data = [
+                            'customer_name' => $customer->name,
+                            'rental_ref' => $rental->rental_code,
+                            'link_pdf' => $pdfLink,
+                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                        ];
+                        
+                        $message = \App\Helpers\WhatsAppHelper::parseTemplate($templateKey, $data);
+                        
+                        return \App\Helpers\WhatsAppHelper::getLink($customer->phone, $message);
+                    })
+                    ->openUrlInNewTab(),
+                
+                Action::make('send_email_delivery')
+                    ->label('Send Delivery Note (Email)')
+                    ->icon('heroicon-o-envelope')
+                    ->color('gray')
+                    ->disabled()
+                    ->tooltip('Coming Soon'),
+            ])
+            ->label('Send')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('info')
+            ->button(),
+
             Action::make('download_pdf')
                 ->label('Download PDF')
                 ->icon('heroicon-o-document-arrow-down')

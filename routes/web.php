@@ -8,7 +8,8 @@ use App\Http\Controllers\CustomerDashboardController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
-use App\Http\Controllers\Admin\PageBuilderController;
+// use App\Http\Controllers\Admin\PageBuilderController;
+use App\Http\Controllers\PublicDocumentController;
 
 // Public Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -65,7 +66,15 @@ Route::middleware('customer.auth')->group(function () {
 });
 
 // Admin Page Builder
-Route::middleware(['auth'])->prefix('admin')->group(function () {
-    Route::get('/pages/{page}/builder', [PageBuilderController::class, 'edit'])->name('page.builder.edit');
-    Route::post('/pages/{page}/builder', [PageBuilderController::class, 'update'])->name('page.builder.update');
+// Route::middleware(['auth'])->prefix('admin')->group(function () {
+//    Route::get('/pages/{page}/builder', [PageBuilderController::class, 'edit'])->name('page.builder.edit');
+//    Route::post('/pages/{page}/builder', [PageBuilderController::class, 'update'])->name('page.builder.update');
+// });
+
+// Public Signed Documents
+Route::prefix('public-documents')->name('public-documents.')->group(function () {
+    Route::get('/rental/{rental}/checklist', [PublicDocumentController::class, 'rentalChecklist'])->name('rental.checklist');
+    Route::get('/rental/{rental}/delivery-note', [PublicDocumentController::class, 'rentalDeliveryNote'])->name('rental.delivery-note');
+    Route::get('/quotation/{quotation}', [PublicDocumentController::class, 'quotation'])->name('quotation');
+    Route::get('/invoice/{invoice}', [PublicDocumentController::class, 'invoice'])->name('invoice');
 });

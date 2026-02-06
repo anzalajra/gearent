@@ -297,6 +297,63 @@ class Settings extends Page implements HasForms
                                     ]),
                             ]),
 
+                        Tabs\Tab::make('WhatsApp')
+                            ->icon('heroicon-o-chat-bubble-left-right')
+                            ->schema([
+                                Toggle::make('whatsapp_enabled')
+                                    ->label('Enable WhatsApp Feature')
+                                    ->default(true)
+                                    ->helperText('Enable "Send via WhatsApp" buttons across the admin panel.')
+                                    ->live(),
+
+                                Section::make('Message Templates')
+                                    ->description('Configure the default message templates for WhatsApp actions.')
+                                    ->visible(fn ($get) => $get('whatsapp_enabled'))
+                                    ->schema([
+                                        Section::make('Rental Templates')
+                                            ->description('Available placeholders: [customer_name], [rental_ref], [items_list], [pickup_date], [return_date], [link_pdf], [company_name]')
+                                            ->schema([
+                                                Textarea::make('whatsapp_template_rental_detail')
+                                                    ->label('Rental Detail Message')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nBerikut adalah detail rental Anda [rental_ref].\n\nBarang:\n[items_list]\n\nTanggal Ambil: [pickup_date]\nTanggal Kembali: [return_date]\n\nSilakan unduh dokumen lampiran di sini: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                                Textarea::make('whatsapp_template_rental_pickup')
+                                                    ->label('Pickup Reminder / Slip')
+                                                    ->helperText('Placeholders: [customer_name], [rental_ref], [pickup_date], [link_pdf], [company_name]')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nIni adalah pengingat untuk pengambilan rental [rental_ref] yang dijadwalkan pada [pickup_date].\n\nSilakan unduh slip pengambilan di sini: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                                Textarea::make('whatsapp_template_rental_return')
+                                                    ->label('Return Reminder / Checklist')
+                                                    ->helperText('Placeholders: [customer_name], [rental_ref], [return_date], [link_pdf], [company_name]')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nIni adalah pengingat untuk pengembalian rental [rental_ref] sebelum [return_date].\n\nSilakan unduh checklist pengembalian di sini: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                                Textarea::make('whatsapp_template_rental_delivery_in')
+                                                    ->label('Delivery (To Customer) Completed')
+                                                    ->helperText('Placeholders: [customer_name], [rental_ref], [link_pdf], [company_name]')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nRental Anda [rental_ref] telah dikirimkan.\n\nSurat Jalan: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                                Textarea::make('whatsapp_template_rental_delivery_out')
+                                                    ->label('Delivery (Return) Completed')
+                                                    ->helperText('Placeholders: [customer_name], [rental_ref], [link_pdf], [company_name]')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nKami telah menjemput rental Anda [rental_ref].\n\nBukti Pengambilan: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                            ])->collapsible(),
+
+                                        Section::make('Finance Templates')
+                                            ->description('Available placeholders: [customer_name], [quotation_ref], [invoice_ref], [total_amount], [valid_until], [due_date], [link_pdf], [company_name]')
+                                            ->schema([
+                                                Textarea::make('whatsapp_template_quotation')
+                                                    ->label('Quotation Message')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nBerikut adalah penawaran harga [quotation_ref] yang Anda minta.\n\nTotal: [total_amount]\nBerlaku hingga: [valid_until]\n\nLihat PDF: [link_pdf]\n\nTerima kasih,\n[company_name]"),
+                                                Textarea::make('whatsapp_template_invoice')
+                                                    ->label('Invoice Message')
+                                                    ->rows(4)
+                                                    ->default("Halo [customer_name],\n\nBerikut adalah tagihan [invoice_ref] Anda.\n\nTotal: [total_amount]\nJatuh tempo: [due_date]\n\nLihat PDF: [link_pdf]\n\nMohon lakukan pembayaran sebelum tanggal jatuh tempo.\n\nTerima kasih,\n[company_name]"),
+                                            ])->collapsible(),
+                                    ]),
+                            ]),
+
                         Tabs\Tab::make('Registration')
                             ->icon('heroicon-o-user-plus')
                             ->schema([
