@@ -141,6 +141,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->plugins([
                 FilamentFullCalendarPlugin::make(),
+                \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
                 \Octopy\Filament\Palette\PaletteSwitcherPlugin::make()
                     ->applyThemeGlobally(true)
                     ->hidden(fn () => true),

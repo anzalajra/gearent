@@ -105,12 +105,14 @@ class SetupController extends Controller
 
         // Create Admin User
         try {
-            User::create([
+            $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'email_verified_at' => now(),
             ]);
+
+            $user->assignRole('super_admin');
         } catch (\Exception $e) {
              return back()->withErrors(['user' => 'Failed to create user: ' . $e->getMessage()]);
         }
