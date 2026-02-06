@@ -69,6 +69,7 @@ Route::middleware('customer.auth')->group(function () {
     // Checkout
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
     Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+    Route::post('/checkout/validate-discount', [CheckoutController::class, 'validateDiscount'])->name('checkout.validate-discount');
     Route::get('/checkout/success/{rental}', [CheckoutController::class, 'success'])->name('checkout.success');
 });
 

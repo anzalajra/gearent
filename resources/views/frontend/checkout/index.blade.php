@@ -78,21 +78,38 @@
                 <div class="bg-white rounded-lg shadow p-6 sticky top-24">
                     <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
                     
+                    <div class="mb-6 border-b pb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Kode Diskon</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="discount_code" value="{{ session('checkout_discount_code') }}" class="w-full border rounded-lg px-3 py-2 text-sm uppercase" placeholder="Masukkan kode">
+                            <button type="button" id="apply_discount" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 transition">Pakai</button>
+                        </div>
+                        <p id="discount_message" class="text-xs mt-2 {{ session('checkout_discount_amount') ? 'text-green-600' : 'hidden' }}">
+                            {{ session('checkout_discount_amount') ? 'Diskon berhasil diterapkan!' : '' }}
+                        </p>
+                    </div>
+
                     <div class="space-y-3 mb-6">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Subtotal</span>
                             <span>Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
                         </div>
+                        
+                        <div id="discount_row" class="flex justify-between text-green-600 {{ isset($discountAmount) && $discountAmount > 0 ? '' : 'hidden' }}">
+                            <span>Discount</span>
+                            <span id="discount_amount">-Rp {{ number_format($discountAmount ?? 0, 0, ',', '.') }}</span>
+                        </div>
+
                         @if($deposit > 0)
                         <div class="flex justify-between">
                             <span class="text-gray-600">Deposit</span>
-                            <span>Rp {{ number_format($deposit, 0, ',', '.') }}</span>
+                            <span id="deposit_amount">Rp {{ number_format($deposit, 0, ',', '.') }}</span>
                         </div>
                         @endif
                         <hr>
                         <div class="flex justify-between font-bold text-lg">
                             <span>Total</span>
-                            <span class="text-primary-600">Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                            <span class="text-primary-600" id="grand_total">Rp {{ number_format(($subtotal - ($discountAmount ?? 0)), 0, ',', '.') }}</span>
                         </div>
                     </div>
 
@@ -108,4 +125,76 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.getElementById('apply_discount').addEventListener('click', function() {
+        const code = document.getElementById('discount_code').value;
+        const btn = this;
+        const msg = document.getElementById('discount_message');
+        
+        if (!code) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '...';
+        msg.classList.add('hidden');
+        msg.className = 'text-xs mt-2 hidden';
+
+        fetch('{{ route("checkout.validate-discount") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ code: code })
+        })
+        .then(response => response.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Pakai';
+            msg.classList.remove('hidden');
+            msg.textContent = data.message;
+            
+            if (data.valid) {
+                msg.classList.add('text-green-600');
+                msg.classList.remove('text-red-600');
+                
+                // Update Summary
+                document.getElementById('discount_row').classList.remove('hidden');
+                document.getElementById('discount_amount').textContent = '-Rp ' + new Intl.NumberFormat('id-ID').format(data.discount_amount);
+                
+                // Update Total (Total = Subtotal - Discount)
+                // Note: The controller returns new_total = Subtotal - Discount + Deposit? 
+                // Let's stick to what we decided: Total in view is just Subtotal - Discount.
+                // Or if we follow my controller logic: new_total was Subtotal - Discount. 
+                // Wait, in controller: 'new_total' => $newTotal + $deposit
+                // Let's recalculate in JS to be sure what we display matches the view logic.
+                // View Logic: Total = Subtotal - Discount.
+                
+                const newTotal = data.new_subtotal - data.discount_amount;
+                document.getElementById('grand_total').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(newTotal);
+                
+                // If deposit changes
+                // document.getElementById('deposit_amount').textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(data.new_deposit);
+            } else {
+                msg.classList.add('text-red-600');
+                msg.classList.remove('text-green-600');
+                
+                // Hide discount row if invalid?
+                // document.getElementById('discount_row').classList.add('hidden');
+                // Or keep previous valid state? 
+                // If invalid, maybe clear previous discount?
+                // The controller doesn't clear session on failure.
+                // Ideally if user types wrong code, we just show error, don't remove existing valid code.
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.disabled = false;
+            btn.innerHTML = 'Pakai';
+            msg.classList.remove('hidden');
+            msg.textContent = 'Terjadi kesalahan, silakan coba lagi.';
+            msg.classList.add('text-red-600');
+        });
+    });
+</script>
 @endsection
