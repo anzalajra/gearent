@@ -296,6 +296,29 @@
             }
 
             const bookedDates = @json($bookedDates);
+            const operationalDays = @json($operationalDays);
+            const holidays = @json($holidays).map(h => h.date);
+
+            const isClosed = function(date) {
+                // 1. Check operational days
+                if (!operationalDays.includes(date.getDay().toString())) return true;
+                
+                // 2. Check holidays
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(date.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${dayStr}`;
+                
+                if (holidays.includes(dateStr)) return true;
+                
+                return false;
+            };
+
+            const disableRules = [
+                isClosed,
+                ...bookedDates
+            ];
+
             const pickupTimeInput = document.getElementById('pickup_time');
             const returnTimeInput = document.getElementById('return_time');
             
@@ -357,7 +380,7 @@
                 mode: "range",
                 minDate: "today",
                 dateFormat: "Y-m-d",
-                disable: bookedDates,
+                disable: disableRules,
                 defaultDate: defaultDates,
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length === 2) {

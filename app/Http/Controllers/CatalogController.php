@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\Rental;
 use App\Models\ProductUnit;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -81,7 +82,10 @@ class CatalogController extends Controller
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
-        return view('frontend.catalog.index', compact('products', 'categories'));
+        $operationalDays = json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0'];
+        $holidays = json_decode(Setting::get('holidays'), true) ?? [];
+
+        return view('frontend.catalog.index', compact('products', 'categories', 'operationalDays', 'holidays'));
     }
 
     public function show(Product $product)
@@ -98,10 +102,13 @@ class CatalogController extends Controller
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
             ->where('is_active', true)
-            ->take(4)
+            ->limit(4)
             ->get();
 
-        return view('frontend.catalog.show', compact('product', 'availableUnits', 'relatedProducts', 'bookedDates'));
+        $operationalDays = json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0'];
+        $holidays = json_decode(Setting::get('holidays'), true) ?? [];
+
+        return view('frontend.catalog.show', compact('product', 'availableUnits', 'bookedDates', 'relatedProducts', 'operationalDays', 'holidays'));
     }
 
     public function checkAvailability(Request $request, ProductUnit $unit)

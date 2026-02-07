@@ -10,6 +10,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -52,6 +53,12 @@ class Settings extends Page implements HasForms
         // Decode JSON settings
         if (isset($settings['registration_custom_fields'])) {
             $settings['registration_custom_fields'] = json_decode($settings['registration_custom_fields'], true);
+        }
+        if (isset($settings['operational_days'])) {
+            $settings['operational_days'] = json_decode($settings['operational_days'], true);
+        }
+        if (isset($settings['holidays'])) {
+            $settings['holidays'] = json_decode($settings['holidays'], true);
         }
 
         $this->form->fill([
@@ -229,6 +236,41 @@ class Settings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(30),
+                                    ]),
+                                    
+                                Section::make('Operational Days & Holidays')
+                                    ->schema([
+                                        CheckboxList::make('operational_days')
+                                            ->label('Operational Days')
+                                            ->helperText('Unchecked days will be considered as holidays (closed).')
+                                            ->options([
+                                                '1' => 'Monday',
+                                                '2' => 'Tuesday',
+                                                '3' => 'Wednesday',
+                                                '4' => 'Thursday',
+                                                '5' => 'Friday',
+                                                '6' => 'Saturday',
+                                                '0' => 'Sunday',
+                                            ])
+                                            ->default(['1', '2', '3', '4', '5', '6', '0'])
+                                            ->columns(4)
+                                            ->gridDirection('row')
+                                            ->columnSpanFull(),
+                                        
+                                        Repeater::make('holidays')
+                                            ->label('National Holidays / Closed Dates')
+                                            ->schema([
+                                                DatePicker::make('date')
+                                                    ->label('Date')
+                                                    ->required()
+                                                    ->native(false),
+                                                TextInput::make('name')
+                                                    ->label('Description')
+                                                    ->required(),
+                                            ])
+                                            ->grid(2)
+                                            ->defaultItems(0)
+                                            ->columnSpanFull(),
                                     ]),
                             ]),
 
@@ -455,6 +497,12 @@ class Settings extends Page implements HasForms
         // Handle JSON fields
         if (isset($data['registration_custom_fields']) && is_array($data['registration_custom_fields'])) {
             $data['registration_custom_fields'] = json_encode($data['registration_custom_fields']);
+        }
+        if (isset($data['operational_days']) && is_array($data['operational_days'])) {
+            $data['operational_days'] = json_encode($data['operational_days']);
+        }
+        if (isset($data['holidays']) && is_array($data['holidays'])) {
+            $data['holidays'] = json_encode($data['holidays']);
         }
 
         // Handle General/Rental/WhatsApp Settings

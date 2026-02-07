@@ -152,11 +152,30 @@
             const startDateInput = document.getElementById('start_date');
             const endDateInput = document.getElementById('end_date');
             
+            const operationalDays = @json($operationalDays);
+            const holidays = @json($holidays).map(h => h.date);
+
+            const isClosed = function(date) {
+                // 1. Check operational days
+                if (!operationalDays.includes(date.getDay().toString())) return true;
+                
+                // 2. Check holidays
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(date.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${dayStr}`;
+                
+                if (holidays.includes(dateStr)) return true;
+                
+                return false;
+            };
+
             // Initialize Flatpickr
             flatpickr("#date_range", {
                 mode: "range",
                 dateFormat: "Y-m-d",
                 minDate: "today",
+                disable: [isClosed],
                 defaultDate: [startDateInput.value, endDateInput.value],
                 onChange: function(selectedDates, dateStr, instance) {
                     if (selectedDates.length === 2) {

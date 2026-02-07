@@ -156,19 +156,50 @@
                         </div>
 
                         <div class="relative hidden sm:block" x-data="{ open: false }">
-                            <button @click="open = !open" class="flex items-center text-sm font-medium text-gray-700 hover:text-primary-600">
-                                {{ auth('customer')->user()->name }}
-                                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button @click="open = !open" class="flex items-center gap-2 focus:outline-none group">
+                                <div class="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm ring-2 ring-transparent group-hover:ring-primary-200 transition-all">
+                                    {{ substr(auth('customer')->user()->name, 0, 1) }}
+                                </div>
+                                <div class="text-sm font-medium text-gray-700 group-hover:text-primary-600 transition-colors">
+                                    {{ auth('customer')->user()->name }}
+                                </div>
+                                <svg class="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                 </svg>
                             </button>
-                            <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                                <a href="{{ route('customer.dashboard') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Dashboard</a>
-                                <a href="{{ route('customer.rentals') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">My Rentals</a>
-                                <a href="{{ route('customer.profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profile</a>
+                            
+                            <div x-show="open" 
+                                 @click.away="open = false"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 scale-95"
+                                 x-transition:enter-end="opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="opacity-100 scale-100"
+                                 x-transition:leave-end="opacity-0 scale-95"
+                                 class="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] py-2 z-50 ring-1 ring-black ring-opacity-5 origin-top-right"
+                                 style="display: none;">
+                                 
+                                <div class="px-4 py-3 border-b border-gray-100 mb-1">
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 font-bold text-lg">
+                                            {{ substr(auth('customer')->user()->name, 0, 1) }}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-semibold text-gray-900 truncate">{{ auth('customer')->user()->name }}</p>
+                                            <p class="text-xs text-gray-500 truncate">{{ auth('customer')->user()->email }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <a href="{{ route('customer.dashboard') }}" class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors">Dashboard</a>
+                                <a href="{{ route('customer.rentals') }}" class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors">My Rentals</a>
+                                <a href="{{ route('customer.profile') }}" class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors">Profile</a>
+                                
+                                <div class="border-t border-gray-100 my-1"></div>
+                                
                                 <form method="POST" action="{{ route('customer.logout') }}">
                                     @csrf
-                                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</button>
+                                    <button type="submit" class="block w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">Logout</button>
                                 </form>
                             </div>
                         </div>
