@@ -15,6 +15,17 @@
             opacity: 1 !important;
             cursor: not-allowed !important;
         }
+        .flatpickr-day.closed-day {
+            background: #f3f4f6;
+            color: #9ca3af;
+            border-color: #f3f4f6;
+        }
+        .flatpickr-day.closed-day:hover {
+             background: #e5e7eb;
+        }
+        .flatpickr-day.closed-day.selected {
+             background: #ef4444 !important; /* Should not happen if validation works, but fallback */
+        }
     </style>
 @endpush
 
@@ -315,7 +326,6 @@
             };
 
             const disableRules = [
-                isClosed,
                 ...bookedDates
             ];
 
@@ -382,8 +392,38 @@
                 dateFormat: "Y-m-d",
                 disable: disableRules,
                 defaultDate: defaultDates,
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    if (isClosed(dayElem.dateObj)) {
+                        dayElem.classList.add('closed-day');
+                    }
+                },
                 onChange: function(selectedDates, dateStr, instance) {
+                    // Validate start/end dates are not closed days
+                    if (selectedDates.length > 0) {
+                        if (isClosed(selectedDates[0])) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Tanggal Tidak Tersedia',
+                                text: 'Pengambilan tidak dapat dilakukan pada hari libur operasional.',
+                                confirmButtonColor: '#ef4444'
+                            });
+                            instance.clear();
+                            return;
+                        }
+                    }
+
                     if (selectedDates.length === 2) {
+                        if (isClosed(selectedDates[1])) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Tanggal Tidak Tersedia',
+                                text: 'Pengembalian tidak dapat dilakukan pada hari libur operasional.',
+                                confirmButtonColor: '#ef4444'
+                            });
+                            instance.clear();
+                            return;
+                        }
+
                         selectedStart = instance.formatDate(selectedDates[0], "Y-m-d");
                         selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
                         

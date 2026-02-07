@@ -14,6 +14,14 @@
             opacity: 1 !important;
             cursor: not-allowed !important;
         }
+        .flatpickr-day.closed-day {
+            background: #f3f4f6;
+            color: #9ca3af;
+            border-color: #f3f4f6;
+        }
+        .flatpickr-day.closed-day:hover {
+             background: #e5e7eb;
+        }
     </style>
 @endpush
 
@@ -175,10 +183,26 @@
                 mode: "range",
                 dateFormat: "Y-m-d",
                 minDate: "today",
-                disable: [isClosed],
                 defaultDate: [startDateInput.value, endDateInput.value],
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    if (isClosed(dayElem.dateObj)) {
+                        dayElem.classList.add('closed-day');
+                    }
+                },
                 onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length > 0 && isClosed(selectedDates[0])) {
+                         alert('Pickup tidak dapat dilakukan pada hari libur operasional.');
+                         instance.clear();
+                         return;
+                    }
+                    
                     if (selectedDates.length === 2) {
+                        if (isClosed(selectedDates[1])) {
+                             alert('Return tidak dapat dilakukan pada hari libur operasional.');
+                             instance.clear();
+                             return;
+                        }
+
                         startDateInput.value = instance.formatDate(selectedDates[0], "Y-m-d");
                         endDateInput.value = instance.formatDate(selectedDates[1], "Y-m-d");
                     }

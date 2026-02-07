@@ -82,7 +82,7 @@ class CatalogController extends Controller
         $products = $query->paginate(12)->withQueryString();
         $categories = Category::all();
 
-        $operationalDays = json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0'];
+        $operationalDays = array_map('strval', json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0']);
         $holidays = json_decode(Setting::get('holidays'), true) ?? [];
 
         return view('frontend.catalog.index', compact('products', 'categories', 'operationalDays', 'holidays'));
@@ -105,7 +105,7 @@ class CatalogController extends Controller
             ->limit(4)
             ->get();
 
-        $operationalDays = json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0'];
+        $operationalDays = array_map('strval', json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0']);
         $holidays = json_decode(Setting::get('holidays'), true) ?? [];
 
         return view('frontend.catalog.show', compact('product', 'availableUnits', 'bookedDates', 'relatedProducts', 'operationalDays', 'holidays'));
