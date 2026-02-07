@@ -133,6 +133,13 @@
                             </div>
                         </div>
 
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                            <input type="number" name="quantity" id="quantity" value="1" min="1" max="{{ $availableUnits->count() }}" required 
+                                class="w-full border rounded-lg px-3 py-2 bg-white">
+                            <p class="text-xs text-gray-500 mt-1">Maksimal: {{ $availableUnits->count() }} unit</p>
+                        </div>
+
                         <input type="hidden" name="start_date" id="start_date">
                         <input type="hidden" name="end_date" id="end_date">
 

@@ -68,36 +68,60 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Cart Items -->
             <div class="lg:col-span-2">
+                @php
+                    $groupedCartItems = $cartItems->groupBy(function($item) {
+                        return $item->productUnit->product->id;
+                    });
+                @endphp
+
                 <!-- Mobile Cart View -->
                 <div class="space-y-4 md:hidden mb-6">
-                    @foreach($cartItems as $item)
+                    @foreach($groupedCartItems as $productId => $items)
+                        @php
+                            $firstItem = $items->first();
+                            $product = $firstItem->productUnit->product;
+                            $quantity = $items->count();
+                            $subtotal = $items->sum('subtotal');
+                        @endphp
                         <div class="bg-white rounded-lg shadow p-4">
                             <div class="flex gap-4">
                                 <div class="h-20 w-20 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center">
-                                    @if($item->productUnit->product->image)
-                                        <img src="{{ Storage::url($item->productUnit->product->image) }}" alt="" class="h-full w-full object-cover rounded">
+                                    @if($product->image)
+                                        <img src="{{ Storage::url($product->image) }}" alt="" class="h-full w-full object-cover rounded">
                                     @else
                                         <span class="text-2xl">📷</span>
                                     @endif
                                 </div>
                                 <div>
-                                    <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
-                                    <p class="text-sm text-primary-600">Rp {{ number_format($item->daily_rate, 0, ',', '.') }}/day</p>
+                                    <p class="font-semibold">{{ $product->name }}</p>
+                                    <p class="text-sm text-primary-600">Rp {{ number_format($firstItem->daily_rate, 0, ',', '.') }}/day</p>
                                     <p class="text-xs text-gray-500 mt-1">
-                                        {{ $item->start_date->format('d M H:i') }} - {{ $item->end_date->format('d M H:i') }}
+                                        {{ $firstItem->start_date->format('d M H:i') }} - {{ $firstItem->end_date->format('d M H:i') }}
                                     </p>
+                                    <div class="mt-2">
+                                        <form action="{{ route('cart.update-quantity') }}" method="POST" class="flex items-center gap-2">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                            <label class="text-sm font-medium">Qty:</label>
+                                            <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
+                                                   class="w-16 text-center border rounded px-2 py-1 text-sm" 
+                                                   onchange="this.form.submit()">
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
                                 <div>
-                                    <span class="text-sm font-semibold">{{ $item->days }}</span> <span class="text-xs text-gray-500">days</span>
-                                    <p class="font-bold text-gray-900">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
+                                    <span class="text-sm font-semibold">{{ $firstItem->days }}</span> <span class="text-xs text-gray-500">days</span>
+                                    <p class="font-bold text-gray-900">Rp {{ number_format($subtotal, 0, ',', '.') }}</p>
                                 </div>
-                                <form action="{{ route('cart.remove', $item) }}" method="POST" class="inline">
+                                <form action="{{ route('cart.remove-product') }}" method="POST" class="inline">
                                     @csrf
                                     @method('DELETE')
+                                    <input type="hidden" name="product_id" value="{{ $product->id }}">
                                     <button type="submit" class="text-red-600 hover:text-red-800 text-sm font-medium">
-                                        Remove
+                                        Remove All
                                     </button>
                                 </form>
                             </div>
@@ -112,43 +136,61 @@
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                                 <!-- Removed individual dates column as it's now global -->
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Qty</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                                 <th class="px-6 py-3"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
-                            @foreach($cartItems as $item)
+                            @foreach($groupedCartItems as $productId => $items)
+                                @php
+                                    $firstItem = $items->first();
+                                    $product = $firstItem->productUnit->product;
+                                    $quantity = $items->count();
+                                    $subtotal = $items->sum('subtotal');
+                                @endphp
                                 <tr>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center">
                                             <div class="h-16 w-16 bg-gray-200 rounded flex items-center justify-center mr-4">
-                                                @if($item->productUnit->product->image)
-                                                    <img src="{{ Storage::url($item->productUnit->product->image) }}" alt="" class="h-full w-full object-cover rounded">
+                                                @if($product->image)
+                                                    <img src="{{ Storage::url($product->image) }}" alt="" class="h-full w-full object-cover rounded">
                                                 @else
                                                     <span class="text-2xl">📷</span>
                                                 @endif
                                             </div>
                                             <div>
-                                                <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
-                                                <p class="text-sm text-primary-600">Rp {{ number_format($item->daily_rate, 0, ',', '.') }}/day</p>
+                                                <p class="font-semibold">{{ $product->name }}</p>
+                                                <p class="text-sm text-primary-600">Rp {{ number_format($firstItem->daily_rate, 0, ',', '.') }}/day</p>
                                                 <p class="text-xs text-gray-500 mt-1">
-                                                    {{ $item->start_date->format('d M H:i') }} - {{ $item->end_date->format('d M H:i') }}
+                                                    {{ $firstItem->start_date->format('d M H:i') }} - {{ $firstItem->end_date->format('d M H:i') }}
                                                 </p>
                                             </div>
                                         </div>
                                     </td>
+                                    <td class="px-6 py-4 text-center">
+                                        <form action="{{ route('cart.update-quantity') }}" method="POST" class="flex items-center justify-center">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                            <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
+                                                   class="w-16 text-center border rounded px-2 py-1" 
+                                                   onchange="this.form.submit()">
+                                        </form>
+                                    </td>
                                     <td class="px-6 py-4">
-                                        <span class="font-semibold">{{ $item->days }}</span> days
+                                        <span class="font-semibold">{{ $firstItem->days }}</span> days
                                     </td>
                                     <td class="px-6 py-4 text-right font-semibold">
-                                        Rp {{ number_format($item->subtotal, 0, ',', '.') }}
+                                        Rp {{ number_format($subtotal, 0, ',', '.') }}
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <form action="{{ route('cart.remove', $item) }}" method="POST" class="inline">
+                                        <form action="{{ route('cart.remove-product') }}" method="POST" class="inline">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800">
+                                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                            <button type="submit" class="text-red-600 hover:text-red-800" title="Remove All">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                                 </svg>

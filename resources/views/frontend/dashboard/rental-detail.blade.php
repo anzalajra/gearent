@@ -58,26 +58,44 @@
         <h2 class="text-lg font-semibold mb-4">Rental Items</h2>
         
         <div class="space-y-4">
-            @foreach($rental->items as $item)
+            @php
+                $groupedItems = $rental->items->groupBy(function($item) {
+                    return $item->productUnit->product->id;
+                });
+            @endphp
+
+            @foreach($groupedItems as $items)
+                @php
+                    $firstItem = $items->first();
+                    $product = $firstItem->productUnit->product;
+                    $quantity = $items->count();
+                    $subtotal = $items->sum('subtotal');
+                    $allKits = $items->flatMap->rentalItemKits;
+                @endphp
                 <div class="border rounded-lg p-4">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="flex items-center">
                             <div class="h-16 w-16 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center mr-4">
-                                <span class="text-2xl">📷</span>
+                                @if($product->image)
+                                    <img src="{{ Storage::url($product->image) }}" alt="" class="h-full w-full object-cover rounded">
+                                @else
+                                    <span class="text-2xl">📷</span>
+                                @endif
                             </div>
                             <div>
-                                <p class="font-semibold">{{ $item->productUnit->product->name }}</p>
-                                <p class="text-sm text-gray-500">{{ $item->days }} days × Rp {{ number_format($item->daily_rate, 0, ',', '.') }}</p>
+                                <p class="font-semibold">{{ $product->name }}</p>
+                                <p class="text-sm text-gray-500">{{ $firstItem->days }} days × Rp {{ number_format($firstItem->daily_rate, 0, ',', '.') }}</p>
+                                <p class="text-sm font-medium mt-1">Quantity: {{ $quantity }}</p>
                             </div>
                         </div>
-                        <p class="font-semibold text-right sm:text-left">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
+                        <p class="font-semibold text-right sm:text-left">Rp {{ number_format($subtotal, 0, ',', '.') }}</p>
                     </div>
 
-                    @if($item->rentalItemKits->count() > 0)
+                    @if($allKits->count() > 0)
                         <div class="mt-3 pt-3 border-t">
-                            <p class="text-sm font-medium text-gray-700 mb-2">Included Kits:</p>
+                            <p class="text-sm font-medium text-gray-700 mb-2">Included Kits (Total):</p>
                             <div class="flex flex-wrap gap-2">
-                                @foreach($item->rentalItemKits as $kit)
+                                @foreach($allKits as $kit)
                                     <span class="px-2 py-1 bg-gray-100 rounded text-sm">{{ $kit->unitKit->name }}</span>
                                 @endforeach
                             </div>

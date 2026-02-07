@@ -181,9 +181,10 @@ class Product extends Model
     }
 
     /**
-     * Find an available unit for a specific date range
+     * Find available units for a specific date range
+     * Returns a collection of available ProductUnits
      */
-    public function findAvailableUnit($startDate, $endDate)
+    public function findAvailableUnits($startDate, $endDate)
     {
         $startDate = \Carbon\Carbon::parse($startDate);
         $endDate = \Carbon\Carbon::parse($endDate);
@@ -199,10 +200,18 @@ class Product extends Model
                         Rental::STATUS_LATE_RETURN
                     ])->where(function ($overlap) use ($startDate, $endDate) {
                         $overlap->where('start_date', '<', $endDate)
-                               ->where('end_date', '>', $startDate);
+                                ->where('end_date', '>', $startDate);
                     });
                 });
             })
-            ->first();
+            ->get();
+    }
+
+    /**
+     * Find an available unit for a specific date range
+     */
+    public function findAvailableUnit($startDate, $endDate)
+    {
+        return $this->findAvailableUnits($startDate, $endDate)->first();
     }
 }

@@ -102,6 +102,8 @@ if (!$isInstalled) {
         Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
         Route::post('/cart/update-all', [CartController::class, 'updateAll'])->name('cart.update-all');
         Route::put('/cart/{cart}', [CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/product', [CartController::class, 'removeProduct'])->name('cart.remove-product');
+        Route::patch('/cart/quantity', [CartController::class, 'updateQuantity'])->name('cart.update-quantity');
         Route::delete('/cart/{cart}', [CartController::class, 'remove'])->name('cart.remove');
         Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
 

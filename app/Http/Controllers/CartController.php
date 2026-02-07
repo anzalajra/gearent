@@ -57,7 +57,10 @@ class CartController extends Controller
             'product_id' => 'required|exists:products,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
+            'quantity' => 'nullable|integer|min:1',
         ]);
+
+        $quantity = $request->input('quantity', 1);
 
         $startDate = Carbon::parse($request->start_date);
         $endDate = Carbon::parse($request->end_date);
@@ -73,17 +76,6 @@ class CartController extends Controller
             return back()->with('error', $msg);
         }
         
-        // Find available unit for the requested product
-        $unit = $product->findAvailableUnit($startDate, $endDate);
-
-        if (!$unit) {
-            $msg = "Maaf, alat ini tidak tersedia untuk tanggal yang dipilih.";
-            if ($request->wantsJson()) {
-                return response()->json(['message' => $msg], 422);
-            }
-            return back()->with('error', $msg);
-        }
-
         $days = max(1, $startDate->diffInDays($endDate));
 
         // Check for existing cart items and handle date synchronization
@@ -152,42 +144,35 @@ class CartController extends Controller
             }
         }
 
-        // Check if THIS product is already in cart (after potential sync/cleanup)
-        // If it was in cart and updated, we might duplicate it if we are not careful?
-        // Actually, if the user is adding Product A, and Product A is already in cart:
-        // - If dates matched: standard check "already in cart"
-        // - If dates differed: We updated the existing Product A in the loop above.
-        // So we should check if we just updated THIS product.
-        
-        $alreadyInCart = false;
-        foreach ($updates as $update) {
-            if ($update['cart_item']->productUnit->product_id == $product->id) {
-                $alreadyInCart = true;
-                break;
+        // Get fresh cart unit IDs after sync/cleanup
+        $currentCartUnitIds = $customer->carts()->pluck('product_unit_id')->toArray();
+
+        // Find ALL available units for this product and date range
+        $allAvailableUnits = $product->findAvailableUnits($startDate, $endDate);
+
+        // Filter out units already in cart
+        $availableForAdd = $allAvailableUnits->whereNotIn('id', $currentCartUnitIds);
+
+        // Check if we have enough units
+        if ($availableForAdd->count() < $quantity) {
+            $msg = "Maaf, hanya tersedia " . $availableForAdd->count() . " unit tambahan untuk tanggal yang dipilih.";
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $msg], 422);
             }
+            return back()->with('error', $msg);
         }
-        
-        if (!$alreadyInCart) {
-            // Double check if it exists (in case it wasn't updated but dates matched)
-            $existing = $customer->carts()
-                ->whereHas('productUnit', function($q) use ($product) {
-                    $q->where('product_id', $product->id);
-                })->first();
-                
-            if ($existing) {
-                 if ($request->wantsJson()) {
-                    return response()->json(['message' => 'Item ini sudah ada di keranjang Anda.'], 422);
-                }
-                return back()->with('error', 'Item ini sudah ada di keranjang Anda.');
-            }
 
-            // Calculate discounted daily rate
-            $discountPercentage = $customer->getCategoryDiscountPercentage();
-            $dailyRate = $product->daily_rate;
-            if ($discountPercentage > 0) {
-                $dailyRate = $dailyRate - ($dailyRate * ($discountPercentage / 100));
-            }
+        // Add the requested quantity
+        $unitsToAdd = $availableForAdd->take($quantity);
 
+        // Calculate discounted daily rate
+        $discountPercentage = $customer->getCategoryDiscountPercentage();
+        $dailyRate = $product->daily_rate;
+        if ($discountPercentage > 0) {
+            $dailyRate = $dailyRate - ($dailyRate * ($discountPercentage / 100));
+        }
+
+        foreach ($unitsToAdd as $unit) {
             Cart::create([
                 'customer_id' => $customer->id,
                 'product_unit_id' => $unit->id,
@@ -199,18 +184,11 @@ class CartController extends Controller
             ]);
         }
 
-        $msg = 'Berhasil ditambahkan ke keranjang.';
-        if ($needsSync) {
-            $msg = empty($conflicts) 
-                ? 'Tanggal sewa keranjang telah diperbarui mengikuti pilihan terbaru Anda.' 
-                : 'Tanggal diperbarui. Beberapa item dihapus karena tidak tersedia.';
-        }
-
         if ($request->wantsJson()) {
-            return response()->json(['status' => 'success', 'message' => $msg]);
+            return response()->json(['message' => 'Item berhasil ditambahkan ke keranjang.']);
         }
 
-        return back()->with('success', $msg);
+        return redirect()->route('cart.index')->with('success', 'Item berhasil ditambahkan ke keranjang.');
     }
 
     public function updateAll(Request $request)
@@ -229,23 +207,23 @@ class CartController extends Controller
         $cartItems = $customer->carts()->with('productUnit.product')->get();
         $errors = [];
         $updatedCount = 0;
+        $reservedUnitIds = [];
 
         foreach ($cartItems as $item) {
             $product = $item->productUnit->product;
             
             // Try to find a unit available for the NEW dates
-            // First check if the CURRENT unit is available (excluding the current cart reservation if it overlaps? 
-            // Actually findAvailableUnit checks rentals. Cart items are not rentals yet, so they don't block availability 
-            // EXCEPT for other cart items. But we are updating THIS cart item.)
-            
-            // However, findAvailableUnit might return a DIFFERENT unit if the current one is booked by someone else.
-            // So we should be flexible.
-            $unit = $product->findAvailableUnit($startDate, $endDate);
+            // We must exclude units that have already been assigned to other items in this update loop
+            $candidates = $product->findAvailableUnits($startDate, $endDate);
+            $unit = $candidates->whereNotIn('id', $reservedUnitIds)->first();
 
             if (!$unit) {
                 $errors[] = "Produk {$product->name} tidak tersedia untuk tanggal baru.";
                 continue;
             }
+
+            // Reserve this unit
+            $reservedUnitIds[] = $unit->id;
 
             $item->update([
                 'product_unit_id' => $unit->id, // Switch unit if necessary
@@ -300,6 +278,97 @@ class CartController extends Controller
         $cart->delete();
 
         return back()->with('success', 'Item removed from cart.');
+    }
+
+    public function updateQuantity(Request $request)
+    {
+        $customer = Auth::guard('customer')->user();
+        
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        $productId = $request->product_id;
+        $newQuantity = $request->quantity;
+
+        // Get current cart items for this product
+        $cartItems = $customer->carts()
+            ->whereHas('productUnit', function ($query) use ($productId) {
+                $query->where('product_id', $productId);
+            })
+            ->get();
+        
+        $currentQuantity = $cartItems->count();
+
+        if ($currentQuantity == $newQuantity) {
+            return back();
+        }
+
+        if ($newQuantity < $currentQuantity) {
+            // Remove items (LIFO)
+            $toRemove = $currentQuantity - $newQuantity;
+            $cartItems->sortByDesc('created_at')->take($toRemove)->each->delete();
+            return back()->with('success', 'Quantity updated.');
+        }
+
+        if ($newQuantity > $currentQuantity) {
+            // Add items
+            $toAdd = $newQuantity - $currentQuantity;
+            $firstItem = $cartItems->first();
+            
+            if (!$firstItem) {
+                 return back()->with('error', 'Item not found.');
+            }
+
+            $product = $firstItem->productUnit->product;
+            $startDate = $firstItem->start_date;
+            $endDate = $firstItem->end_date;
+            $days = $firstItem->days;
+            $dailyRate = $firstItem->daily_rate;
+
+            // Find available units excluding current cart items
+            $currentCartUnitIds = $customer->carts()->pluck('product_unit_id')->toArray();
+            $allAvailableUnits = $product->findAvailableUnits($startDate, $endDate);
+            $availableForAdd = $allAvailableUnits->whereNotIn('id', $currentCartUnitIds);
+
+            if ($availableForAdd->count() < $toAdd) {
+                return back()->with('error', "Hanya tersedia " . $availableForAdd->count() . " unit tambahan untuk periode ini.");
+            }
+
+            $unitsToAdd = $availableForAdd->take($toAdd);
+
+            foreach ($unitsToAdd as $unit) {
+                Cart::create([
+                    'customer_id' => $customer->id,
+                    'product_unit_id' => $unit->id,
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'days' => $days,
+                    'daily_rate' => $dailyRate,
+                    'subtotal' => $dailyRate * $days,
+                ]);
+            }
+
+            return back()->with('success', 'Quantity updated.');
+        }
+    }
+
+    public function removeProduct(Request $request)
+    {
+        $customer = Auth::guard('customer')->user();
+        
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $customer->carts()
+            ->whereHas('productUnit', function ($query) use ($request) {
+                $query->where('product_id', $request->product_id);
+            })
+            ->delete();
+
+        return back()->with('success', 'Product removed from cart.');
     }
 
     public function clear()
