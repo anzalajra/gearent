@@ -79,7 +79,7 @@ if (!$isInstalled) {
         Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:6,1');
     });
 
-    Route::post('/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout')->middleware('customer.auth');
+    Route::match(['get', 'post'], '/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout')->middleware('customer.auth');
 
     // Customer Protected Routes
     Route::middleware('customer.auth')->prefix('customer')->name('customer.')->group(function () {

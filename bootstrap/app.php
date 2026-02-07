@@ -20,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'customer.auth' => \App\Http\Middleware\CustomerAuth::class,
             'customer.guest' => \App\Http\Middleware\CustomerGuest::class,
         ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'logout',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->reportable(function (\Throwable $e) {
