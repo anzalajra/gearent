@@ -67,7 +67,9 @@ class ProductSetup extends Page implements HasForms
                                             }),
                                         TextInput::make('slug')
                                             ->required()
-                                            ->maxLength(255),
+                                            ->maxLength(255)
+                                            ->distinct()
+                                            ->unique(Brand::class, 'slug', ignoreRecord: fn ($get) => $get('id')),
                                         FileUpload::make('logo')
                                             ->image()
                                             ->directory('brands'),
@@ -96,7 +98,9 @@ class ProductSetup extends Page implements HasForms
                                             }),
                                         TextInput::make('slug')
                                             ->required()
-                                            ->maxLength(255),
+                                            ->maxLength(255)
+                                            ->distinct()
+                                            ->unique(Category::class, 'slug', ignoreRecord: fn ($get) => $get('id')),
                                         Textarea::make('description')
                                             ->rows(2)
                                             ->columnSpanFull(),
