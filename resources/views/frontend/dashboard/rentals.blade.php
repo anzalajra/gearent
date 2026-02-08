@@ -15,10 +15,11 @@
                         <span class="font-bold text-gray-900">{{ $rental->rental_code }}</span>
                         <span class="px-2 py-1 rounded-full text-xs font-medium
                             @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
+                            @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                             @elseif($rental->status == 'active') bg-green-100 text-green-800
-                            @elseif($rental->status == 'completed') bg-blue-100 text-blue-800
-                            @elseif($rental->status == 'cancelled') bg-gray-100 text-gray-800
-                            @else bg-red-100 text-red-800
+                            @elseif($rental->status == 'completed') bg-gray-100 text-gray-800
+                            @elseif($rental->status == 'cancelled') bg-red-100 text-red-800
+                            @else bg-gray-100 text-gray-800
                             @endif">
                             {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
                         </span>
@@ -67,10 +68,11 @@
                             <td class="px-6 py-4">
                                 <span class="px-3 py-1 rounded-full text-xs font-medium
                                     @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
+                                    @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                                     @elseif($rental->status == 'active') bg-green-100 text-green-800
-                                    @elseif($rental->status == 'completed') bg-blue-100 text-blue-800
-                                    @elseif($rental->status == 'cancelled') bg-gray-100 text-gray-800
-                                    @else bg-red-100 text-red-800
+                                    @elseif($rental->status == 'completed') bg-gray-100 text-gray-800
+                                    @elseif($rental->status == 'cancelled') bg-red-100 text-red-800
+                                    @else bg-gray-100 text-gray-800
                                     @endif">
                                     {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
                                 </span>

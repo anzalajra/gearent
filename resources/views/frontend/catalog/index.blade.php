@@ -117,14 +117,14 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 @forelse($products as $product)
                     <div class="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition">
-                        <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <div class="aspect-square bg-white flex items-center justify-center p-4">
                             @if($product->image)
-                                <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-cover">
+                                <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-contain">
                             @else
                                 <span class="text-6xl">📷</span>
                             @endif
                         </div>
-                        <div class="p-4">
+                        <div class="p-4 border-t border-gray-100">
                             <p class="text-xs text-primary-600 mb-1">{{ $product->category->name }}</p>
                             <h3 class="font-semibold mb-2">{{ $product->name }}</h3>
                             <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ $product->description }}</p>

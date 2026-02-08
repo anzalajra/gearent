@@ -41,9 +41,9 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         <!-- Product Image -->
         <div>
-            <div class="bg-gray-200 rounded-lg h-64 md:h-96 flex items-center justify-center overflow-hidden">
+            <div class="bg-white border border-gray-100 rounded-lg aspect-square flex items-center justify-center overflow-hidden p-4">
                 @if($product->image)
-                    <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-cover rounded-lg hover:scale-105 transition duration-500">
+                    <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" class="h-full w-full object-contain rounded-lg hover:scale-105 transition duration-500">
                 @else
                     <span class="text-9xl">📷</span>
                 @endif
@@ -180,14 +180,14 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 @foreach($relatedProducts as $related)
                     <div class="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition">
-                        <div class="h-40 bg-gray-200 flex items-center justify-center">
+                        <div class="aspect-square bg-white flex items-center justify-center p-4">
                             @if($related->image)
-                                <img src="{{ Storage::url($related->image) }}" alt="{{ $related->name }}" class="h-full w-full object-cover">
+                                <img src="{{ Storage::url($related->image) }}" alt="{{ $related->name }}" class="h-full w-full object-contain">
                             @else
                                 <span class="text-4xl">📷</span>
                             @endif
                         </div>
-                        <div class="p-4">
+                        <div class="p-4 border-t border-gray-100">
                             <h3 class="font-semibold mb-2">{{ $related->name }}</h3>
                             <p class="text-primary-600 font-bold">Rp {{ number_format($related->daily_rate, 0, ',', '.') }}/day</p>
                             <a href="{{ route('catalog.show', $related) }}" class="mt-2 block text-center text-primary-600 text-sm hover:underline">View Details</a>

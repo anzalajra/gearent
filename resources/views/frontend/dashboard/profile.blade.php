@@ -317,7 +317,17 @@
 
                         @if(!$uploadedDoc || $uploadedDoc->status === 'rejected')
                             <div class="mt-4">
-                                <input type="file" name="files[{{ $type->id }}]" accept=".jpg,.jpeg,.png,.pdf" class="text-sm">
+                                <label class="block">
+                                    <span class="sr-only">Choose profile photo</span>
+                                    <input type="file" name="files[{{ $type->id }}]" accept=".jpg,.jpeg,.png,.pdf" 
+                                        class="block w-full text-sm text-gray-500
+                                        file:mr-4 file:py-2 file:px-4
+                                        file:rounded-lg file:border-0
+                                        file:text-sm file:font-semibold
+                                        file:bg-primary-600 file:text-white
+                                        hover:file:bg-primary-700
+                                    "/>
+                                </label>
                                 <p class="text-xs text-gray-400 mt-1">JPG, PNG, PDF - Max 500KB</p>
                             </div>
                         @endif

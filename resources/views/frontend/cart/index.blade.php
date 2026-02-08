@@ -105,8 +105,8 @@
                                             <input type="hidden" name="product_id" value="{{ $product->id }}">
                                             <label class="text-sm font-medium">Qty:</label>
                                             <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
-                                                   class="w-16 text-center border rounded px-2 py-1 text-sm" 
-                                                   onchange="this.form.submit()">
+                                                   class="w-16 text-center border rounded px-2 py-1 text-sm bg-gray-100" 
+                                                   readonly>
                                         </form>
                                     </div>
                                 </div>
@@ -175,8 +175,8 @@
                                             @method('PATCH')
                                             <input type="hidden" name="product_id" value="{{ $product->id }}">
                                             <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
-                                                   class="w-16 text-center border rounded px-2 py-1" 
-                                                   onchange="this.form.submit()">
+                                                   class="w-16 text-center border rounded px-2 py-1 bg-gray-100" 
+                                                   readonly>
                                         </form>
                                     </td>
                                     <td class="px-6 py-4">
