@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Customers\RelationManagers;
 
 use App\Models\CustomerDocument;
+use Hugomyb\FilamentMediaAction\Actions\MediaAction;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Textarea;
@@ -46,11 +47,19 @@ class DocumentsRelationManager extends RelationManager
                     ->dateTime(),
             ])
             ->recordActions([
-                Action::make('view')
+                MediaAction::make('view_pdf')
                     ->label('View')
                     ->icon('heroicon-o-eye')
-                    ->url(fn (CustomerDocument $record) => route('admin.documents.view', $record))
-                    ->openUrlInNewTab(),
+                    ->media(fn (CustomerDocument $record) => route('admin.documents.view', ['document' => $record, 'filename' => $record->file_name]))
+                    ->mediaType(MediaAction::TYPE_PDF)
+                    ->visible(fn (CustomerDocument $record) => str_ends_with(strtolower($record->file_name), '.pdf')),
+
+                MediaAction::make('view_image')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->media(fn (CustomerDocument $record) => route('admin.documents.view', ['document' => $record, 'filename' => $record->file_name]))
+                    ->mediaType(MediaAction::TYPE_IMAGE)
+                    ->visible(fn (CustomerDocument $record) => !str_ends_with(strtolower($record->file_name), '.pdf')),
 
                 Action::make('approve')
                     ->label('Approve')
