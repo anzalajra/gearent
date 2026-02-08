@@ -114,7 +114,7 @@
 
                                 <div class="max-h-96 overflow-y-auto">
                                     @forelse(auth('customer')->user()->notifications->take(10) as $notification)
-                                        <a href="{{ route('customer.notifications.read', $notification->id) }}" class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 {{ $notification->read_at ? 'opacity-75' : 'bg-blue-50' }}">
+                                        <a href="{{ route('customer.notifications.read', $notification->id) }}" class="block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 {{ $notification->read_at ? 'opacity-75' : 'bg-primary-50' }}">
                                             <div class="flex items-start gap-3">
                                                 <div class="flex-shrink-0 mt-1">
                                                     @if(isset($notification->data['icon']))

@@ -100,12 +100,12 @@
             
             <div class="mb-6">
                 <template x-if="accountType === 'umum'">
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+                    <div class="bg-primary-50 border border-primary-200 rounded-lg p-4 flex items-center justify-between">
                         <div>
-                            <span class="text-sm text-blue-600 font-medium">Registering as:</span>
-                            <span class="ml-2 text-blue-800 font-bold">Umum</span>
+                            <span class="text-sm text-primary-600 font-medium">Registering as:</span>
+                            <span class="ml-2 text-primary-800 font-bold">Umum</span>
                         </div>
-                        <button @click="step = 'type_selection'" class="text-sm text-blue-600 hover:text-blue-800 underline">Change</button>
+                        <button @click="step = 'type_selection'" class="text-sm text-primary-600 hover:text-primary-800 underline">Change</button>
                     </div>
                 </template>
 

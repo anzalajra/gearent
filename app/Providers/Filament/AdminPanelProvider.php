@@ -50,43 +50,10 @@ class AdminPanelProvider extends PanelProvider
                     $favicon = asset('storage/' . $logo);
                 }
 
-                $themePreset = Setting::get('theme_preset', 'default');
-                $themeColor = Setting::get('theme_color');
                 $navigationLayout = Setting::get('navigation_layout', 'sidebar');
-
-                if ($themePreset === 'custom' && $themeColor) {
-                    $primaryColor = Color::hex($themeColor);
-                } elseif ($themePreset && $themePreset !== 'default') {
-                    // Map preset names to Filament Colors
-                    $colors = [
-                        'slate' => Color::Slate,
-                        'gray' => Color::Gray,
-                        'zinc' => Color::Zinc,
-                        'neutral' => Color::Neutral,
-                        'stone' => Color::Stone,
-                        'red' => Color::Red,
-                        'orange' => Color::Orange,
-                        'amber' => Color::Amber,
-                        'yellow' => Color::Yellow,
-                        'lime' => Color::Lime,
-                        'green' => Color::Green,
-                        'emerald' => Color::Emerald,
-                        'teal' => Color::Teal,
-                        'cyan' => Color::Cyan,
-                        'sky' => Color::Sky,
-                        'blue' => Color::Blue,
-                        'indigo' => Color::Indigo,
-                        'violet' => Color::Violet,
-                        'purple' => Color::Purple,
-                        'fuchsia' => Color::Fuchsia,
-                        'pink' => Color::Pink,
-                        'rose' => Color::Rose,
-                    ];
-
-                    if (isset($colors[$themePreset])) {
-                        $primaryColor = $colors[$themePreset];
-                    }
-                }
+                
+                // Use the centralized ThemeService to ensure consistency between Admin and Frontend
+                $primaryColor = \App\Services\ThemeService::getPrimaryColor();
             }
         } catch (\Exception $e) {
             // Fallback to default

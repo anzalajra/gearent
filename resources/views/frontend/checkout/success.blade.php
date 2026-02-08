@@ -59,9 +59,9 @@
         </div>
     </div>
 
-    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h3 class="font-semibold text-blue-800 mb-2">What's Next?</h3>
-        <ul class="text-sm text-blue-700 space-y-1">
+    <div class="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
+        <h3 class="font-semibold text-primary-800 mb-2">What's Next?</h3>
+        <ul class="text-sm text-primary-700 space-y-1">
             <li>• We will review your booking and contact you via phone/WhatsApp</li>
             <li>• Please prepare the deposit payment (30% of total)</li>
             <li>• Bring valid ID (KTP/SIM) when picking up equipment</li>
