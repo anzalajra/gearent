@@ -19,6 +19,7 @@ class RentalKanbanBoard extends Page
     {
         return [
             Rental::STATUS_PENDING => 'Pending',
+            Rental::STATUS_CONFIRMED => 'Confirmed',
             Rental::STATUS_LATE_PICKUP => 'Late Pickup',
             Rental::STATUS_ACTIVE => 'Active',
             Rental::STATUS_LATE_RETURN => 'Late Return',

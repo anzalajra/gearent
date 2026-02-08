@@ -56,7 +56,7 @@ class ListRentals extends ListRecords
 
         // Update late pickups - gunakan DB::table untuk bypass model events
         DB::table('rentals')
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'confirmed'])
             ->where('start_date', '<', $now)
             ->update(['status' => 'late_pickup', 'updated_at' => $now]);
 

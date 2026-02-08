@@ -63,10 +63,10 @@ class PickupOperation extends Page implements HasTable
             ->where('type', Delivery::TYPE_OUT)
             ->first();
 
-        if (!in_array($this->rental->status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])) {
+        if (!in_array($this->rental->status, [Rental::STATUS_CONFIRMED, Rental::STATUS_LATE_PICKUP])) {
             Notification::make()
                 ->title('Cannot pickup this rental')
-                ->body('This rental is not in pending or late pickup status.')
+                ->body('This rental is not in confirmed or late pickup status.')
                 ->danger()
                 ->send();
 
@@ -304,7 +304,7 @@ class PickupOperation extends Page implements HasTable
                                         ->where('id', '!=', $currentUnitId)
                                         ->whereDoesntHave('rentalItems', function ($q) use ($rental) {
                                             $q->whereHas('rental', function ($r) use ($rental) {
-                                                $r->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+                                                $r->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_CONFIRMED, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
                                                   ->where('id', '!=', $rental->id) // Exclude current rental
                                                   ->where(function ($d) use ($rental) {
                                                       $d->where('start_date', '<', $rental->end_date)

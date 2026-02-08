@@ -37,6 +37,7 @@ class Rental extends Model
     ];
 
     public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_CANCELLED = 'cancelled';
@@ -124,6 +125,7 @@ class Rental extends Model
     {
         return [
             self::STATUS_PENDING => 'Pending',
+            self::STATUS_CONFIRMED => 'Confirmed',
             self::STATUS_ACTIVE => 'Active',
             self::STATUS_COMPLETED => 'Completed',
             self::STATUS_CANCELLED => 'Cancelled',
@@ -136,9 +138,10 @@ class Rental extends Model
     {
         return match ($status) {
             self::STATUS_PENDING => 'warning',
+            self::STATUS_CONFIRMED => 'info',
             self::STATUS_ACTIVE => 'success',
-            self::STATUS_COMPLETED => 'info',
-            self::STATUS_CANCELLED => 'gray',
+            self::STATUS_COMPLETED => 'gray',
+            self::STATUS_CANCELLED => 'danger',
             self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN => 'danger',
             default => 'gray',
         };
@@ -151,6 +154,7 @@ class Rental extends Model
     {
         return in_array($this->status, [
             self::STATUS_PENDING,
+            self::STATUS_CONFIRMED,
             self::STATUS_LATE_PICKUP,
         ]);
     }
@@ -225,7 +229,7 @@ class Rental extends Model
         foreach ($this->items as $item) {
             // Check if the product unit is already rented in an overlapping period
             $conflictingRentals = self::where('id', '!=', $this->id)
-                ->whereIn('status', [self::STATUS_PENDING, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
+                ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
                 ->where(function ($query) {
                     $query->whereBetween('start_date', [$this->start_date, $this->end_date])
                         ->orWhereBetween('end_date', [$this->start_date, $this->end_date])
@@ -256,7 +260,7 @@ class Rental extends Model
      */
     public function validatePickup(): void
     {
-        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
+        if (! in_array($this->status, [self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
             throw new \Exception('Cannot validate pickup for this rental status.');
         }
 
@@ -549,6 +553,7 @@ class Rental extends Model
     {
         return in_array($this->status, [
             self::STATUS_PENDING,
+            self::STATUS_CONFIRMED,
             self::STATUS_LATE_PICKUP,
         ]);
     }

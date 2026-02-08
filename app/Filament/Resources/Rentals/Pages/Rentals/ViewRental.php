@@ -230,12 +230,30 @@ class ViewRental extends Page
                 ->color('gray')
                 ->url(fn () => RentalResource::getUrl('documents', ['record' => $this->rental])),
 
+            Action::make('confirm')
+                ->label('Confirm')
+                ->icon('heroicon-o-check')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalHeading('Confirm Rental')
+                ->modalDescription('Are you sure you want to confirm this rental? This will change status to Confirmed and allow pickup.')
+                ->modalSubmitActionLabel('Yes, Confirm')
+                ->action(function () {
+                    $this->rental->update(['status' => Rental::STATUS_CONFIRMED]);
+                    Notification::make()
+                        ->title('Rental confirmed')
+                        ->success()
+                        ->send();
+                    $this->redirect(RentalResource::getUrl('view', ['record' => $this->rental]));
+                })
+                ->visible(fn () => $this->rental->status === Rental::STATUS_PENDING),
+
             Action::make('pickup')
                 ->label('Process Pickup')
                 ->icon('heroicon-o-truck')
                 ->color('success')
                 ->url(fn () => RentalResource::getUrl('pickup', ['record' => $this->rental]))
-                ->visible(fn () => in_array($this->rental->status, [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP])),
+                ->visible(fn () => in_array($this->rental->status, [Rental::STATUS_CONFIRMED, Rental::STATUS_LATE_PICKUP])),
 
             Action::make('return')
                 ->label('Process Return')

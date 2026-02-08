@@ -48,6 +48,7 @@ class RentalsTable
                     ->formatStateUsing(fn (string $state): string => Rental::getStatusOptions()[$state] ?? $state)
                     ->color(fn (string $state): string => match ($state) {
                         'pending' => 'warning',
+                        'confirmed' => 'info',
                         'active' => 'success',
                         'completed' => 'primary',
                         'cancelled' => 'danger',
@@ -66,6 +67,24 @@ class RentalsTable
                 //
             ])
             ->actions([
+                // Confirm Button
+                Action::make('confirm')
+                    ->label('Confirm')
+                    ->icon('heroicon-o-check')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm Rental')
+                    ->modalDescription('Are you sure you want to confirm this rental? This will change status to Confirmed and allow pickup.')
+                    ->modalSubmitActionLabel('Yes, Confirm')
+                    ->action(function (Rental $record) {
+                        $record->update(['status' => Rental::STATUS_CONFIRMED]);
+                        Notification::make()
+                            ->title('Rental confirmed')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn (Rental $record) => $record->status === Rental::STATUS_PENDING),
+
                 // Pickup button
                 Action::make('pickup')
                     ->label('Pickup')
@@ -73,7 +92,7 @@ class RentalsTable
                     ->color('success')
                     ->url(fn (Rental $record) => RentalResource::getUrl('pickup', ['record' => $record]))
                     ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
-                        Rental::STATUS_PENDING,
+                        Rental::STATUS_CONFIRMED,
                         Rental::STATUS_LATE_PICKUP,
                     ])),
 
