@@ -8,10 +8,15 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -76,17 +81,113 @@ class BackupRestore extends Page implements HasTable
             Action::make('restore')
                 ->label('Restore Data')
                 ->color('danger')
+                ->modalWidth('2xl')
                 ->form([
-                    FileUpload::make('backup_file')
-                        ->disk('local')
-                        ->directory('temp-backups')
-                        ->acceptedFileTypes(['application/zip'])
-                        ->required(),
+                    Wizard::make([
+                        Step::make('Upload Backup')
+                            ->schema([
+                                FileUpload::make('backup_file')
+                                    ->label('Upload Backup File (.zip)')
+                                    ->disk('local')
+                                    ->directory('temp-backups')
+                                    ->acceptedFileTypes([
+                                        'application/zip', 
+                                        'application/x-zip-compressed', 
+                                        'multipart/x-zip',
+                                        'application/x-compressed'
+                                    ])
+                                    ->required()
+                                    ->live(),
+                            ]),
+                        Step::make('Select Data')
+                            ->schema([
+                                CheckboxList::make('selected_tables')
+                                    ->label('Select Data to Restore')
+                                    ->options(function (Get $get) {
+                                        $filePath = $get('backup_file');
+                                        if (!$filePath) return [];
+                                        return $this->getBackupContents($filePath);
+                                    })
+                                    ->default(function (Get $get) {
+                                        $filePath = $get('backup_file');
+                                        if (!$filePath) return [];
+                                        return array_keys($this->getBackupContents($filePath));
+                                    })
+                                    ->required()
+                                    ->columns(2)
+                                    ->bulkToggleable(),
+                            ]),
+                    ])->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-size-md relative grid-flow-col items-center justify-center font-semibold outline-none transition duration-75 focus-visible:ring-2 rounded-lg fi-btn-color-danger fi-color-custom fi-btn-style-solid fi-ac-btn-action gap-1.5 px-3 py-2 text-sm inline-grid shadow-sm bg-custom-600 text-white hover:bg-custom-500 focus-visible:ring-custom-500/50 dark:bg-custom-500 dark:hover:bg-custom-400 dark:focus-visible:ring-custom-400/50" style="--c-400:var(--danger-400);--c-500:var(--danger-500);--c-600:var(--danger-600);">Restore Selected Data</button>'))
                 ])
                 ->action(function (array $data) {
-                    $this->processRestore($data['backup_file']);
+                    if (empty($data['selected_tables'])) {
+                        Notification::make()->title('No data selected')->warning()->send();
+                        return;
+                    }
+                    $this->processRestore($data['backup_file'], $data['selected_tables']);
                 }),
         ];
+    }
+
+    protected function getBackupContents($filePath): array
+    {
+        if (is_array($filePath)) $filePath = reset($filePath);
+        if (empty($filePath)) return [];
+
+        $disk = Storage::disk('local');
+        $fullPath = null;
+
+        // 1. Check if it's already in the destination path (after save, usually not available in form cycle)
+        if ($disk->exists($filePath)) {
+            $fullPath = $disk->path($filePath);
+        } 
+        // 2. Check temporary file path (Livewire TemporaryFileUpload)
+        // If $filePath is just a filename or relative path, we need to find the real temp path
+        else {
+             try {
+                // Try to find if it's a TemporaryUploadedFile object or similar in Livewire context
+                // But here we only get the state string. 
+                // Let's assume the state string IS the path relative to the disk root if it was saved,
+                // OR it might be a temporary ID.
+                
+                // If it's a temporary file, Filament/Livewire usually handles the path resolution internally.
+                // However, accessing it via disk might fail if it's still in a tmp dir not covered by the disk configuration.
+                
+                // Let's try to locate it in the livewire-tmp directory if it's a standard Livewire temp file
+                // But FileUpload component with 'directory' param might place it elsewhere.
+                
+                // CRITICAL FIX: When using 'live()', the file is uploaded to a temporary location.
+                // We need to check if the file exists at the absolute path if provided, 
+                // or check the storage path.
+                
+                if (file_exists($filePath)) {
+                    $fullPath = $filePath;
+                } elseif (file_exists(storage_path('app/private/' . $filePath))) {
+                    $fullPath = storage_path('app/private/' . $filePath);
+                } elseif (file_exists(storage_path('app/' . $filePath))) {
+                     $fullPath = storage_path('app/' . $filePath);
+                }
+             } catch (\Exception $e) {
+                 // ignore
+             }
+        }
+
+        if (!$fullPath || !file_exists($fullPath)) return [];
+
+        $tables = [];
+        $zip = new ZipArchive;
+        if ($zip->open($fullPath) === TRUE) {
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $filename = $zip->getNameIndex($i);
+                if (pathinfo($filename, PATHINFO_EXTENSION) === 'json' && $filename[0] !== '.') {
+                    $tableName = pathinfo($filename, PATHINFO_FILENAME);
+                    $tables[$tableName] = $tableName;
+                }
+            }
+            $zip->close();
+        }
+        
+        return $tables;
     }
 
     public function processBackup(array $options)
@@ -132,7 +233,7 @@ class BackupRestore extends Page implements HasTable
         return response()->download($zipPath)->deleteFileAfterSend();
     }
 
-    public function processRestore($filePath)
+    public function processRestore($filePath, array $selectedTables = [])
     {
         $fullPath = Storage::disk('local')->path($filePath);
 
@@ -140,6 +241,7 @@ class BackupRestore extends Page implements HasTable
         if ($zip->open($fullPath) === TRUE) {
             
             Schema::disableForeignKeyConstraints();
+            Model::unguard();
             DB::beginTransaction();
 
             try {
@@ -147,6 +249,11 @@ class BackupRestore extends Page implements HasTable
                     $filename = $zip->getNameIndex($i);
                     $tableName = pathinfo($filename, PATHINFO_FILENAME);
                     
+                    // Skip if not selected
+                    if (!empty($selectedTables) && !in_array($tableName, $selectedTables)) {
+                        continue;
+                    }
+
                     // Identify model from table name
                     $modelClass = $this->getModelFromTable($tableName);
                     
@@ -171,6 +278,7 @@ class BackupRestore extends Page implements HasTable
                 Notification::make()->title('Restore Failed: ' . $e->getMessage())->danger()->send();
             } finally {
                 Schema::enableForeignKeyConstraints();
+                Model::reguard();
                 $zip->close();
                 // Optional: Delete the uploaded file after restore
                 Storage::disk('local')->delete($filePath);
