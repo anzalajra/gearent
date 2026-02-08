@@ -23,3 +23,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/deploy.zip
+/deploy_temp_*

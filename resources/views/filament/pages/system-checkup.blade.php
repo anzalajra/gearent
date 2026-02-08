@@ -129,13 +129,20 @@
                 </div>
             </div>
 
-             {{-- Queue & Jobs --}}
+             {{-- Database & Queue --}}
             <div class="space-y-3">
                  <h4 class="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    @svg('heroicon-o-queue-list', 'w-5 h-5 text-gray-400')
-                    Queue System
+                    @svg('heroicon-o-circle-stack', 'w-5 h-5 text-gray-400')
+                    Database & Queue
                 </h4>
                 <div class="space-y-2">
+                    <div class="flex gap-2">
+                        {{ $this->runMigrationsAction }}
+                        {{ $this->viewMigrationSqlAction }}
+                    </div>
+                    <p class="text-xs text-gray-500">Run pending database migrations.</p>
+                </div>
+                <div class="space-y-2 pt-2 border-t dark:border-gray-700">
                     {{ $this->retryFailedJobsAction }}
                     <p class="text-xs text-gray-500">Retry all failed background jobs.</p>
                 </div>

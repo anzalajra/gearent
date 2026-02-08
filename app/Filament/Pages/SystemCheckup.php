@@ -10,7 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Artisan;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Textarea;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 class SystemCheckup extends Page
 {
@@ -162,6 +164,72 @@ class SystemCheckup extends Page
             ->action(function () {
                 Artisan::call('optimize:clear');
                 Notification::make()->title('System optimized and cache cleared')->success()->send();
+            });
+    }
+
+    public function runMigrationsAction(): Action
+    {
+        return Action::make('run_migrations')
+            ->label('Run Database Migrations')
+            ->icon('heroicon-o-play')
+            ->color('primary')
+            ->requiresConfirmation()
+            ->modalHeading('Run Migrations')
+            ->modalDescription('This will attempt to run "php artisan migrate --force".')
+            ->action(function () {
+                try {
+                    Log::info('Starting manual migration via SystemCheckup...');
+                    
+                    Artisan::call('migrate', ['--force' => true]);
+                    $output = Artisan::output();
+                    
+                    Log::info('Migration output: ' . $output);
+
+                    Notification::make()
+                        ->title('Migrations executed')
+                        ->body($output ? nl2br(e($output)) : 'Command executed. Check logs if no output.')
+                        ->success()
+                        ->persistent()
+                        ->send();
+                } catch (\Throwable $e) {
+                    Log::error('Migration failed: ' . $e->getMessage());
+                    
+                    Notification::make()
+                        ->title('Migration failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    public function viewMigrationSqlAction(): Action
+    {
+        return Action::make('view_migration_sql')
+            ->label('Get SQL Query')
+            ->icon('heroicon-o-code-bracket')
+            ->color('gray')
+            ->modalHeading('Pending Migration SQL')
+            ->modalDescription('Copy this SQL and run it in phpMyAdmin if the automatic migration fails.')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->form([
+                Textarea::make('sql_query')
+                    ->label('SQL Query')
+                    ->rows(15)
+                    ->readonly()
+                    ->default(function () {
+                        try {
+                            Artisan::call('migrate', ['--force' => true, '--pretend' => true]);
+                            return Artisan::output() ?: 'No pending migrations found.';
+                        } catch (\Throwable $e) {
+                            return 'Error generating SQL: ' . $e->getMessage();
+                        }
+                    }),
+            ])
+            ->action(function () {
+                // No action needed, just viewing
             });
     }
 
