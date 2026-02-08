@@ -130,7 +130,7 @@
                             <p class="text-sm text-gray-600 mb-3 line-clamp-2">{{ $product->description }}</p>
                             <div class="flex justify-between items-center">
                                 <p class="text-primary-600 font-bold">Rp {{ number_format($product->daily_rate, 0, ',', '.') }}/day</p>
-                                <span class="text-xs text-gray-500">{{ $product->units->where('status', 'available')->count() }} available</span>
+                                <span class="text-xs text-gray-500">{{ $product->units->whereNotIn('status', ['maintenance', 'retired'])->count() }} available</span>
                             </div>
                             <a href="{{ route('catalog.show', array_merge(['product' => $product], request()->only(['start_date', 'end_date', 'pickup_time', 'return_time']))) }}" class="mt-3 block text-center bg-primary-600 text-white py-2 rounded hover:bg-primary-700 transition">
                                 View Details
