@@ -19,6 +19,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Tabs;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use UnitEnum;
 
 class ProductSetup extends Page implements HasForms
@@ -69,7 +70,9 @@ class ProductSetup extends Page implements HasForms
                                             ->required()
                                             ->maxLength(255)
                                             ->distinct()
-                                            ->unique(Brand::class, 'slug', ignorable: fn ($get) => $get('id')),
+                                            ->rules([
+                                                fn ($get) => Rule::unique(Brand::class, 'slug')->ignore($get('id')),
+                                            ]),
                                         FileUpload::make('logo')
                                             ->image()
                                             ->directory('brands'),
@@ -100,7 +103,9 @@ class ProductSetup extends Page implements HasForms
                                             ->required()
                                             ->maxLength(255)
                                             ->distinct()
-                                            ->unique(Category::class, 'slug', ignorable: fn ($get) => $get('id')),
+                                            ->rules([
+                                                fn ($get) => Rule::unique(Category::class, 'slug')->ignore($get('id')),
+                                            ]),
                                         Textarea::make('description')
                                             ->rows(2)
                                             ->columnSpanFull(),

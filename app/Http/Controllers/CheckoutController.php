@@ -309,7 +309,8 @@ class CheckoutController extends Controller
     {
         $customer = Auth::guard('customer')->user();
 
-        if ($rental->customer_id !== $customer->id) {
+        // Use loose comparison because customer_id from DB might be string while auth user id is int
+        if ($rental->customer_id != $customer->id) {
             abort(403);
         }
 
