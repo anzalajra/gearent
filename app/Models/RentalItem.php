@@ -23,6 +23,18 @@ class RentalItem extends Model
 
     protected static function booted()
     {
+        static::created(function ($item) {
+            $item->attachKitsFromUnit();
+        });
+
+        static::updated(function ($item) {
+            if ($item->wasChanged('product_unit_id')) {
+                $item->rentalItemKits()->delete();
+                $item->unsetRelation('productUnit');
+                $item->attachKitsFromUnit();
+            }
+        });
+
         static::saved(function ($item) {
             $item->productUnit?->refreshStatus();
         });
@@ -56,15 +68,6 @@ class RentalItem extends Model
             ->whereNotIn('condition', ['broken', 'lost']) // Filter out broken/lost kits
             ->get();
         
-        // Skip if kits are already attached and count matches
-        $currentKitsCount = $this->relationLoaded('rentalItemKits') 
-            ? $this->rentalItemKits->count() 
-            : $this->rentalItemKits()->count();
-
-        if ($currentKitsCount === $kits->count()) {
-            return;
-        }
-
         foreach ($kits as $kit) {
             $this->rentalItemKits()->updateOrCreate(
                 ['unit_kit_id' => $kit->id],
