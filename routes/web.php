@@ -40,26 +40,6 @@ if (!$isInstalled) {
     });
 
 } else {
-    // --- EMERGENCY DB TOOLS (Hapus setelah selesai) ---
-    Route::get('/fix-db-migrate', function () {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            return '<h1>Migration Success</h1><pre>' . \Illuminate\Support\Facades\Artisan::output() . '</pre>';
-        } catch (\Exception $e) {
-            return '<h1>Migration Failed</h1><pre>' . $e->getMessage() . '</pre>';
-        }
-    });
-
-    Route::get('/fix-db-status', function () {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('migrate:status');
-            return '<h1>Migration Status</h1><pre>' . \Illuminate\Support\Facades\Artisan::output() . '</pre>';
-        } catch (\Exception $e) {
-            return '<h1>Check Failed</h1><pre>' . $e->getMessage() . '</pre>';
-        }
-    });
-    // --------------------------------------------------
-
     // If INSTALLED, load normal application routes
 
     // Setup Routes (protected by middleware CheckInstallation in controller if needed, or just remove)
