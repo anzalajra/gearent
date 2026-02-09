@@ -1,5 +1,10 @@
 # Changelog
 
+
+## [vV1.1.0] - 2026-02-09
+- (New) CMS for Post and Pages with tag and category
+- (New) Navigation menu configuration
+
 ## [vV1.0.0] - 2026-02-08
 - First build of Gearent
 - Rental feature with live unit stock detection
