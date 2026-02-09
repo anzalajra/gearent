@@ -126,12 +126,54 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return $panel
+            ->bootUsing(function () {
+                \LaraZeus\Sky\SkyPlugin::get()
+                    ->itemType(
+                        'Post',
+                        [
+                            \Filament\Forms\Components\Select::make('post_id')
+                                ->label(__('zeus-sky::cms.post.select_post'))
+                                ->searchable()
+                                ->options(function () {
+                                    return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::published()->pluck('title', 'id');
+                                }),
+                        ],
+                        'post_link'
+                    )
+                    ->itemType(
+                        'Page',
+                        [
+                            \Filament\Forms\Components\Select::make('page_id')
+                                ->label(__('zeus-sky::cms.page.select_page'))
+                                ->searchable()
+                                ->options(function () {
+                                    return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::query()
+                                        ->page()
+                                        ->whereDate('published_at', '<=', now())
+                                        ->pluck('title', 'id');
+                                }),
+                        ],
+                        'page_link'
+                    );
+            })
             ->plugins([
                 FilamentFullCalendarPlugin::make(),
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
                 \Octopy\Filament\Palette\PaletteSwitcherPlugin::make()
                     ->applyThemeGlobally(true)
                     ->hidden(fn () => true),
+                \LaraZeus\Sky\SkyPlugin::make()
+                    ->navigationGroupLabel('Page & Post')
+                    ->hideResources([
+                        \LaraZeus\Sky\Filament\Resources\PageResource::class,
+                        \LaraZeus\Sky\Filament\Resources\FaqResource::class,
+                        \LaraZeus\Sky\Filament\Resources\LibraryResource::class,
+                        \LaraZeus\Sky\Filament\Resources\PostResource::class,
+                        \LaraZeus\Sky\Filament\Resources\NavigationResource::class,
+                        \LaraZeus\Sky\Filament\Resources\TagResource::class,
+                    ]),
+                \LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin::make()
+                    ->defaultLocales(['en', 'id']),
             ])
             ->databaseNotifications()
             // Navigation Groups Order - mengatur urutan group di sidebar
@@ -139,7 +181,9 @@ class AdminPanelProvider extends PanelProvider
                 'Rentals',
                 'Sales',
                 'Inventory',
+                'Page & Post',
                 'Setting',
+                'System',
             ])
             // Sidebar collapsible (opsional - bisa dihapus jika tidak perlu)
             ->sidebarCollapsibleOnDesktop();

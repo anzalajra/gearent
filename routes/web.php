@@ -133,4 +133,25 @@ if (!$isInstalled) {
         Route::get('/quotation/{quotation}', [PublicDocumentController::class, 'quotation'])->name('quotation');
         Route::get('/invoice/{invoice}', [PublicDocumentController::class, 'invoice'])->name('invoice');
     });
+
+    // Lara Zeus Sky Routes
+    Route::prefix('blog')->middleware(['web'])->group(function () {
+        Route::get('/', \LaraZeus\Sky\Livewire\Posts::class)->name('blogs');
+        Route::get('/faq', \LaraZeus\Sky\Livewire\Faq::class)->name('faq');
+        
+        Route::get('/tag/{slug}', \LaraZeus\Sky\Livewire\Tags::class)
+            ->defaults('type', 'tag')
+            ->name('tag');
+            
+        Route::get('/category/{slug}', \LaraZeus\Sky\Livewire\Tags::class)
+            ->defaults('type', 'category')
+            ->name('category');
+
+        Route::get('/{slug}', \LaraZeus\Sky\Livewire\Post::class)->name('post');
+    });
+
+    // Lara Zeus Sky Pages (Direct Access)
+    Route::middleware(['web'])->group(function () {
+        Route::get('/{slug}', \LaraZeus\Sky\Livewire\Page::class)->name('page');
+    });
 }

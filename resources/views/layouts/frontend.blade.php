@@ -48,16 +48,52 @@
                     </a>
                     <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
                         @php
-                            $mainMenu = \App\Models\NavigationMenu::where('handle', 'main-menu')->first();
-                            $menuItems = $mainMenu ? $mainMenu->items : [
-                                ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
-                                ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
-                            ];
+                            $menuItems = [];
+                            try {
+                                $navigationModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Navigation');
+                                $headerHandle = \App\Models\Setting::get('header_navigation_handle', 'main-menu');
+                                $mainMenu = $navigationModel::fromHandle($headerHandle) ?? $navigationModel::fromHandle('navigation');
+                                
+                                if ($mainMenu && !empty($mainMenu->items)) {
+                                    foreach($mainMenu->items as $item) {
+                                        $url = '#';
+                                        $target = $item['data']['target'] ?? '_self';
+                                        
+                                        if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
+                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                            $page = $postModel::find($item['data']['page_id']);
+                                            $url = $page ? route('page', $page->slug) : '#';
+                                        } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
+                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                            $post = $postModel::find($item['data']['post_id']);
+                                            $url = $post ? route('post', $post->slug) : '#';
+                                        } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
+                                            $url = $item['data']['url'] ?? '#';
+                                        }
+
+                                        $menuItems[] = [
+                                            'label' => $item['label'],
+                                            'url' => $url,
+                                            'target' => $target,
+                                        ];
+                                    }
+                                } else {
+                                    $menuItems = [
+                                        ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                        ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                                    ];
+                                }
+                            } catch (\Exception $e) {
+                                $menuItems = [
+                                    ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                    ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                                ];
+                            }
                         @endphp
 
                         @foreach($menuItems as $item)
                             <a href="{{ $item['url'] }}" 
-                               target="{{ $item['target'] ?? '_self' }}"
+                               target="{{ $item['target'] }}"
                                class="text-gray-900 hover:text-primary-600 px-3 py-2 text-sm font-medium {{ request()->url() == $item['url'] ? 'text-primary-600' : '' }}">
                                 {{ $item['label'] }}
                             </a>
@@ -214,17 +250,9 @@
         <!-- Mobile menu, show/hide based on menu state. -->
         <div x-show="mobileMenuOpen" class="sm:hidden" id="mobile-menu" style="display: none;">
             <div class="space-y-1 pt-2 pb-3">
-                @php
-                    $mainMenu = \App\Models\NavigationMenu::where('handle', 'main-menu')->first();
-                    $menuItems = $mainMenu ? $mainMenu->items : [
-                        ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
-                        ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
-                    ];
-                @endphp
-
                 @foreach($menuItems as $item)
                     <a href="{{ $item['url'] }}" 
-                       target="{{ $item['target'] ?? '_self' }}"
+                       target="{{ $item['target'] }}"
                        class="block border-l-4 py-2 pl-3 pr-4 text-base font-medium {{ request()->url() == $item['url'] ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-transparent text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700' }}">
                         {{ $item['label'] }}
                     </a>
@@ -299,11 +327,49 @@
                     <h4 class="font-semibold mb-4">Quick Links</h4>
                     <ul class="space-y-2 text-gray-400">
                         @php
-                            $footerMenu = \App\Models\NavigationMenu::where('handle', 'footer-menu')->first();
-                            $footerItems = $footerMenu ? $footerMenu->items : [
-                                ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
-                                ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
-                            ];
+                            $footerItems = [];
+                            try {
+                                $navigationModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Navigation');
+                                $footerHandle = \App\Models\Setting::get('footer_navigation_handle', 'footer-menu');
+                                $footerMenu = $navigationModel::fromHandle($footerHandle);
+                                
+                                if ($footerMenu && !empty($footerMenu->items)) {
+                                     foreach($footerMenu->items as $item) {
+                                        $url = '#';
+                                        $target = $item['data']['target'] ?? '_self';
+                                        
+                                        if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
+                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                            $page = $postModel::find($item['data']['page_id']);
+                                            $url = $page ? route('page', $page->slug) : '#';
+                                        } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
+                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                            $post = $postModel::find($item['data']['post_id']);
+                                            $url = $post ? route('post', $post->slug) : '#';
+                                        } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
+                                            $url = $item['data']['url'] ?? '#';
+                                        }
+
+                                        $footerItems[] = [
+                                            'label' => $item['label'],
+                                            'url' => $url,
+                                            'target' => $target,
+                                        ];
+                                     }
+                                } else {
+                                     // Fallback to old system if no Sky menu found
+                                     $oldFooterMenu = \App\Models\NavigationMenu::where('handle', 'footer-menu')->first();
+                                     $footerItems = $oldFooterMenu ? $oldFooterMenu->items : [
+                                        ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                        ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                                     ];
+                                }
+                            } catch (\Exception $e) {
+                                 $footerItems = [
+                                    ['label' => 'Home', 'url' => url('/'), 'target' => '_self'],
+                                    ['label' => 'Catalog', 'url' => route('catalog.index'), 'target' => '_self'],
+                                 ];
+                            }
                         @endphp
                         
                         @foreach($footerItems as $item)
