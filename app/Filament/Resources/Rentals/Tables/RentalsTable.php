@@ -283,6 +283,7 @@ class RentalsTable
                     })
                     ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
                         Rental::STATUS_PENDING,
+                        Rental::STATUS_CONFIRMED,
                         Rental::STATUS_LATE_PICKUP,
                     ])),
 

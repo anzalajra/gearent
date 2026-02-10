@@ -521,8 +521,8 @@ class Rental extends Model
     public function cancelRental(string $reason): void
     {
         // Validate that rental can be cancelled
-        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_LATE_PICKUP])) {
-            throw new \Exception('Cannot cancel this rental. Only pending or late pickup rentals can be cancelled.');
+        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
+            throw new \Exception('Cannot cancel this rental. Only pending, confirmed or late pickup rentals can be cancelled.');
         }
 
         // Release all product units back to available/scheduled
