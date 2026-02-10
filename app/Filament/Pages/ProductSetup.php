@@ -83,6 +83,14 @@ class ProductSetup extends Page implements HasForms
                                             ->default(true),
                                     ])
                                     ->columns(2)
+                                    ->grid([
+                                        'default' => 1,
+                                        'md' => 2,
+                                        'xl' => 3,
+                                    ])
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->addActionLabel('Add New Brand')
                                     ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
                             ]),
 
@@ -116,6 +124,14 @@ class ProductSetup extends Page implements HasForms
                                             ->default(true),
                                     ])
                                     ->columns(2)
+                                    ->grid([
+                                        'default' => 1,
+                                        'md' => 2,
+                                        'xl' => 3,
+                                    ])
+                                    ->collapsible()
+                                    ->collapsed()
+                                    ->addActionLabel('Add New Category')
                                     ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
                             ]),
                     ]),
