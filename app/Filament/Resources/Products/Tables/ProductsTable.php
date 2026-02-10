@@ -40,8 +40,13 @@ class ProductsTable
                         TextColumn::make('name')
                             ->weight('bold')
                             ->size('md')
-                            ->icon('heroicon-m-cube')
-                            ->searchable(),
+                            ->searchable(query: function ($query, string $search) {
+                                $query->where(function ($subQuery) use ($search) {
+                                    $subQuery->where('name', 'like', "%{$search}%")
+                                        ->orWhereHas('brand', fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                                        ->orWhereHas('category', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                                });
+                            }),
 
                         TextColumn::make('daily_rate')
                             ->formatStateUsing(fn($state) => 'Rp ' . number_format($state, 0, ',', '.') . ' / 1 Day')
@@ -65,8 +70,16 @@ class ProductsTable
                 ]),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\SelectFilter::make('brand')
+                    ->relationship('brand', 'name')
+                    ->searchable()
+                    ->preload(),
+                \Filament\Tables\Filters\SelectFilter::make('category')
+                    ->relationship('category', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
+            ->paginated([48])
             ->recordActions([])
             ->recordUrl(fn($record) => \App\Filament\Resources\Products\ProductResource::getUrl('edit', ['record' => $record]))
             ->bulkActions([]);
