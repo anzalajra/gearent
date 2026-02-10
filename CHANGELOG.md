@@ -2,6 +2,12 @@
 
 
 
+
+## [vV1.2.1] - 2026-02-10
+- (Bug Fix) TypeError happend at product page when adding new product
+- (Tweak) Change product setup layout at brands and categories tab
+- (Tweak) Add edit function at rentals tab on confirmed order
+
 ## [vV1.2.0] - 2026-02-10
 - (New) Product Variation, connected to product unit and kit
 - (New) Add Product Variation view to Customer side product view
