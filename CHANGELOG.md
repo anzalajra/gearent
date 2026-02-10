@@ -1,6 +1,16 @@
 # Changelog
 
 
+
+## [vV1.2.0] - 2026-02-10
+- (New) Product Variation, connected to product unit and kit
+- (New) Add Product Variation view to Customer side product view
+- (New) Implementation Product Variation to cart, confirmation, admin rentals, and pdf generation
+- (Bug Fix) Rental validation logic fix when kit is lost or broken
+- (Bug Fix) Admin customer save changes button now working as expected
+- (Tweak) Admin customer validation button now always visible, admin can bypass customer document
+- (Tweak) Admin Products Page better table view: default layout 48 product per page, better search engine, add filter by brand and categories
+
 ## [vV1.1.0] - 2026-02-09
 - (New) CMS for Post and Pages with tag and category
 - (New) Navigation menu configuration
