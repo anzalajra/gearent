@@ -79,6 +79,17 @@ class Product extends Model
         return $this->hasMany(ProductUnit::class);
     }
 
+    // Relasi ke ProductVariation
+    public function variations(): HasMany
+    {
+        return $this->hasMany(ProductVariation::class);
+    }
+
+    public function hasVariations(): bool
+    {
+        return $this->variations()->exists();
+    }
+
     public function rentalItems(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
     {
         return $this->hasManyThrough(RentalItem::class, ProductUnit::class);

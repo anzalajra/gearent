@@ -14,6 +14,9 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
+use Filament\Forms\Components\Repeater;
+use Filament\Schemas\Components\Section;
+
 class ProductForm
 {
     public static function configure(Schema $schema): Schema
@@ -55,6 +58,35 @@ class ProductForm
                     ->numeric()
                     ->prefix('Rp')
                     ->default(0),
+
+                Section::make('Product Variations')
+                    ->description('Create variations for this product (e.g. 5M, 10M). If defined, these can be assigned to units.')
+                    ->schema([
+                        Repeater::make('variations')
+                            ->relationship('variations')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Variation Name')
+                                    ->placeholder('e.g. 5 Meter')
+                                    ->required()
+                                    ->maxLength(255),
+                                
+                                TextInput::make('daily_rate')
+                                    ->label('Override Daily Rate')
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->placeholder('Leave empty to use product rate'),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Add Variation')
+                            ->grid([
+                                'default' => 1,
+                                'sm' => 2,
+                            ])
+                            ->defaultItems(0),
+                    ])
+                    ->collapsed()
+                    ->collapsible(),
 
                 FileUpload::make('image')
                     ->image()

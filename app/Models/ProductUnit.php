@@ -10,6 +10,7 @@ class ProductUnit extends Model
 {
     protected $fillable = [
         'product_id',
+        'product_variation_id',
         'serial_number',
         'condition',
         'status',
@@ -35,6 +36,11 @@ class ProductUnit extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function variation(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariation::class, 'product_variation_id');
     }
 
     public function kits(): HasMany

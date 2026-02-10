@@ -46,7 +46,12 @@
                                         <span class="text-xl">📷</span>
                                     </div>
                                     <div>
-                                        <p class="font-medium">{{ $item->productUnit->product->name }}</p>
+                                        <p class="font-medium">
+                                            {{ $item->productUnit->product->name }}
+                                            @if($item->productUnit->variation)
+                                                <span class="text-gray-500 font-normal">({{ $item->productUnit->variation->name }})</span>
+                                            @endif
+                                        </p>
                                         <p class="text-sm text-gray-500">{{ $item->start_date->format('d M Y') }} - {{ $item->end_date->format('d M Y') }} ({{ $item->days }} days)</p>
                                     </div>
                                 </div>

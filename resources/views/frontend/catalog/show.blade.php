@@ -107,6 +107,38 @@
                         @csrf
                         <input type="hidden" name="product_id" value="{{ $product->id }}">
                         
+                        @if($product->variations->isNotEmpty())
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Variasi</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    @foreach($product->variations as $variation)
+                                        @php
+                                            $varAvailableCount = $availableUnits->where('product_variation_id', $variation->id)->count();
+                                            $isAvailable = $varAvailableCount > 0;
+                                            $price = $variation->daily_rate ?? $product->daily_rate;
+                                        @endphp
+                                        <button type="button" 
+                                            class="variation-btn border-2 rounded-lg p-3 text-sm text-center transition relative
+                                                   {{ $isAvailable ? 'border-gray-200 hover:border-primary-400 cursor-pointer bg-white' : 'border-gray-100 opacity-60 cursor-not-allowed bg-gray-50' }}"
+                                            data-id="{{ $variation->id }}"
+                                            data-price="{{ $price }}"
+                                            data-count="{{ $varAvailableCount }}"
+                                            {{ !$isAvailable ? 'disabled' : '' }}>
+                                            <span class="block font-semibold text-gray-900">{{ $variation->name }}</span>
+                                            <span class="block text-xs text-gray-500 mt-1">
+                                                Rp {{ number_format($price, 0, ',', '.') }}
+                                            </span>
+                                            <span class="block text-xs mt-1 {{ $isAvailable ? 'text-green-600' : 'text-red-500' }}">
+                                                {{ $isAvailable ? $varAvailableCount . ' unit' : 'Habis' }}
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                                <input type="hidden" name="variation_id" id="variation_id" required>
+                                <p id="variation-error" class="text-red-500 text-sm mt-1 hidden">Silakan pilih variasi produk.</p>
+                            </div>
+                        @endif
+
                         <div class="mb-6">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Rentang Tanggal Sewa</label>
                             <div class="relative">
@@ -205,12 +237,73 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Variation Selection Logic
+            const variationBtns = document.querySelectorAll('.variation-btn');
+            const variationInput = document.getElementById('variation_id');
+            const variationError = document.getElementById('variation-error');
+            const quantityInput = document.getElementById('quantity');
+            const priceDisplay = document.querySelector('.text-3xl.font-bold.text-primary-600');
+            const availableCountDisplay = document.querySelector('.font-semibold.mb-2');
+
+            if (variationBtns.length > 0) {
+                variationBtns.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        if (this.disabled) return;
+
+                        // Reset active state
+                        variationBtns.forEach(b => {
+                            b.classList.remove('border-primary-400', 'bg-blue-50', 'ring-2', 'ring-primary-200');
+                            b.classList.add('border-gray-200');
+                        });
+
+                        // Set active state
+                        this.classList.remove('border-gray-200');
+                        this.classList.add('border-primary-400', 'bg-blue-50', 'ring-2', 'ring-primary-200');
+
+                        // Update form
+                        variationInput.value = this.dataset.id;
+                        if (variationError) variationError.classList.add('hidden');
+
+                        // Update Price
+                        const price = parseInt(this.dataset.price);
+                        const formattedPrice = new Intl.NumberFormat('id-ID').format(price);
+                        if (priceDisplay && priceDisplay.firstChild) {
+                            priceDisplay.firstChild.nodeValue = `Rp ${formattedPrice} `;
+                        }
+
+                        // Update Available Count
+                        const count = parseInt(this.dataset.count);
+                        if (availableCountDisplay) {
+                            availableCountDisplay.textContent = `Available Units: ${count}`;
+                        }
+                        
+                        // Update Quantity Max
+                        if (quantityInput) {
+                            quantityInput.max = count;
+                            if (parseInt(quantityInput.value) > count) {
+                                quantityInput.value = count;
+                            }
+                            // Trigger input event to update any other listeners
+                            quantityInput.dispatchEvent(new Event('input'));
+                        }
+                    });
+                });
+            }
+
             // Handle Add to Cart with Smart Sync
             const form = document.getElementById('addToCartForm');
             if (form) {
                 form.addEventListener('submit', function(e) {
                     e.preventDefault();
                     
+                    // Validate Variation
+                    if (variationInput && !variationInput.value && variationBtns.length > 0) {
+                        if (variationError) variationError.classList.remove('hidden');
+                        // Scroll to variation section
+                        variationInput.closest('.mb-6').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+
                     const formData = new FormData(form);
                     const submitBtn = form.querySelector('button[type="submit"]');
                     const originalBtnText = submitBtn.innerHTML;

@@ -173,7 +173,9 @@ class ProcessReturn extends Page implements HasTable
                         if ($record->rentalItemKit) {
                             return '↳ ' . $record->rentalItemKit->unitKit->name;
                         }
-                        return $record->rentalItem->productUnit->product->name;
+                        $productName = $record->rentalItem->productUnit->product->name;
+                        $variationName = $record->rentalItem->productUnit->variation->name ?? null;
+                        return $productName . ($variationName ? ' (' . $variationName . ')' : '');
                     }),
 
                 TextColumn::make('serial_number')

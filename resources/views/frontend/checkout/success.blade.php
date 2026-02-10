@@ -39,7 +39,12 @@
             @foreach($rental->items as $item)
                 <div class="flex justify-between">
                     <div>
-                        <p class="font-medium">{{ $item->productUnit->product->name }}</p>
+                        <p class="font-medium">
+                            {{ $item->productUnit->product->name }}
+                            @if($item->productUnit->variation)
+                                <span class="text-gray-500 font-normal">({{ $item->productUnit->variation->name }})</span>
+                            @endif
+                        </p>
                         <p class="text-sm text-gray-500">{{ $item->days }} days × Rp {{ number_format($item->daily_rate, 0, ',', '.') }}</p>
                     </div>
                     <p class="font-medium">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>

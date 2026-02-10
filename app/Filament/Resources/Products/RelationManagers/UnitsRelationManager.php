@@ -34,6 +34,25 @@ class UnitsRelationManager extends RelationManager
                 Section::make('Unit Information')
                     ->columns(2)
                     ->schema([
+                        Select::make('product_variation_id')
+                            ->relationship('variation', 'name', fn ($query, $livewire) => $query->where('product_id', $livewire->getOwnerRecord()->id))
+                            ->label('Variation')
+                            ->visible(fn ($livewire) => $livewire->getOwnerRecord()->variations()->exists())
+                            ->required(fn ($livewire) => $livewire->getOwnerRecord()->variations()->exists())
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->required()
+                                    ->maxLength(255),
+                                TextInput::make('daily_rate')
+                                    ->label('Override Price (Optional)')
+                                    ->numeric()
+                                    ->prefix('Rp'),
+                            ])
+                            ->createOptionUsing(function (array $data, $livewire) {
+                                return $livewire->getOwnerRecord()->variations()->create($data)->id;
+                            })
+                            ->columnSpanFull(),
+
                         TextInput::make('serial_number')
                             ->required()
                             ->maxLength(255)
@@ -95,6 +114,12 @@ class UnitsRelationManager extends RelationManager
                 TextColumn::make('serial_number')
                     ->searchable()
                     ->sortable(),
+
+                TextColumn::make('variation.name')
+                    ->label('Variation')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('kits_count')
                     ->counts('kits')

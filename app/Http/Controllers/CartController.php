@@ -55,6 +55,7 @@ class CartController extends Controller
 
         $request->validate([
             'product_id' => 'required|exists:products,id',
+            'variation_id' => 'nullable|exists:product_variations,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
             'quantity' => 'nullable|integer|min:1',
@@ -66,6 +67,13 @@ class CartController extends Controller
         $endDate = Carbon::parse($request->end_date);
         
         $product = \App\Models\Product::findOrFail($request->product_id);
+
+        if ($request->filled('variation_id')) {
+            $variation = \App\Models\ProductVariation::findOrFail($request->variation_id);
+            if ($variation->product_id !== $product->id) {
+                return back()->with('error', 'Invalid variation for this product.');
+            }
+        }
 
         // Check product visibility for customer
         if (!$product->isVisibleForCustomer($customer)) {
@@ -150,6 +158,11 @@ class CartController extends Controller
         // Find ALL available units for this product and date range
         $allAvailableUnits = $product->findAvailableUnits($startDate, $endDate);
 
+        // Filter by variation if selected
+        if ($request->filled('variation_id')) {
+            $allAvailableUnits = $allAvailableUnits->where('product_variation_id', $request->variation_id);
+        }
+
         // Filter out units already in cart
         $availableForAdd = $allAvailableUnits->whereNotIn('id', $currentCartUnitIds);
 
@@ -168,6 +181,14 @@ class CartController extends Controller
         // Calculate discounted daily rate
         $discountPercentage = $customer->getCategoryDiscountPercentage();
         $dailyRate = $product->daily_rate;
+
+        if ($request->filled('variation_id')) {
+            $variation = \App\Models\ProductVariation::find($request->variation_id);
+            if ($variation && $variation->daily_rate) {
+                $dailyRate = $variation->daily_rate;
+            }
+        }
+
         if ($discountPercentage > 0) {
             $dailyRate = $dailyRate - ($dailyRate * ($discountPercentage / 100));
         }

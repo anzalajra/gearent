@@ -70,7 +70,8 @@
             <div class="lg:col-span-2">
                 @php
                     $groupedCartItems = $cartItems->groupBy(function($item) {
-                        return $item->productUnit->product->id;
+                        $variationId = $item->productUnit->product_variation_id ?? 'default';
+                        return $item->productUnit->product->id . '-' . $variationId;
                     });
                 @endphp
 
@@ -80,6 +81,7 @@
                         @php
                             $firstItem = $items->first();
                             $product = $firstItem->productUnit->product;
+                            $variation = $firstItem->productUnit->variation;
                             $quantity = $items->count();
                             $subtotal = $items->sum('subtotal');
                         @endphp
@@ -93,7 +95,12 @@
                                     @endif
                                 </div>
                                 <div>
-                                    <p class="font-semibold">{{ $product->name }}</p>
+                                    <p class="font-semibold">
+                                        {{ $product->name }}
+                                        @if($variation)
+                                            <span class="text-gray-500 font-normal">({{ $variation->name }})</span>
+                                        @endif
+                                    </p>
                                     <p class="text-sm text-primary-600">Rp {{ number_format($firstItem->daily_rate, 0, ',', '.') }}/day</p>
                                     <p class="text-xs text-gray-500 mt-1">
                                         {{ $firstItem->start_date->format('d M H:i') }} - {{ $firstItem->end_date->format('d M H:i') }}
@@ -147,6 +154,7 @@
                                 @php
                                     $firstItem = $items->first();
                                     $product = $firstItem->productUnit->product;
+                                    $variation = $firstItem->productUnit->variation;
                                     $quantity = $items->count();
                                     $subtotal = $items->sum('subtotal');
                                 @endphp
@@ -161,7 +169,12 @@
                                                 @endif
                                             </div>
                                             <div>
-                                                <p class="font-semibold">{{ $product->name }}</p>
+                                                <p class="font-semibold">
+                                                    {{ $product->name }}
+                                                    @if($variation)
+                                                        <span class="text-gray-500 font-normal">({{ $variation->name }})</span>
+                                                    @endif
+                                                </p>
                                                 <p class="text-sm text-primary-600">Rp {{ number_format($firstItem->daily_rate, 0, ',', '.') }}/day</p>
                                                 <p class="text-xs text-gray-500 mt-1">
                                                     {{ $firstItem->start_date->format('d M H:i') }} - {{ $firstItem->end_date->format('d M H:i') }}

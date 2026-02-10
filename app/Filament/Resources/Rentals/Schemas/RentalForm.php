@@ -90,14 +90,50 @@ class RentalForm
                     ->label('Rental Items')
                     ->relationship()
                     ->schema([
+                        Select::make('product_id')
+                            ->label('Product')
+                            ->options(\App\Models\Product::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(function (callable $set) {
+                                $set('product_variation_id', null);
+                                $set('product_unit_id', null);
+                            })
+                            ->afterStateHydrated(function ($component, $state, $record) {
+                                if ($record && $record->productUnit) {
+                                    $component->state($record->productUnit->product_id);
+                                }
+                            }),
+
+                        Select::make('product_variation_id')
+                            ->label('Variation')
+                            ->options(function (callable $get) {
+                                $productId = $get('product_id');
+                                if (!$productId) return [];
+                                return \App\Models\ProductVariation::where('product_id', $productId)->pluck('name', 'id');
+                            })
+                            ->visible(fn (callable $get) => $get('product_id') && \App\Models\Product::find($get('product_id'))?->hasVariations())
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(fn (callable $set) => $set('product_unit_id', null))
+                            ->afterStateHydrated(function ($component, $state, $record) {
+                                if ($record && $record->productUnit) {
+                                    $component->state($record->productUnit->product_variation_id);
+                                }
+                            }),
+
                         Select::make('product_unit_id')
                             ->label('Product Unit')
                             ->options(function (callable $get) {
                                 $startDate = $get('../../start_date');
                                 $endDate = $get('../../end_date');
                                 $currentRentalId = $get('../../id');
+                                $productId = $get('product_id');
+                                $variationId = $get('product_variation_id');
 
-                                return self::getAvailableUnits($startDate, $endDate, $currentRentalId);
+                                return self::getAvailableUnits($startDate, $endDate, $currentRentalId, $productId, $variationId);
                             })
                             ->required()
                             ->searchable()
@@ -114,9 +150,11 @@ class RentalForm
                             })
                             ->afterStateUpdated(function ($state, $old, callable $get, callable $set) {
                                 if ($state && $state !== $old) {
-                                    $unit = ProductUnit::with('product')->find($state);
+                                    $unit = ProductUnit::with(['product', 'variation'])->find($state);
                                     if ($unit) {
-                                        $set('daily_rate', $unit->product->daily_rate);
+                                        // Use variation price if available, otherwise product price
+                                        $dailyRate = $unit->variation?->daily_rate ?? $unit->product->daily_rate;
+                                        $set('daily_rate', $dailyRate);
                                         
                                         // Auto-set days from dates
                                         $startDate = $get('../../start_date');
@@ -218,16 +256,22 @@ class RentalForm
      * Get available units for the given date range
      * Checks for overlapping rentals based on datetime
      */
-    public static function getAvailableUnits($startDate, $endDate, $currentRentalId = null): array
+    public static function getAvailableUnits($startDate, $endDate, $currentRentalId = null, $productId = null, $variationId = null): array
     {
         if (!$startDate || !$endDate) {
             // If no dates selected, show all units with status indicator
-            return ProductUnit::with('product')
+            return ProductUnit::with(['product', 'variation'])
                 ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+                ->when($productId, fn($q) => $q->where('product_id', $productId))
+                ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId))
                 ->get()
                 ->mapWithKeys(function ($unit) {
                     $statusLabel = $unit->status !== 'available' ? " [{$unit->status}]" : '';
-                    return [$unit->id => $unit->product->name . ' - ' . $unit->serial_number . $statusLabel];
+                    $name = $unit->product->name;
+                    if ($unit->variation) {
+                        $name .= ' (' . $unit->variation->name . ')';
+                    }
+                    return [$unit->id => $name . ' - ' . $unit->serial_number . $statusLabel];
                 })
                 ->toArray();
         }
@@ -257,8 +301,10 @@ class RentalForm
             ->toArray();
 
         // Get all units and mark availability
-        return ProductUnit::with('product')
+        return ProductUnit::with(['product', 'variation'])
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+            ->when($productId, fn($q) => $q->where('product_id', $productId))
+            ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId))
             ->get()
             ->mapWithKeys(function ($unit) use ($overlappingUnitIds) {
                 $isBooked = in_array($unit->id, $overlappingUnitIds);
@@ -267,7 +313,12 @@ class RentalForm
                     return []; // Don't include booked units
                 }
                 
-                return [$unit->id => $unit->product->name . ' - ' . $unit->serial_number];
+                $name = $unit->product->name;
+                if ($unit->variation) {
+                    $name .= ' (' . $unit->variation->name . ')';
+                }
+                
+                return [$unit->id => $name . ' - ' . $unit->serial_number];
             })
             ->filter() // Remove empty entries
             ->toArray();

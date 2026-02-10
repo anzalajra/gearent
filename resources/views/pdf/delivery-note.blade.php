@@ -67,7 +67,12 @@
                 @if(!$item->rentalItemKit)
                 <tr>
                     <td>{{ $no++ }}</td>
-                    <td><strong>{{ $item->rentalItem->productUnit->product->name }}</strong></td>
+                    <td>
+                        <strong>{{ $item->rentalItem->productUnit->product->name }}</strong>
+                        @if($item->rentalItem->productUnit->variation)
+                            <br><span style="font-size: 0.8em; color: #666;">({{ $item->rentalItem->productUnit->variation->name }})</span>
+                        @endif
+                    </td>
                     <td>{{ $item->rentalItem->productUnit->serial_number }}</td>
                     <td>{{ $item->condition ? ucfirst($item->condition) : '-' }}</td>
                     <td>

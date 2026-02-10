@@ -35,6 +35,7 @@ class ItemsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('productUnit.product.name')
                     ->label('Product')
+                    ->description(fn (RentalItem $record) => $record->productUnit->variation->name ?? null)
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
