@@ -24,7 +24,7 @@ class EditCustomer extends EditRecord
                 ->requiresConfirmation()
                 ->modalHeading('Verify Customer')
                 ->modalDescription('Are you sure you want to verify this customer? This will allow them to make rentals.')
-                ->visible(fn () => !$this->record->is_verified && $this->record->getVerificationStatus() !== 'not_verified')
+                ->visible(fn () => !$this->record->is_verified)
                 ->action(function () {
                     $this->record->documents()
                         ->where('status', CustomerDocument::STATUS_PENDING)
@@ -38,6 +38,24 @@ class EditCustomer extends EditRecord
 
                     Notification::make()
                         ->title('Customer verified successfully')
+                        ->success()
+                        ->send();
+                }),
+
+            Action::make('resetPassword')
+                ->label('Reset Password')
+                ->icon('heroicon-o-key')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Reset Password')
+                ->modalDescription('Are you sure you want to reset this customer\'s password to "resetpassword"?')
+                ->action(function () {
+                    $this->record->update([
+                        'password' => 'resetpassword',
+                    ]);
+
+                    Notification::make()
+                        ->title('Password reset successfully')
                         ->success()
                         ->send();
                 }),
@@ -67,7 +85,11 @@ class EditCustomer extends EditRecord
                         ->send();
                 }),
 
-            $this->getSaveFormAction(),
+            Action::make('save')
+                ->label('Save Changes')
+                ->action('save')
+                ->keyBindings(['mod+s']),
+
             $this->getCancelFormAction(),
 
             DeleteAction::make(),
@@ -77,5 +99,10 @@ class EditCustomer extends EditRecord
     protected function getFormActions(): array
     {
         return [];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('view', ['record' => $this->record]);
     }
 }
