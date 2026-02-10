@@ -22,13 +22,24 @@ class CheckoutController extends Controller
                 ->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout. Silakan lengkapi dokumen yang diperlukan.');
         }
 
-        $cartItems = $customer->carts()->with(['productUnit.product'])->get();
+        $cartItems = $customer->carts()->with(['productUnit.product', 'productUnit.variation'])->get();
 
         if ($cartItems->isEmpty()) {
             return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
 
         $subtotal = $cartItems->sum('subtotal');
+        
+        // Calculate Gross Total and Category Discount
+        $grossTotal = 0;
+        foreach ($cartItems as $item) {
+             $unit = $item->productUnit;
+             $originalDailyRate = $unit->variation->daily_rate ?? $unit->product->daily_rate;
+             $grossTotal += $originalDailyRate * $item->days;
+        }
+        $categoryDiscountAmount = $grossTotal - $subtotal;
+        $categoryName = $customer->category ? $customer->category->name : null;
+
         $deposit = Rental::calculateDeposit($subtotal);
         
         // Clear previous discount session on page load to ensure fresh start
@@ -62,7 +73,10 @@ class CheckoutController extends Controller
             }
         }
 
-        return view('frontend.checkout.index', compact('customer', 'cartItems', 'subtotal', 'deposit', 'discountAmount'));
+        return view('frontend.checkout.index', compact(
+            'customer', 'cartItems', 'subtotal', 'deposit', 'discountAmount',
+            'categoryDiscountAmount', 'categoryName', 'grossTotal'
+        ));
     }
 
     public function validateDiscount(Request $request)

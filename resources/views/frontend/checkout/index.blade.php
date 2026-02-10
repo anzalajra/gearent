@@ -97,11 +97,18 @@
                     <div class="space-y-3 mb-6">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Subtotal</span>
-                            <span>Rp {{ number_format($subtotal, 0, ',', '.') }}</span>
+                            <span>Rp {{ number_format($grossTotal ?? $subtotal, 0, ',', '.') }}</span>
                         </div>
                         
+                        @if(isset($categoryDiscountAmount) && $categoryDiscountAmount > 0)
+                            <div class="flex justify-between text-green-600">
+                                <span>Discount ({{ $categoryName }})</span>
+                                <span>- Rp {{ number_format($categoryDiscountAmount, 0, ',', '.') }}</span>
+                            </div>
+                        @endif
+
                         <div id="discount_row" class="flex justify-between text-green-600 {{ isset($discountAmount) && $discountAmount > 0 ? '' : 'hidden' }}">
-                            <span>Discount</span>
+                            <span>Discount (Coupon)</span>
                             <span id="discount_amount">-Rp {{ number_format($discountAmount ?? 0, 0, ',', '.') }}</span>
                         </div>
 

@@ -14,7 +14,7 @@ class CartController extends Controller
     public function index()
     {
         $customer = Auth::guard('customer')->user();
-        $cartItems = $customer->carts()->with(['productUnit.product'])->get();
+        $cartItems = $customer->carts()->with(['productUnit.product', 'productUnit.variation'])->get();
         
         // Calculate totals
         $netTotal = $cartItems->sum('subtotal');
@@ -22,8 +22,9 @@ class CartController extends Controller
         // Calculate gross total (what it would be without discount)
         $grossTotal = 0;
         foreach ($cartItems as $item) {
-            // We need the original daily rate of the product
-            $originalDailyRate = $item->productUnit->product->daily_rate;
+            // We need the original daily rate of the product (or variation)
+            $unit = $item->productUnit;
+            $originalDailyRate = $unit->variation->daily_rate ?? $unit->product->daily_rate;
             $grossTotal += $originalDailyRate * $item->days;
         }
         
