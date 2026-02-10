@@ -293,7 +293,8 @@ class Rental extends Model
         foreach ($this->items as $item) {
             if ($item->productUnit->kits->count() > 0) {
                 $checkedKits = $item->rentalItemKits->count();
-                $totalKits = $item->productUnit->kits->count();
+                // Filter out broken/lost kits to match attachKitsFromUnit logic
+                $totalKits = $item->productUnit->kits->whereNotIn('condition', ['broken', 'lost'])->count();
                 
                 if ($checkedKits < $totalKits) {
                     throw new \Exception('All kit items must be checked before validating pickup.');
