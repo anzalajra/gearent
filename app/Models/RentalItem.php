@@ -14,6 +14,7 @@ class RentalItem extends Model
         'daily_rate',
         'days',
         'subtotal',
+        'discount',
     ];
 
     protected $casts = [
@@ -23,6 +24,12 @@ class RentalItem extends Model
 
     protected static function booted()
     {
+        static::saving(function ($item) {
+            $gross = $item->daily_rate * $item->days;
+            $discountAmount = $gross * ($item->discount / 100);
+            $item->subtotal = max(0, $gross - $discountAmount);
+        });
+
         static::created(function ($item) {
             $item->attachKitsFromUnit();
         });

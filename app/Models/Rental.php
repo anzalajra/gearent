@@ -21,8 +21,10 @@ class Rental extends Model
         'status',
         'subtotal',
         'discount',
+        'discount_type',
         'total',
         'deposit',
+        'deposit_type',
         'notes',
     ];
 
@@ -326,8 +328,10 @@ class Rental extends Model
         $this->discount_id = $discount->id;
         $this->discount_code = $discount->code;
         $this->discount = $discountAmount;
+        $this->discount_type = 'fixed';
         $this->total = $this->subtotal - $discountAmount;
-        $this->deposit = self::calculateDeposit($this->total);
+        // Deposit logic: if percent, it auto-adjusts via accessor. If fixed, it stays.
+        // We do NOT overwrite deposit here to respect manual overrides.
         $this->save();
         $discount->incrementUsage();
     }
@@ -337,20 +341,46 @@ class Rental extends Model
         $this->discount_id = null;
         $this->discount_code = null;
         $this->discount = 0;
+        $this->discount_type = 'fixed';
         $this->total = $this->subtotal;
-        $this->deposit = self::calculateDeposit($this->total);
+        // We do NOT overwrite deposit here to respect manual overrides.
         $this->save();
     }
 
     public function recalculateTotal(): void
     {
         $this->subtotal = $this->items()->sum('subtotal');
+        
+        $discountAmount = 0;
         if ($this->discountRelation) {
-            $this->discount = $this->discountRelation->calculateDiscount($this->subtotal);
+            $discountAmount = $this->discountRelation->calculateDiscount($this->subtotal);
+        } else {
+            if ($this->discount_type === 'percent') {
+                $discountAmount = $this->subtotal * ($this->discount / 100);
+            } else {
+                $discountAmount = $this->discount;
+            }
         }
-        $this->total = $this->subtotal - $this->discount;
-        $this->deposit = self::calculateDeposit($this->total);
+        
+        $this->total = max(0, $this->subtotal - $discountAmount);
+        // Deposit is not overwritten automatically anymore.
         $this->save();
+    }
+
+    public function getDiscountAmountAttribute(): float
+    {
+        if ($this->discount_type === 'percent') {
+            return $this->subtotal * ($this->discount / 100);
+        }
+        return (float) $this->discount;
+    }
+
+    public function getDepositAmountAttribute(): float
+    {
+        if ($this->deposit_type === 'percent') {
+            return $this->total * ($this->deposit / 100);
+        }
+        return (float) $this->deposit;
     }
 
     public static function calculateDeposit(float $amount): float
