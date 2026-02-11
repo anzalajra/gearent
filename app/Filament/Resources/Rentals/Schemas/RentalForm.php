@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\ProductUnit;
 use App\Models\Rental;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -20,6 +21,7 @@ class RentalForm
     {
         return $schema
             ->components([
+                Hidden::make('id')->dehydrated(false),
                 TextInput::make('rental_code')
                     ->label('Rental Code')
                     ->default('AUTO')
