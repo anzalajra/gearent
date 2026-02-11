@@ -82,10 +82,17 @@ class CartController extends Controller
 
         if ($request->filled('variation_id')) {
             $variation = \App\Models\ProductVariation::findOrFail($request->variation_id);
-            if ($variation->product_id !== $product->id) {
+            // Relaxed comparison to avoid string/int type mismatch
+            if ($variation->product_id != $product->id) {
                 $msg = 'Variasi tidak valid untuk produk ini.';
                 if ($request->expectsJson()) {
-                    return response()->json(['message' => $msg], 422);
+                    return response()->json([
+                        'message' => $msg,
+                        'debug' => [
+                            'var_pid' => $variation->product_id,
+                            'req_pid' => $product->id
+                        ]
+                    ], 422);
                 }
                 return back()->with('error', $msg);
             }
