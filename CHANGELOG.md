@@ -4,6 +4,11 @@
 
 
 
+
+## [vV1.2.3] - 2026-02-11
+- (Bug Fix) Product variation on customer frontend order showing not valid
+- (Bug Fix) Customer can't edit quantity on cart
+
 ## [vV1.2.2] - 2026-02-11
 - (Bug Fix) Network Error on frontend product with variant
 - (Bug Fix) Rental edit failed to get product unit serial number on admin
