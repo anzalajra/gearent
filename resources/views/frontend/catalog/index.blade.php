@@ -39,71 +39,101 @@
                 </button>
             </div>
             
-            <div class="bg-white rounded-lg shadow p-6 hidden lg:block" :class="{'hidden': !filtersOpen, 'block': filtersOpen}">
-                <h3 class="font-semibold mb-4">Filters</h3>
-                <form action="{{ route('catalog.index') }}" method="GET">
-                    <!-- Search -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                        <input type="text" name="search" value="{{ request('search') }}" placeholder="Search products..." class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-
-                    <!-- Date Range -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Rental Dates</label>
+            <div class="space-y-6 hidden lg:block" :class="{'hidden': !filtersOpen, 'block': filtersOpen}">
+                <!-- Search -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="font-semibold mb-4">Search</h3>
+                    <form action="{{ route('catalog.index') }}" method="GET">
+                        @foreach(request()->except(['search', 'page']) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endforeach
                         <div class="relative">
-                            <input type="text" id="date_range" placeholder="Select dates..." 
-                                class="w-full border rounded-lg px-3 py-2 text-sm bg-white cursor-pointer" readonly>
-                            <input type="hidden" name="start_date" id="start_date" value="{{ request('start_date') }}">
-                            <input type="hidden" name="end_date" id="end_date" value="{{ request('end_date') }}">
+                            <input type="text" name="search" value="{{ request('search') }}" placeholder="Search products..." class="w-full border rounded-lg pl-3 pr-10 py-2 text-sm">
+                            <button type="submit" class="absolute right-2 top-2 text-gray-400 hover:text-primary-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </button>
                         </div>
-                    </div>
+                    </form>
+                </div>
 
-                    <!-- Time -->
-                    <div class="grid grid-cols-2 gap-2 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Pickup</label>
-                            <input type="time" name="pickup_time" value="{{ request('pickup_time', '09:00') }}" 
-                                class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Return</label>
-                            <input type="time" name="return_time" value="{{ request('return_time', '09:00') }}" 
-                                class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
-                        </div>
-                    </div>
-
-                    <!-- Category -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                        <select name="category" class="w-full border rounded-lg px-3 py-2 text-sm">
-                            <option value="">All Categories</option>
-                            @foreach($categories as $category)
-                                <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>
+                <!-- Categories -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="font-semibold mb-4">Categories</h3>
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="{{ route('catalog.index', request()->except(['category', 'page'])) }}" 
+                               class="block px-2 py-1.5 rounded text-sm {{ !request('category') ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                                All Categories
+                            </a>
+                        </li>
+                        @foreach($categories as $category)
+                            <li>
+                                <a href="{{ route('catalog.index', array_merge(request()->except('page'), ['category' => $category->id])) }}" 
+                                   class="block px-2 py-1.5 rounded text-sm {{ request('category') == $category->id ? 'bg-primary-50 text-primary-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                                     {{ $category->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
 
-                    <!-- Sort -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-                        <select name="sort" class="w-full border rounded-lg px-3 py-2 text-sm">
-                            <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Name</option>
-                            <option value="price_low" {{ request('sort') == 'price_low' ? 'selected' : '' }}>Price: Low to High</option>
-                            <option value="price_high" {{ request('sort') == 'price_high' ? 'selected' : '' }}>Price: High to Low</option>
-                            <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest</option>
-                        </select>
-                    </div>
+                <!-- Filters -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="font-semibold mb-4">Filters</h3>
+                    <form action="{{ route('catalog.index') }}" method="GET">
+                        @if(request('category'))
+                            <input type="hidden" name="category" value="{{ request('category') }}">
+                        @endif
+                        @if(request('search'))
+                            <input type="hidden" name="search" value="{{ request('search') }}">
+                        @endif
 
-                    <button type="submit" class="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700">
-                        Apply Filters
-                    </button>
-                    <a href="{{ route('catalog.index') }}" class="block w-full text-center mt-3 text-sm text-gray-500 hover:text-gray-700">
-                        Reset Filters
-                    </a>
-                </form>
+                        <!-- Date Range -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Rental Dates</label>
+                            <div class="relative">
+                                <input type="text" id="date_range" placeholder="Select dates..." 
+                                    class="w-full border rounded-lg px-3 py-2 text-sm bg-white cursor-pointer" readonly>
+                                <input type="hidden" name="start_date" id="start_date" value="{{ request('start_date') }}">
+                                <input type="hidden" name="end_date" id="end_date" value="{{ request('end_date') }}">
+                            </div>
+                        </div>
+
+                        <!-- Time -->
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pickup</label>
+                                <input type="time" name="pickup_time" value="{{ request('pickup_time', '09:00') }}" 
+                                    class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Return</label>
+                                <input type="time" name="return_time" value="{{ request('return_time', '09:00') }}" 
+                                    class="w-full border rounded-lg px-2 py-2 text-sm bg-white">
+                            </div>
+                        </div>
+
+                        <!-- Sort -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+                            <select name="sort" class="w-full border rounded-lg px-3 py-2 text-sm">
+                                <option value="name" {{ request('sort') == 'name' ? 'selected' : '' }}>Name</option>
+                                <option value="price_low" {{ request('sort') == 'price_low' ? 'selected' : '' }}>Price: Low to High</option>
+                                <option value="price_high" {{ request('sort') == 'price_high' ? 'selected' : '' }}>Price: High to Low</option>
+                                <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700">
+                            Apply Filters
+                        </button>
+                        <a href="{{ route('catalog.index', request()->only('category')) }}" class="block w-full text-center mt-3 text-sm text-gray-500 hover:text-gray-700">
+                            Reset Filters
+                        </a>
+                    </form>
+                </div>
             </div>
         </aside>
 

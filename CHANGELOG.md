@@ -5,6 +5,10 @@
 
 
 
+
+## [vV1.2.4] - 2026-02-11
+- (Tweak) Add new filter at product catalog on frontend customer
+
 ## [vV1.2.3] - 2026-02-11
 - (Bug Fix) Product variation on customer frontend order showing not valid
 - (Bug Fix) Customer can't edit quantity on cart
