@@ -7,6 +7,7 @@ use App\Models\ProductUnit;
 use App\Models\Rental;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
 class CartController extends Controller
@@ -48,19 +49,29 @@ class CartController extends Controller
         // Check if customer is verified
         if (!$customer->canRent()) {
             $msg = 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan rental. Silakan lengkapi dokumen di halaman Profile.';
-            if ($request->wantsJson()) {
+            if ($request->expectsJson()) {
                 return response()->json(['message' => $msg], 403);
             }
             return back()->with('error', $msg);
         }
 
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'variation_id' => 'nullable|exists:product_variations,id',
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after:start_date',
             'quantity' => 'nullable|integer|min:1',
         ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Validasi gagal.',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            return back()->withErrors($validator)->withInput();
+        }
 
         $quantity = $request->input('quantity', 1);
 
@@ -72,14 +83,18 @@ class CartController extends Controller
         if ($request->filled('variation_id')) {
             $variation = \App\Models\ProductVariation::findOrFail($request->variation_id);
             if ($variation->product_id !== $product->id) {
-                return back()->with('error', 'Invalid variation for this product.');
+                $msg = 'Variasi tidak valid untuk produk ini.';
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $msg], 422);
+                }
+                return back()->with('error', $msg);
             }
         }
 
         // Check product visibility for customer
         if (!$product->isVisibleForCustomer($customer)) {
             $msg = "Produk ini tidak tersedia untuk kategori akun Anda.";
-            if ($request->wantsJson()) {
+            if ($request->expectsJson()) {
                 return response()->json(['message' => $msg], 403);
             }
             return back()->with('error', $msg);
@@ -121,7 +136,7 @@ class CartController extends Controller
         // Handle Conflicts
         if (!empty($conflicts)) {
             if (!$request->boolean('confirm_changes')) {
-                if ($request->wantsJson()) {
+                if ($request->expectsJson()) {
                     return response()->json([
                         'status' => 'conflict',
                         'conflicts' => $conflicts,
@@ -170,7 +185,7 @@ class CartController extends Controller
         // Check if we have enough units
         if ($availableForAdd->count() < $quantity) {
             $msg = "Maaf, hanya tersedia " . $availableForAdd->count() . " unit tambahan untuk tanggal yang dipilih.";
-            if ($request->wantsJson()) {
+            if ($request->expectsJson()) {
                 return response()->json(['message' => $msg], 422);
             }
             return back()->with('error', $msg);
@@ -206,7 +221,7 @@ class CartController extends Controller
             ]);
         }
 
-        if ($request->wantsJson()) {
+        if ($request->expectsJson()) {
             return response()->json(['message' => 'Item berhasil ditambahkan ke keranjang.']);
         }
 
