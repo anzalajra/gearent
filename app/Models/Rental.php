@@ -140,8 +140,8 @@ class Rental extends Model
             self::STATUS_PENDING => 'warning',
             self::STATUS_CONFIRMED => 'info',
             self::STATUS_ACTIVE => 'success',
-            self::STATUS_COMPLETED => 'gray',
-            self::STATUS_CANCELLED => 'danger',
+            self::STATUS_COMPLETED => 'purple',
+            self::STATUS_CANCELLED => 'gray',
             self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN => 'danger',
             default => 'gray',
         };

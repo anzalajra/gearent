@@ -81,6 +81,12 @@ class AdminPanelProvider extends PanelProvider
             ->favicon($favicon)
             ->colors([
                 'primary' => $primaryColor,
+                'danger' => Color::Red,
+                'gray' => Color::Gray,
+                'info' => Color::Blue,
+                'success' => Color::Green,
+                'warning' => Color::Orange,
+                'purple' => Color::Purple,
             ])
             ->renderHook(
                 'panels::global-search.after',

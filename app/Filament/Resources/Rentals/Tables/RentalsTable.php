@@ -46,16 +46,7 @@ class RentalsTable
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => Rental::getStatusOptions()[$state] ?? $state)
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'confirmed' => 'info',
-                        'active' => 'success',
-                        'completed' => 'primary',
-                        'cancelled' => 'danger',
-                        'late_pickup' => 'danger',
-                        'late_return' => 'danger',
-                        default => 'gray',
-                    })
+                    ->color(fn (string $state): string => Rental::getStatusColor($state))
                     ->toggleable(),
                 TextColumn::make('total')
                     ->money('IDR')

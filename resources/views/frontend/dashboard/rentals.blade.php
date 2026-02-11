@@ -67,11 +67,12 @@
                             <td class="px-6 py-4 font-semibold">Rp {{ number_format($rental->total, 0, ',', '.') }}</td>
                             <td class="px-6 py-4">
                                 <span class="px-3 py-1 rounded-full text-xs font-medium
-                                    @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
+                                    @if($rental->status == 'pending') bg-orange-100 text-orange-800
                                     @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                                     @elseif($rental->status == 'active') bg-green-100 text-green-800
-                                    @elseif($rental->status == 'completed') bg-gray-100 text-gray-800
-                                    @elseif($rental->status == 'cancelled') bg-red-100 text-red-800
+                                    @elseif($rental->status == 'completed') bg-purple-100 text-purple-800
+                                    @elseif($rental->status == 'cancelled') bg-gray-100 text-gray-800
+                                    @elseif(in_array($rental->status, ['late_pickup', 'late_return'])) bg-red-100 text-red-800
                                     @else bg-gray-100 text-gray-800
                                     @endif">
                                     {{ ucfirst(str_replace('_', ' ', $rental->status)) }}

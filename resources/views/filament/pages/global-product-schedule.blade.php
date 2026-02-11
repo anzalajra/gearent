@@ -97,14 +97,15 @@
                                             $isStart = $rental && ($rental['start']->isSameDay($day) || $index == 0);
 
                                             $colorMap = [
-                                                'pending' => ['bg' => 'bg-amber-500', 'text' => 'text-white'],
+                                                'pending' => ['bg' => 'bg-orange-500', 'text' => 'text-white'],
+                                                'confirmed' => ['bg' => 'bg-blue-500', 'text' => 'text-white'],
                                                 'active' => ['bg' => 'bg-green-500', 'text' => 'text-white'],
-                                                'completed' => ['bg' => 'bg-blue-500', 'text' => 'text-white'],
-                                                'cancelled' => ['bg' => 'bg-gray-400', 'text' => 'text-white'],
+                                                'completed' => ['bg' => 'bg-purple-500', 'text' => 'text-white'],
+                                                'cancelled' => ['bg' => 'bg-gray-500', 'text' => 'text-white'],
                                                 'late_pickup' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                                 'late_return' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                             ];
-                                            $status = $rental['status'] ?? '';
+                                            $status = strtolower($rental['status'] ?? '');
                                             $colors = $colorMap[$status] ?? ['bg' => 'bg-gray-100 dark:bg-white/5', 'text' => 'text-transparent'];
                                         @endphp
                                         <td colspan="{{ $colspan }}" class="p-0 border-r border-gray-200 dark:border-white/10 relative {{ $day->isToday() && !$rental ? 'bg-primary-50/20' : '' }}">
@@ -136,10 +137,11 @@
         {{-- Legend --}}
         <div class="flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-200 dark:border-white/10">
             <span class="mr-2">Status Legend:</span>
-            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-amber-500"></div> Pending</div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-orange-500"></div> Pending</div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-500"></div> Confirmed</div>
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-green-500"></div> Active</div>
-            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-500"></div> Completed</div>
-            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-400"></div> Cancelled</div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-purple-500"></div> Completed</div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-500"></div> Cancelled</div>
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-600"></div> Late Pickup/Return</div>
         </div>
     </div>

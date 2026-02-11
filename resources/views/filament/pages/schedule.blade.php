@@ -19,23 +19,27 @@
             <div class="flex items-center justify-between mb-4">
                 <div class="flex flex-wrap gap-4">
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background: #f59e0b;"></div>
+                    <div class="w-4 h-4 rounded" style="background: #f97316;"></div>
                     <span class="text-sm">Pending</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background: #10b981;"></div>
+                    <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>
+                    <span class="text-sm">Confirmed</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background: #22c55e;"></div>
                     <span class="text-sm">Active</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>
+                    <div class="w-4 h-4 rounded" style="background: #a855f7;"></div>
                     <span class="text-sm">Completed</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background: #9ca3af;"></div>
+                    <div class="w-4 h-4 rounded" style="background: #6b7280;"></div>
                     <span class="text-sm">Cancelled</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 rounded" style="background: #dc2626;"></div>
+                    <div class="w-4 h-4 rounded" style="background: #ef4444;"></div>
                     <span class="text-sm">Late Pickup/Return</span>
                 </div>
             </div>
@@ -143,14 +147,15 @@
                                                 }
                                                 
                                                 $colorMap = [
-                                                    'pending' => ['bg' => 'bg-amber-500', 'text' => 'text-white'],
+                                                    'pending' => ['bg' => 'bg-orange-500', 'text' => 'text-white'],
+                                                    'confirmed' => ['bg' => 'bg-blue-500', 'text' => 'text-white'],
                                                     'active' => ['bg' => 'bg-green-500', 'text' => 'text-white'],
-                                                    'completed' => ['bg' => 'bg-blue-500', 'text' => 'text-white'],
-                                                    'cancelled' => ['bg' => 'bg-gray-400', 'text' => 'text-white'],
+                                                    'completed' => ['bg' => 'bg-purple-500', 'text' => 'text-white'],
+                                                    'cancelled' => ['bg' => 'bg-gray-500', 'text' => 'text-white'],
                                                     'late_pickup' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                                     'late_return' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                                 ];
-                                                $status = $rental['status'] ?? '';
+                                                $status = strtolower($rental['status'] ?? '');
                                                 $colors = $colorMap[$status] ?? ['bg' => 'bg-gray-100 dark:bg-white/5', 'text' => 'text-transparent'];
                                             @endphp
                                             <td colspan="{{ $colspan }}" class="p-0 border-r border-gray-200 dark:border-white/10 relative {{ $day->isToday() && !$rental ? 'bg-primary-50/20' : '' }}">
@@ -182,10 +187,11 @@
             {{-- Legend --}}
             <div class="flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-200 dark:border-white/10">
                 <span class="mr-2">Status Legend:</span>
-                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-amber-500"></div> Pending</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-orange-500"></div> Pending</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-500"></div> Confirmed</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-green-500"></div> Active</div>
-                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-500"></div> Completed</div>
-                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-400"></div> Cancelled</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-purple-500"></div> Completed</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-500"></div> Cancelled</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-600"></div> Late Pickup/Return</div>
             </div>
         </div>
