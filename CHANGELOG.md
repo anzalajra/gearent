@@ -3,6 +3,13 @@
 
 
 
+
+## [vV1.2.2] - 2026-02-11
+- (Bug Fix) Network Error on frontend product with variant
+- (Bug Fix) Rental edit failed to get product unit serial number on admin
+- (Tweak) Status on rental have more better colorway on calendar view and global
+- (Tweak) Re-arrange admin new rental layout
+
 ## [vV1.2.1] - 2026-02-10
 - (Bug Fix) TypeError happend at product page when adding new product
 - (Tweak) Change product setup layout at brands and categories tab
