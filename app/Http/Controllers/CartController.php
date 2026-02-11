@@ -331,15 +331,22 @@ class CartController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|integer|min:1',
+            'variation_id' => 'nullable|exists:product_variations,id',
         ]);
 
         $productId = $request->product_id;
+        $variationId = $request->variation_id;
         $newQuantity = $request->quantity;
 
-        // Get current cart items for this product
+        // Get current cart items for this product and variation
         $cartItems = $customer->carts()
-            ->whereHas('productUnit', function ($query) use ($productId) {
+            ->whereHas('productUnit', function ($query) use ($productId, $variationId) {
                 $query->where('product_id', $productId);
+                if ($variationId) {
+                    $query->where('product_variation_id', $variationId);
+                } else {
+                    $query->whereNull('product_variation_id');
+                }
             })
             ->get();
         
@@ -374,6 +381,14 @@ class CartController extends Controller
             // Find available units excluding current cart items
             $currentCartUnitIds = $customer->carts()->pluck('product_unit_id')->toArray();
             $allAvailableUnits = $product->findAvailableUnits($startDate, $endDate);
+            
+            // Filter by variation
+            if ($variationId) {
+                $allAvailableUnits = $allAvailableUnits->where('product_variation_id', $variationId);
+            } else {
+                $allAvailableUnits = $allAvailableUnits->whereNull('product_variation_id');
+            }
+
             $availableForAdd = $allAvailableUnits->whereNotIn('id', $currentCartUnitIds);
 
             if ($availableForAdd->count() < $toAdd) {

@@ -110,10 +110,13 @@
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                            @if($variation)
+                                                <input type="hidden" name="variation_id" value="{{ $variation->id }}">
+                                            @endif
                                             <label class="text-sm font-medium">Qty:</label>
                                             <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
-                                                   class="w-16 text-center border rounded px-2 py-1 text-sm bg-gray-100" 
-                                                   readonly>
+                                                   class="w-16 text-center border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                                                   onchange="this.form.submit()">
                                         </form>
                                     </div>
                                 </div>
@@ -187,9 +190,12 @@
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                            @if($variation)
+                                                <input type="hidden" name="variation_id" value="{{ $variation->id }}">
+                                            @endif
                                             <input type="number" name="quantity" value="{{ $quantity }}" min="1" max="100" 
-                                                   class="w-16 text-center border rounded px-2 py-1 bg-gray-100" 
-                                                   readonly>
+                                                   class="w-16 text-center border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary-500" 
+                                                   onchange="this.form.submit()">
                                         </form>
                                     </td>
                                     <td class="px-6 py-4">
