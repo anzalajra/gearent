@@ -34,7 +34,7 @@ class RentalForm
 
                 Select::make('user_id')
                     ->label('Customer')
-                    ->options(User::where('is_active', true)->pluck('name', 'id'))
+                    ->options(User::pluck('name', 'id'))
                     ->required()
                     ->searchable(),
 
