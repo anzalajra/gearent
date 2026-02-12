@@ -6,6 +6,12 @@
 
 
 
+
+## [vV1.3.0] - 2026-02-12
+- (New) Add Admin & Roles system at admin. Now you can add admin with customized role permission
+- (New) Customer can be added as admin. So now same user can interact as customer and admin in same account
+- (Tweak) All system now use "user_id" to identify both customer and admin
+
 ## [vV1.2.4] - 2026-02-11
 - (Tweak) Add new filter at product catalog on frontend customer
 
