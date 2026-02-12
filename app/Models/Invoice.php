@@ -11,7 +11,7 @@ class Invoice extends Model
     protected $fillable = [
         'number',
         'quotation_id',
-        'customer_id',
+        'user_id',
         'date',
         'due_date',
         'subtotal',
@@ -65,9 +65,9 @@ class Invoice extends Model
         return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
 
-    public function customer(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class);
     }
 
     public function quotation(): BelongsTo

@@ -13,6 +13,12 @@ class UserAndRoles extends Page
 
     protected static string|UnitEnum|null $navigationGroup = 'Setting';
 
+    protected static ?string $navigationLabel = 'Admins & Roles';
+
+    protected static ?string $title = 'Admins & Roles';
+
+    protected static ?string $slug = 'admins-and-roles';
+
     protected static ?int $navigationSort = 5;
 
     protected string $view = 'filament.pages.user-and-roles';

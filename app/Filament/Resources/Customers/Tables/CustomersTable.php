@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
-use App\Models\Customer;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -49,7 +49,7 @@ class CustomersTable
                 TextColumn::make('verification_status')
                     ->label('Verification')
                     ->badge()
-                    ->getStateUsing(fn (Customer $record) => $record->getVerificationStatus())
+                    ->getStateUsing(fn (User $record) => $record->getVerificationStatus())
                     ->color(fn (string $state) => match ($state) {
                         'verified' => 'success',
                         'pending' => 'warning',

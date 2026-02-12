@@ -70,7 +70,7 @@ class DocumentsRelationManager extends RelationManager
                     ->action(function (CustomerDocument $record) {
                         $record->approve(Auth::id());
 
-                        $customer = $record->customer;
+                        $customer = $record->user;
                         $this->checkAndVerifyCustomer($customer);
 
                         Notification::make()

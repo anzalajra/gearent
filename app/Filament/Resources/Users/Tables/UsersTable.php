@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Filament\Resources\Users\UserResource;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -26,6 +28,19 @@ class UsersTable
                     ->label('Roles')
                     ->toggleable()
                     ->visibleFrom('sm'),
+                TextColumn::make('category.name')
+                    ->badge()
+                    ->label('Category')
+                    ->color('info')
+                    ->toggleable()
+                    ->visibleFrom('sm'),
+                TextColumn::make('is_verified')
+                    ->label('Verified')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Yes' : 'No')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable()
@@ -44,7 +59,8 @@ class UsersTable
                 //
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->url(fn (User $record): string => UserResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

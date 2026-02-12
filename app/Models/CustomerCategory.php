@@ -64,9 +64,9 @@ class CustomerCategory extends Model
         return is_array($value) ? $value : [];
     }
 
-    public function customers(): HasMany
+    public function users(): HasMany
     {
-        return $this->hasMany(Customer::class);
+        return $this->hasMany(User::class);
     }
 
     public function excludedProducts(): BelongsToMany

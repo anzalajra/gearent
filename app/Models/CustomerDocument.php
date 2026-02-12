@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class CustomerDocument extends Model
 {
     protected $fillable = [
-        'customer_id',
+        'user_id',
         'document_type_id',
         'file_path',
         'file_name',
@@ -28,9 +28,17 @@ class CustomerDocument extends Model
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @deprecated Use user() instead
+     */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function documentType(): BelongsTo

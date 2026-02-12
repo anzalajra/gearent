@@ -85,7 +85,7 @@ class CustomerForm
                         TextInput::make('email')
                             ->email()
                             ->required()
-                            ->unique('customers', 'email', ignoreRecord: true)
+                            ->unique('users', 'email', ignoreRecord: true)
                             ->maxLength(255),
 
                         TextInput::make('phone')

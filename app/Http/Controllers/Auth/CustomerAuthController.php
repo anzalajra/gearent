@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\Customer;
+use App\Models\User;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,7 +57,7 @@ class CustomerAuthController extends Controller
         // Base Validation
         $rules = [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:customers',
+            'email' => 'required|string|email|max:255|unique:users',
             'phone' => 'required|string|max:20',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'customer_category_id' => 'required|exists:customer_categories,id',
@@ -97,7 +97,7 @@ class CustomerAuthController extends Controller
 
         $autoVerify = Setting::get('auto_verify_registration', true);
 
-        $customer = Customer::create([
+        $customer = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,

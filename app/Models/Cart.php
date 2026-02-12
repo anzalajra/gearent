@@ -24,9 +24,17 @@ class Cart extends Model
         'subtotal' => 'decimal:2',
     ];
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @deprecated Use user() instead
+     */
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function productUnit(): BelongsTo

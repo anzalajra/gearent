@@ -41,7 +41,8 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Resources\Customers\RelationManagers\DocumentsRelationManager::class,
+            \App\Filament\Resources\Customers\RelationManagers\RentalsRelationManager::class,
         ];
     }
 
