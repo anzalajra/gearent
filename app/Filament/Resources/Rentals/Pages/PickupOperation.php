@@ -551,12 +551,75 @@ class PickupOperation extends Page implements HasTable
             ->icon('heroicon-o-check-circle')
             ->color('success')
             ->size('lg')
-            ->requiresConfirmation()
             ->modalHeading('Confirm Pickup')
-            ->modalDescription('Are you sure the customer has picked up all items? This will change the rental status to Active.')
             ->modalSubmitActionLabel('Yes, Confirm Pickup')
             ->disabled(fn () => !$this->allItemsChecked())
-            ->action(function () {
+            ->form(function () {
+                $conflicts = $this->rental->checkAvailability();
+                
+                if (empty($conflicts)) {
+                    return [
+                         Placeholder::make('confirmation')
+                            ->label('')
+                            ->content('Are you sure the customer has picked up all items? This will change the rental status to Active.'),
+                    ];
+                }
+                
+                // If conflicts exist
+                $conflictMessages = [];
+                foreach ($conflicts as $conflict) {
+                     $unitName = $conflict['product_unit']->product->name;
+                     $serial = $conflict['product_unit']->serial_number;
+                     $rentalInfo = $conflict['conflicting_rentals']->map(function ($r) {
+                        $customerName = $r->customer->name ?? 'Unknown';
+                        return "{$r->rental_code} ($customerName)";
+                    })->implode(', ');
+                    $conflictMessages[] = "<li><strong>$unitName ($serial)</strong> vs $rentalInfo</li>";
+                }
+                
+                return [
+                    Placeholder::make('conflict_warning')
+                        ->label('⚠️ Scheduling Conflicts Detected')
+                        ->content(new \Illuminate\Support\HtmlString(
+                            '<div class="text-danger-600 dark:text-danger-400" style="color: red;">
+                                <p>The following units are double-booked:</p>
+                                <ul class="list-disc pl-5 mt-2 mb-2">' . implode('', $conflictMessages) . '</ul>
+                                <p class="mt-2 font-bold">You cannot proceed unless you resolve these conflicts.</p>
+                            </div>'
+                        )),
+                    
+                    Checkbox::make('resolve_conflicts')
+                        ->label('Force remove conflicting items from the OTHER rentals to proceed with this pickup.')
+                        ->required()
+                        ->accepted(), 
+                ];
+            })
+            ->action(function (array $data) {
+                // Check conflicts again to be safe
+                $conflicts = $this->rental->checkAvailability();
+                
+                if (!empty($conflicts)) {
+                    // The 'accepted' validation on the checkbox handles the check, 
+                    // but we verify here too.
+                    if (empty($data['resolve_conflicts'])) {
+                        Notification::make()
+                            ->title('Conflicts not resolved')
+                            ->body('You must agree to resolve conflicts to proceed.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+                    
+                    // Resolve conflicts
+                    $this->rental->resolveConflicts($conflicts);
+                    
+                    Notification::make()
+                        ->title('Conflicts Resolved')
+                        ->body('Conflicting items have been removed from other rentals.')
+                        ->warning()
+                        ->send();
+                }
+
                 $this->rental->validatePickup();
 
                 // Also complete the delivery

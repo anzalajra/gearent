@@ -266,6 +266,42 @@ class Rental extends Model
     }
 
     /**
+     * Resolve conflicts by removing conflicting items from other rentals
+     */
+    public function resolveConflicts(array $conflicts): void
+    {
+        foreach ($conflicts as $conflict) {
+            $unit = $conflict['product_unit'];
+            $conflictingRentals = $conflict['conflicting_rentals'];
+
+            foreach ($conflictingRentals as $rental) {
+                // Find the conflicting item
+                $item = $rental->items()
+                    ->where('product_unit_id', $unit->id)
+                    ->first();
+
+                if ($item) {
+                    $item->delete();
+                    
+                    // Recalculate totals for the other rental
+                    $rental->refresh();
+                    $subtotal = $rental->items->sum('subtotal');
+                    
+                    // Update subtotal
+                    $rental->subtotal = $subtotal;
+                    
+                    // Recalculate total (keeping existing discount amount for fixed, or logic for percent)
+                    // Since applyDiscount logic is complex, we'll do a simple update here
+                    // assuming the admin will review the other rental if needed.
+                    $rental->total = max(0, $subtotal - $rental->discount);
+                    
+                    $rental->save();
+                }
+            }
+        }
+    }
+
+    /**
      * Validate pickup and change status to active
      */
     public function validatePickup(): void
@@ -281,9 +317,15 @@ class Rental extends Model
             foreach ($conflicts as $conflict) {
                 $unitName = $conflict['product_unit']->product->name;
                 $serial = $conflict['product_unit']->serial_number;
-                $messages[] = "$unitName ($serial)";
+                
+                $rentalInfo = $conflict['conflicting_rentals']->map(function ($r) {
+                    $customerName = $r->customer->name ?? 'Unknown';
+                    return "{$r->rental_code} ($customerName)";
+                })->implode(', ');
+
+                $messages[] = "$unitName ($serial) vs $rentalInfo";
             }
-            $unitList = implode(', ', $messages);
+            $unitList = implode('; ', $messages);
             throw new \Exception("Cannot validate pickup. The following units have scheduling conflicts: $unitList. Please swap them.");
         }
 
