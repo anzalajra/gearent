@@ -165,6 +165,7 @@ class Product extends Model
                 $query->whereNotIn('status', [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED])
                     ->whereIn('status', [
                         Rental::STATUS_PENDING,
+                        Rental::STATUS_CONFIRMED,
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_PICKUP,
                         Rental::STATUS_LATE_RETURN
@@ -213,6 +214,7 @@ class Product extends Model
                 $query->whereHas('rental', function ($q) use ($startDate, $endDate) {
                     $q->whereIn('status', [
                         Rental::STATUS_PENDING,
+                        Rental::STATUS_CONFIRMED,
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_PICKUP,
                         Rental::STATUS_LATE_RETURN

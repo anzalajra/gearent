@@ -123,7 +123,7 @@ class ProductUnit extends Model
             // Check for scheduled rentals
             $isScheduled = $this->rentalItems()
                 ->whereHas('rental', function ($query) {
-                    $query->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_LATE_PICKUP]);
+                    $query->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_CONFIRMED, Rental::STATUS_LATE_PICKUP]);
                 })->exists();
 
             if ($isScheduled) {
