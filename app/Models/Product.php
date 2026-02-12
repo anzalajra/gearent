@@ -102,8 +102,12 @@ class Product extends Model
 
     /**
      * Scope to filter products visible for a specific customer
+     * 
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable|null $customer
+     * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeVisibleForCustomer(Builder $query, ?Customer $customer): Builder
+    public function scopeVisibleForCustomer(Builder $query, $customer): Builder
     {
         if (!$customer || !$customer->customer_category_id) {
             return $query;
@@ -116,8 +120,11 @@ class Product extends Model
 
     /**
      * Check if product is visible for specific customer instance
+     * 
+     * @param \App\Models\User|\Illuminate\Contracts\Auth\Authenticatable|null $customer
+     * @return bool
      */
-    public function isVisibleForCustomer(?Customer $customer): bool
+    public function isVisibleForCustomer($customer): bool
     {
         if (!$customer || !$customer->customer_category_id) {
             return true;
