@@ -271,7 +271,7 @@ class CheckoutController extends Controller
                 $deposit = Rental::calculateDeposit($subtotal); // Keeping it based on subtotal as per original logic
 
                 $rental = Rental::create([
-                    'customer_id' => $customer->id,
+                    'user_id' => $customer->id,
                     'start_date' => $firstItem->start_date,
                     'end_date' => $firstItem->end_date,
                     'status' => Rental::STATUS_PENDING,
@@ -323,8 +323,8 @@ class CheckoutController extends Controller
     {
         $customer = Auth::guard('customer')->user();
 
-        // Use loose comparison because customer_id from DB might be string while auth user id is int
-        if ($rental->customer_id != $customer->id) {
+        // Use loose comparison because user_id from DB might be string while auth user id is int
+        if ($rental->user_id != $customer->id) {
             abort(403);
         }
 

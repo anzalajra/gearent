@@ -49,7 +49,7 @@ class CustomerDocumentController extends Controller
             $path = $file->store('customer-documents/' . $customer->id, 'local');
 
             CustomerDocument::create([
-                'customer_id' => $customer->id,
+                'user_id' => $customer->id,
                 'document_type_id' => $typeId,
                 'file_path' => $path,
                 'file_name' => $file->getClientOriginalName(),
@@ -71,7 +71,7 @@ class CustomerDocumentController extends Controller
     {
         $customer = Auth::guard('customer')->user();
 
-        if ($document->customer_id != $customer->id) {
+        if ($document->user_id != $customer->id) {
             abort(403);
         }
 
@@ -89,7 +89,7 @@ class CustomerDocumentController extends Controller
     public function view(CustomerDocument $document)
     {
         // Check if the current user is the owner of the document
-        if (Auth::guard('customer')->id() != $document->customer_id) {
+        if (Auth::guard('customer')->id() != $document->user_id) {
             abort(403);
         }
 

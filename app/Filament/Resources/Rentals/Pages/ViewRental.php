@@ -32,7 +32,7 @@ class ViewRental extends Page
     public function mount(int|string $record): void
     {
         $this->rental = Rental::with([
-            'customer',
+            'user',
             'items.productUnit.product',
             'items.rentalItemKits.unitKit'
         ])->findOrFail($record);
@@ -54,7 +54,7 @@ class ViewRental extends Page
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
                     ->url(function () {
                         $rental = $this->rental;
-                        $customer = $rental->customer;
+                        $customer = $rental->user;
                         
                         $itemsList = $rental->items->map(function ($item) {
                              return "- " . $item->productUnit->product->name . " (" . $item->productUnit->unit_code . ")";
@@ -96,7 +96,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-clipboard-document-list')
                     ->color('gray')
                     ->action(function () {
-                        $this->rental->load(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
+                        $this->rental->load(['user', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
                         
                         $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $this->rental]);
                         
@@ -113,7 +113,7 @@ class ViewRental extends Page
                     ->color('success')
                     ->action(function () {
                         $quotation = Quotation::create([
-                            'customer_id' => $this->rental->customer_id,
+                            'user_id' => $this->rental->user_id,
                             'date' => now(),
                             'valid_until' => now()->addDays(7),
                             'status' => Quotation::STATUS_ON_QUOTE,
@@ -156,7 +156,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-document-text')
                     ->color('gray')
                     ->action(function () {
-                        $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->quotation_id);
+                        $quotation = Quotation::with(['user', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->quotation_id);
                         
                         if (!$quotation) {
                             Notification::make()
@@ -197,7 +197,7 @@ class ViewRental extends Page
                     ->icon('heroicon-o-document-currency-dollar')
                     ->color('gray')
                     ->action(function () {
-                        $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->invoice_id);
+                        $invoice = \App\Models\Invoice::with(['user', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($this->rental->invoice_id);
                         
                         if (!$invoice) {
                             Notification::make()

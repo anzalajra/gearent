@@ -16,7 +16,7 @@
                     <tr class="border-b border-gray-200">
                         <td class="py-3 pr-6 font-medium text-gray-500">Customer</td>
                         <td class="py-3 pr-6 font-semibold">
-                            <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="text-primary-600 hover:underline">
+                            <a href="{{ route('filament.admin.resources.customers.edit', $rental->user_id) }}" class="text-primary-600 hover:underline">
                                 {{ $rental->customer->name }}
                             </a>
                         </td>

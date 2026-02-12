@@ -16,7 +16,7 @@
 
             <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2">
                 <span class="font-medium text-gray-500 dark:text-gray-400">Customer</span>
-                <a href="{{ route('filament.admin.resources.customers.edit', $rental->customer_id) }}" class="font-semibold text-primary-600 hover:underline">
+                <a href="{{ route('filament.admin.resources.customers.edit', $rental->user_id) }}" class="font-semibold text-primary-600 hover:underline">
                     {{ $rental->customer->name }}
                 </a>
             </div>

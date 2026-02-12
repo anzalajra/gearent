@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Cart extends Model
 {
     protected $fillable = [
-        'customer_id',
+        'user_id',
         'product_unit_id',
         'start_date',
         'end_date',

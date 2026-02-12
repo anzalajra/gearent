@@ -218,7 +218,7 @@ class CartController extends Controller
 
         foreach ($unitsToAdd as $unit) {
             Cart::create([
-                'customer_id' => $customer->id,
+                'user_id' => $customer->id,
                 'product_unit_id' => $unit->id,
                 'start_date' => $startDate,
                 'end_date' => $endDate,
@@ -290,7 +290,7 @@ class CartController extends Controller
     {
         $customer = Auth::guard('customer')->user();
         
-        if ($cart->customer_id != $customer->id) {
+        if ($cart->user_id != $customer->id) {
             abort(403);
         }
 
@@ -315,7 +315,7 @@ class CartController extends Controller
     {
         $customer = Auth::guard('customer')->user();
         
-        if ($cart->customer_id != $customer->id) {
+        if ($cart->user_id != $customer->id) {
             abort(403);
         }
 
@@ -399,7 +399,7 @@ class CartController extends Controller
 
             foreach ($unitsToAdd as $unit) {
                 Cart::create([
-                    'customer_id' => $customer->id,
+                    'user_id' => $customer->id,
                     'product_unit_id' => $unit->id,
                     'start_date' => $startDate,
                     'end_date' => $endDate,

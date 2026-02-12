@@ -62,7 +62,7 @@ class Discount extends Model
         if (!$this->isValid()) return false;
         
         if ($this->per_customer_limit) {
-            $usedCount = Rental::where('customer_id', $customer->id)
+            $usedCount = Rental::where('user_id', $customer->id)
                 ->where('discount_id', $this->id)
                 ->count();
             if ($usedCount >= $this->per_customer_limit) return false;

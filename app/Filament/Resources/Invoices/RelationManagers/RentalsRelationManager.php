@@ -68,7 +68,7 @@ class RentalsRelationManager extends RelationManager
                             ->label('Select Rentals')
                             ->multiple()
                             ->options(function (RelationManager $livewire) {
-                                return Rental::where('customer_id', $livewire->getOwnerRecord()->customer_id)
+                                return Rental::where('user_id', $livewire->getOwnerRecord()->user_id)
                                     ->whereNull('invoice_id')
                                     ->pluck('rental_code', 'id');
                             })

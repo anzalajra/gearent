@@ -29,10 +29,11 @@ class RentalsTable
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
-                TextColumn::make('customer.name')
+                TextColumn::make('user.name')
                     ->searchable()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->label('Customer'),
                 TextColumn::make('start_date')
                     ->dateTime()
                     ->sortable()
@@ -130,7 +131,7 @@ class RentalsTable
                         ->color('success')
                         ->action(function (Rental $record) {
                             $quotation = Quotation::create([
-                                'customer_id' => $record->customer_id,
+                                'user_id' => $record->user_id,
                                 'date' => now(),
                                 'valid_until' => now()->addDays(7),
                                 'status' => Quotation::STATUS_ON_QUOTE,
@@ -226,7 +227,7 @@ class RentalsTable
                         ->icon('heroicon-o-document-currency-dollar')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $invoice = \App\Models\Invoice::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->invoice_id);
+                            $invoice = \App\Models\Invoice::with(['user', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->invoice_id);
                             
                             if (!$invoice) {
                                 Notification::make()

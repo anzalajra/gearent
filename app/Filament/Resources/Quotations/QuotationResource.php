@@ -48,7 +48,7 @@ class QuotationResource extends Resource
                             ->disabled()
                             ->dehydrated(false)
                             ->placeholder('Auto-generated'),
-                        Select::make('customer_id')
+                        Select::make('user_id')
                             ->relationship('customer', 'name')
                             ->required()
                             ->searchable()
@@ -127,7 +127,7 @@ class QuotationResource extends Resource
                             // Create Invoice
                             $invoice = Invoice::create([
                                 'quotation_id' => $record->id,
-                                'customer_id' => $record->customer_id,
+                                'user_id' => $record->user_id,
                                 'date' => now(),
                                 'due_date' => now()->addDays(7), // Default due date
                                 'status' => Invoice::STATUS_SENT,

@@ -44,7 +44,7 @@ class InvoiceResource extends Resource
                             ->disabled()
                             ->dehydrated(false)
                             ->placeholder('Auto-generated'),
-                        Select::make('customer_id')
+                        Select::make('user_id')
                             ->relationship('customer', 'name')
                             ->required()
                             ->searchable()

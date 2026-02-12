@@ -3,17 +3,17 @@
 namespace App\Policies;
 
 use App\Models\Cart;
-use App\Models\Customer;
+use App\Models\User;
 
 class CartPolicy
 {
-    public function update(Customer $customer, Cart $cart): bool
+    public function update(User $user, Cart $cart): bool
     {
-        return $customer->id === $cart->customer_id;
+        return $user->id === $cart->user_id;
     }
 
-    public function delete(Customer $customer, Cart $cart): bool
+    public function delete(User $user, Cart $cart): bool
     {
-        return $customer->id === $cart->customer_id;
+        return $user->id === $cart->user_id;
     }
 }

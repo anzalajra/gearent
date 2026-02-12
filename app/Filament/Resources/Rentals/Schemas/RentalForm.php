@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Rentals\Schemas;
 
-use App\Models\Customer;
+use App\Models\User;
 use App\Models\ProductUnit;
 use App\Models\Rental;
 use Filament\Schemas\Components\Actions;
@@ -32,9 +32,9 @@ class RentalForm
                     ->disabled()
                     ->dehydrated(false),
 
-                Select::make('customer_id')
+                Select::make('user_id')
                     ->label('Customer')
-                    ->options(Customer::where('is_active', true)->pluck('name', 'id'))
+                    ->options(User::where('is_active', true)->pluck('name', 'id'))
                     ->required()
                     ->searchable(),
 
