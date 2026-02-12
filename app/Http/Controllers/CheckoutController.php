@@ -255,6 +255,7 @@ class CheckoutController extends Controller
 
         try {
             $rentals = [];
+            $reservedUnitIds = []; // Track units reserved in this transaction
 
             foreach ($groupedItems as $dateKey => $items) {
                 $firstItem = $items->first();
@@ -285,9 +286,43 @@ class CheckoutController extends Controller
                 ]);
 
                 foreach ($items as $cartItem) {
+                    // VALIDATION: Ensure unit is still available
+                    $product = $cartItem->productUnit->product;
+                    $startDate = $cartItem->start_date;
+                    $endDate = $cartItem->end_date;
+
+                    // Get fresh availability from DB
+                    // This checks against OTHER existing rentals (Confirmed, Active, etc.)
+                    $availableUnits = $product->findAvailableUnits($startDate, $endDate);
+                    
+                    // Filter out units we already reserved in this current checkout session
+                    $candidates = $availableUnits->whereNotIn('id', $reservedUnitIds);
+                    
+                    $finalUnitId = null;
+
+                    // 1. Check if the unit currently in cart is valid
+                    if ($candidates->contains('id', $cartItem->product_unit_id)) {
+                        $finalUnitId = $cartItem->product_unit_id;
+                    } 
+                    // 2. If not, try to auto-switch to another available unit
+                    else {
+                        $replacement = $candidates->first();
+                        if ($replacement) {
+                            $finalUnitId = $replacement->id;
+                        }
+                    }
+
+                    // 3. If no unit available, fail the transaction
+                    if (!$finalUnitId) {
+                        throw new \Exception("Maaf, produk {$product->name} tidak lagi tersedia untuk tanggal yang dipilih (Unit penuh).");
+                    }
+
+                    // Reserve this unit for this transaction
+                    $reservedUnitIds[] = $finalUnitId;
+
                     $rentalItem = RentalItem::create([
                         'rental_id' => $rental->id,
-                        'product_unit_id' => $cartItem->product_unit_id,
+                        'product_unit_id' => $finalUnitId, // Use the validated unit ID
                         'daily_rate' => $cartItem->daily_rate,
                         'days' => $cartItem->days,
                         'subtotal' => $cartItem->subtotal,
