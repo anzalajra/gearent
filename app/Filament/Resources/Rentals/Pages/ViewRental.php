@@ -248,6 +248,24 @@ class ViewRental extends Page
                 })
                 ->visible(fn () => $this->rental->status === Rental::STATUS_PENDING),
 
+            Action::make('cancel_confirm')
+                ->label('Cancel Confirm')
+                ->icon('heroicon-o-x-circle')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Revert to Pending')
+                ->modalDescription('Are you sure you want to revert this rental status to Pending?')
+                ->modalSubmitActionLabel('Yes, Revert')
+                ->action(function () {
+                    $this->rental->update(['status' => Rental::STATUS_PENDING]);
+                    Notification::make()
+                        ->title('Rental status reverted to Pending')
+                        ->success()
+                        ->send();
+                    $this->redirect(RentalResource::getUrl('view', ['record' => $this->rental]));
+                })
+                ->visible(fn () => $this->rental->status === Rental::STATUS_CONFIRMED),
+
             Action::make('pickup')
                 ->label('Process Pickup')
                 ->icon('heroicon-o-truck')
