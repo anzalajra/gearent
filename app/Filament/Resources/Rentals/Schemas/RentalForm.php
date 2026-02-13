@@ -36,7 +36,8 @@ class RentalForm
                     ->label('Customer')
                     ->options(User::pluck('name', 'id'))
                     ->required()
-                    ->searchable(),
+                    ->searchable()
+                    ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])),
 
                 DateTimePicker::make('start_date')
                 ->label('Start Date & Time')
@@ -45,6 +46,7 @@ class RentalForm
                 ->default(now())
                 ->seconds(false)
                 ->live()
+                ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
                 ->afterStateUpdated(function ($state, callable $get, callable $set) {
                     self::calculateDuration($get, $set);
                 }),
@@ -56,6 +58,7 @@ class RentalForm
                 ->default(now()->addDays(1))
                 ->seconds(false)
                 ->live()
+                ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
                 ->afterStateUpdated(function ($state, callable $get, callable $set) {
                     self::calculateDuration($get, $set);
                 }),
@@ -63,7 +66,7 @@ class RentalForm
                     ->options(Rental::getStatusOptions())
                     ->required()
                     ->default('pending')
-                    ->disabled(fn ($record) => $record && !$record->canBeEdited()),
+                    ->disabled(fn ($record) => $record && (!$record->canBeEdited() || in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))),
 
                 Placeholder::make('duration_display')
                     ->label('Rental Duration')
@@ -97,6 +100,7 @@ class RentalForm
                     ->relationship()
                     ->columns(12)
                     ->addable(false)
+                    ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
                     ->schema([
                         Select::make('product_id')
                             ->label('Product')
@@ -232,6 +236,7 @@ class RentalForm
                         ->label('Add Product')
                         ->icon('heroicon-m-plus')
                         ->button()
+                        ->visible(fn ($record) => !$record || !in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
                         ->form([
                             Select::make('product_id')
                                 ->label('Product')

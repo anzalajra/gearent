@@ -35,9 +35,17 @@ class RentalObserver
     protected function recalculateTotals(Rental $rental): void
     {
         $subtotal = $rental->items()->sum('subtotal');
-        $total = $subtotal - ($rental->discount ?? 0);
+        
+        $discountAmount = 0;
+        if ($rental->discount_type === 'percent') {
+            $discountAmount = $subtotal * (($rental->discount ?? 0) / 100);
+        } else {
+            $discountAmount = $rental->discount ?? 0;
+        }
 
-        if ($rental->subtotal != $subtotal || $rental->total != $total) {
+        $total = max(0, $subtotal - $discountAmount);
+
+        if (abs($rental->subtotal - $subtotal) > 0.01 || abs($rental->total - $total) > 0.01) {
             $rental->updateQuietly([
                 'subtotal' => $subtotal,
                 'total' => $total,

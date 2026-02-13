@@ -166,6 +166,8 @@ class Rental extends Model
             self::STATUS_PENDING,
             self::STATUS_CONFIRMED,
             self::STATUS_LATE_PICKUP,
+            self::STATUS_ACTIVE,
+            self::STATUS_LATE_RETURN,
         ]);
     }
 
