@@ -8,6 +8,12 @@
 
 
 
+
+## [vV1.3.2] - 2026-02-13
+- (New) Add function to edit active rental, but limited to edit discount and deposit
+- (Bug Fix) Discount function between fixed and percentage discount now fixed
+- (Tweak) Removed "cancel confirmed" at rentals table
+
 ## [vV1.3.1] - 2026-02-13
 - (New) Admin now can resolve product conflict by removing conflicted product at another rental schedule
 - (New) Better logic to prevent double booking, add auto switch if there any product unit conflict
