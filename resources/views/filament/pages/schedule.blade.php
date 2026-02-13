@@ -53,6 +53,20 @@
         </div>
     @else
         <div wire:key="tab-unit" class="space-y-4">
+            @php
+                $products = $this->getProductsWithUnitsAndRentals();
+            @endphp
+            {{-- Search Control --}}
+            <div class="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm relative">
+                <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
+                    <x-filament::input
+                        wire:model.live.debounce.500ms="search"
+                        type="search"
+                        placeholder="Search products or units..."
+                    />
+                </x-filament::input.wrapper>
+            </div>
+
             {{-- Header & Navigation --}}
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm">
                 <div>
@@ -70,8 +84,13 @@
             </div>
 
             {{-- Timeline Table --}}
-            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm overflow-hidden">
-                <div class="overflow-x-auto overflow-y-hidden">
+            <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-white/10 shadow-sm relative">
+                <div wire:loading wire:target="search, previousMonth, nextMonth, setTab, gotoPage, nextPage, previousPage, perPage" class="absolute inset-0 z-50 bg-white/50 dark:bg-gray-900/50 backdrop-blur-[2px] rounded-xl">
+                    <div class="sticky top-0 h-screen max-h-full flex items-center justify-center">
+                        <x-filament::loading-indicator class="h-12 w-12 text-primary-600 dark:text-primary-400" />
+                    </div>
+                </div>
+                <div class="overflow-x-auto overflow-y-hidden rounded-xl">
                     <table class="w-full text-left border-collapse table-fixed min-w-max border-spacing-0">
                         <thead>
                             <tr>
@@ -89,16 +108,16 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($this->getProductsWithUnitsAndRentals() as $group)
+                            @forelse($products as $group)
                                 {{-- Product Header Row --}}
-                                <tr class="bg-gray-50 dark:bg-gray-800/50">
+                                <tr wire:key="product-header-{{ $group['product']->id }}" class="bg-gray-50 dark:bg-gray-800/50">
                                     <td colspan="{{ count($days) + 1 }}" class="sticky left-0 z-20 p-2 pl-3 border-b border-gray-200 dark:border-white/10 font-bold text-sm text-primary-600 dark:text-primary-400">
                                         {{ $group['product']->name }}
                                     </td>
                                 </tr>
 
                                 @foreach($group['units'] as $data)
-                                    <tr class="h-12 border-b border-gray-100 dark:border-white/5 last:border-0">
+                                    <tr wire:key="unit-row-{{ $data['unit']->id }}" class="h-12 border-b border-gray-100 dark:border-white/5 last:border-0">
                                         <td class="sticky left-0 z-20 p-3 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-white/10 text-sm text-gray-800 dark:text-gray-200 pl-6">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-xs font-mono bg-gray-100 dark:bg-white/10 px-2 py-0.5 rounded text-gray-600 dark:text-gray-400">
@@ -174,13 +193,36 @@
                                         @endforeach
                                     </tr>
                                 @endforeach
-                            @endforeach
+                            @empty
+                                <tr wire:key="empty-state">
+                                    <td class="sticky left-0 z-20 p-6 bg-white dark:bg-gray-900 border-r border-b border-gray-200 dark:border-white/10">
+                                        <div class="flex flex-col items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+                                            <x-heroicon-o-magnifying-glass class="w-6 h-6" />
+                                            <span class="text-xs font-medium text-center">No product / Unit found</span>
+                                        </div>
+                                    </td>
+                                    <td colspan="{{ count($days) }}" class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-white/10"></td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
                 
-                <div class="p-4 border-t border-gray-200 dark:border-white/10">
-                    {{ $this->getProductsWithUnitsAndRentals()->links() }}
+                <div class="p-4 border-t border-gray-200 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="w-full md:w-32 shrink-0 order-2 md:order-1">
+                        <x-filament::input.wrapper prefix="Per page">
+                            <x-filament::input.select wire:model.live="perPage">
+                                <option value="15">15</option>
+                                <option value="35">35</option>
+                                <option value="55">55</option>
+                                <option value="75">75</option>
+                                <option value="95">95</option>
+                            </x-filament::input.select>
+                        </x-filament::input.wrapper>
+                    </div>
+                    <div class="w-full md:w-auto order-1 md:order-2">
+                        {{ $products->links() }}
+                    </div>
                 </div>
             </div>
 

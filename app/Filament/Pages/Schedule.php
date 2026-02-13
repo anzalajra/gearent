@@ -32,6 +32,15 @@ class Schedule extends Page implements HasActions
 
     public string $activeTab = 'order'; // 'order' or 'unit'
 
+    public ?string $search = '';
+    public int $perPage = 15;
+
+    protected $queryString = [
+        'activeTab' => ['except' => 'order'],
+        'search' => ['except' => ''],
+        'perPage' => ['except' => 15],
+    ];
+
     public Carbon $startDate;
     public Carbon $endDate;
     public array $days = [];
@@ -46,6 +55,16 @@ class Schedule extends Page implements HasActions
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
     }
 
     // Global Product Schedule Logic
@@ -140,9 +159,21 @@ class Schedule extends Page implements HasActions
 
     public function getProductsWithUnitsAndRentals(): Paginator
     {
-        $products = Product::with(['units.rentalItems.rental.customer'])
-            ->whereHas('units')
-            ->paginate(5); // Adjust items per page as needed
+        $query = Product::with(['units.rentalItems.rental.customer'])
+            ->whereHas('units');
+
+        $search = trim($this->search ?? '');
+
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%')
+                  ->orWhereHas('units', function ($q) use ($search) {
+                      $q->where('serial_number', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        $products = $query->paginate($this->perPage);
         
         $products->getCollection()->transform(function ($product) {
             $productData = [
