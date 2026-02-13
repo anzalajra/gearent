@@ -9,6 +9,12 @@
 
 
 
+
+## [vV1.3.3] - 2026-02-13
+- (Bug Fix) Backup & Restore now working and can be restored
+- (Bug Fix) System checkup now can work
+- (Tweak) Document layout setting now have document preview
+
 ## [vV1.3.2] - 2026-02-13
 - (New) Add function to edit active rental, but limited to edit discount and deposit
 - (Bug Fix) Discount function between fixed and percentage discount now fixed
