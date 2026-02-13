@@ -7,6 +7,15 @@
 
 
 
+
+## [vV1.3.1] - 2026-02-13
+- (New) Admin now can resolve product conflict by removing conflicted product at another rental schedule
+- (New) Better logic to prevent double booking, add auto switch if there any product unit conflict
+- (Bug Fix) Overall system now detect customer as user_id, changed from customer_id. Effected on all system code
+- (Bug Fix) Confirmed order not detected on frontend customer product calendar caused by 'confirmed' status is not registered
+- (Bug Fix) Admin panel problem at rental edit now removed 'user is_active' filter
+- (Tweak) Removed old navigation setting
+
 ## [vV1.3.0] - 2026-02-12
 - (New) Add Admin & Roles system at admin. Now you can add admin with customized role permission
 - (New) Customer can be added as admin. So now same user can interact as customer and admin in same account
