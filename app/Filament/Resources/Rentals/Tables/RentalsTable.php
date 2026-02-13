@@ -77,24 +77,6 @@ class RentalsTable
                     })
                     ->visible(fn (Rental $record) => $record->status === Rental::STATUS_PENDING),
 
-                // Cancel Confirm Button
-                Action::make('cancel_confirm')
-                    ->label('Cancel Confirm')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Revert to Pending')
-                    ->modalDescription('Are you sure you want to revert this rental status to Pending?')
-                    ->modalSubmitActionLabel('Yes, Revert')
-                    ->action(function (Rental $record) {
-                        $record->update(['status' => Rental::STATUS_PENDING]);
-                        Notification::make()
-                            ->title('Rental status reverted to Pending')
-                            ->success()
-                            ->send();
-                    })
-                    ->visible(fn (Rental $record) => $record->status === Rental::STATUS_CONFIRMED),
-
                 // Pickup button
                 Action::make('pickup')
                     ->label('Pickup')
