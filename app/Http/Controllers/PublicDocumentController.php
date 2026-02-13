@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Invoice;
 use App\Models\Quotation;
 use App\Models\Rental;
+use App\Models\Delivery;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,7 @@ class PublicDocumentController extends Controller
             abort(403);
         }
 
-        $rental->load(['customer', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
+        $rental->load(['user', 'items.productUnit.product', 'items.productUnit.kits', 'items.rentalItemKits.unitKit']);
         
         $pdf = Pdf::loadView('pdf.checklist-form', ['rental' => $rental]);
         
@@ -29,11 +30,27 @@ class PublicDocumentController extends Controller
             abort(403);
         }
 
-        $rental->load(['customer', 'items.productUnit.product', 'items.productUnit.kits']);
+        // Try to find the first delivery for this rental
+        $delivery = $rental->deliveries()->latest()->first();
+
+        if (!$delivery) {
+            abort(404, 'No delivery found for this rental.');
+        }
+
+        return $this->deliveryNote($request, $delivery);
+    }
+
+    public function deliveryNote(Request $request, Delivery $delivery)
+    {
+        if (!$request->hasValidSignature()) {
+            abort(403);
+        }
+
+        $delivery->load(['rental.user', 'rental.items.productUnit.product', 'items.rentalItem.productUnit', 'items.rentalItemKit.unitKit', 'checkedBy']);
         
-        $pdf = Pdf::loadView('pdf.delivery-note', ['rental' => $rental]);
+        $pdf = Pdf::loadView('pdf.delivery-note', ['delivery' => $delivery]);
         
-        return $pdf->stream('DeliveryNote-' . $rental->rental_code . '.pdf');
+        return $pdf->stream('DeliveryNote-' . $delivery->delivery_number . '.pdf');
     }
 
     public function quotation(Request $request, Quotation $quotation)
@@ -48,7 +65,7 @@ class PublicDocumentController extends Controller
             }
         }
 
-        $quotation->load(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
+        $quotation->load(['user', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
         
         $pdf = Pdf::loadView('pdf.quotation', ['quotation' => $quotation]);
         
@@ -61,7 +78,7 @@ class PublicDocumentController extends Controller
             abort(403);
         }
 
-        $invoice->load(['customer', 'rentals.items.productUnit.product']);
+        $invoice->load(['user', 'rentals.items.productUnit.product']);
         
         $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $invoice]);
         

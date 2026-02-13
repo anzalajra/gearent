@@ -22,6 +22,13 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use UnitEnum;
 use Illuminate\Support\Facades\Cache;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use App\Models\Invoice;
+use App\Models\Quotation;
+use App\Models\Rental;
+use App\Models\Delivery;
+use Illuminate\Support\Facades\URL;
 
 class DocumentLayoutSettings extends Page implements HasForms
 {
@@ -36,6 +43,44 @@ class DocumentLayoutSettings extends Page implements HasForms
     protected static ?int $navigationSort = 3;
 
     protected string $view = 'filament.pages.document-layout-settings';
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            ActionGroup::make([
+                Action::make('preview_invoice')
+                    ->label('Invoice')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn () => ($record = Invoice::latest()->first()) ? URL::signedRoute('public-documents.invoice', $record) : null)
+                    ->openUrlInNewTab()
+                    ->disabled(fn () => !Invoice::exists()),
+                
+                Action::make('preview_quotation')
+                    ->label('Quotation')
+                    ->icon('heroicon-o-document-text')
+                    ->url(fn () => ($record = Quotation::latest()->first()) ? URL::signedRoute('public-documents.quotation', $record) : null)
+                    ->openUrlInNewTab()
+                    ->disabled(fn () => !Quotation::exists()),
+
+                Action::make('preview_delivery_note')
+                    ->label('Delivery Note')
+                    ->icon('heroicon-o-truck')
+                    ->url(fn () => ($record = Delivery::latest()->first()) ? URL::signedRoute('public-documents.delivery-note', $record) : null)
+                    ->openUrlInNewTab()
+                    ->disabled(fn () => !Delivery::exists()),
+
+                Action::make('preview_checklist')
+                    ->label('Checklist Form')
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->url(fn () => ($record = Rental::latest()->first()) ? URL::signedRoute('public-documents.rental.checklist', $record) : null)
+                    ->openUrlInNewTab()
+                    ->disabled(fn () => !Rental::exists()),
+            ])
+            ->label('Preview Document')
+            ->icon('heroicon-m-eye')
+            ->button(),
+        ];
+    }
 
     public ?array $data = [];
 
@@ -153,13 +198,18 @@ class DocumentLayoutSettings extends Page implements HasForms
                                     ->toolbarButtons(['bold', 'italic', 'link', 'bulletList']),
                                 
                                 RichEditor::make('doc_footer_text')
-                                    ->label('Footer Text')
+                                    ->label('Custom Footer Text')
                                     ->helperText('Text to display at the bottom of every page')
                                     ->toolbarButtons(['bold', 'italic', 'link', 'bulletList']),
-                                
+
+                                RichEditor::make('doc_quotation_terms')
+                                    ->label('Quotation Terms & Conditions')
+                                    ->helperText('Default terms displayed on quotations')
+                                    ->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList']),
+                                    
                                 RichEditor::make('doc_bank_details')
                                     ->label('Bank Account Details')
-                                    ->helperText('Payment instructions to be displayed on Invoices')
+                                    ->helperText('Payment instructions displayed on Invoices')
                                     ->toolbarButtons(['bold', 'italic', 'bulletList']),
                             ]),
 

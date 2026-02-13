@@ -33,9 +33,9 @@
         <div style="float: left; width: 40%;">
             <div class="meta-box" style="margin-left: 5px; margin-right: 5px;">
                 <div class="meta-title">Renter Info</div>
-                <p class="mb-1"><strong>{{ $rental->customer->name }}</strong></p>
-                <p class="mb-1">{{ $rental->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $rental->customer->phone ?? '-' }}</p>
+                <p class="mb-1"><strong>{{ $rental->user->name }}</strong></p>
+                <p class="mb-1">{{ $rental->user->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $rental->user->phone ?? '-' }}</p>
             </div>
         </div>
         <div style="float: left; width: 20%; text-align: right;">
@@ -102,14 +102,9 @@
                     <td style="border: 1px solid #333; height: 80px;"></td>
                     <td style="border: 1px solid #333; height: 80px;"></td>
                 </tr>
-                <tr>
-                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
-                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
-                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
-                    <td style="border: 1px solid #333; padding: 5px; font-size: 10px; text-align: center;">Nama & TTD</td>
-                </tr>
+
             </tbody>
         </table>
-        <div style="font-style: italic; font-size: 10px; margin-top: 10px;">*Isi kolom dengan nama lengkap & tanda tangan untuk setiap proses.</div>
+        <div style="font-style: italic; font-size: 10px; margin-top: 10px;">*Isi kolom dengan nama lengkap & tanda tangan untuk setiap proses.<br>Dokumen yang ditahan:</div>
     </div>
 @endsection

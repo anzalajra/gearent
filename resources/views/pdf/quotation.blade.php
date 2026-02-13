@@ -10,9 +10,9 @@
         <div class="col-6">
             <div class="meta-box" style="margin-right: 10px;">
                 <div class="meta-title">Customer Info</div>
-                <p class="mb-1"><strong>{{ $quotation->customer->name }}</strong></p>
-                <p class="mb-1">{{ $quotation->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $quotation->customer->phone ?? '-' }}</p>
+                <p class="mb-1"><strong>{{ $quotation->user->name }}</strong></p>
+                <p class="mb-1">{{ $quotation->user->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $quotation->user->phone ?? '-' }}</p>
             </div>
         </div>
         <div class="col-6">
@@ -77,16 +77,14 @@
 
     <div class="row">
         <div class="col-6">
-            <div class="meta-box" style="margin-right: 10px;">
-                <div class="meta-title">Terms & Conditions</div>
-                <ul style="padding-left: 20px; margin: 0; font-size: 11px;">
-                    <li>Harga belum termasuk ongkos kirim</li>
-                    <li>Pembayaran dilakukan di muka sebelum barang dikirim</li>
-                    <li>Deposit akan dikembalikan setelah barang dikembalikan dalam kondisi baik</li>
-                    <li>Kerusakan akibat kelalaian akan dikenakan biaya penggantian</li>
-                    <li>Quotation ini berlaku selama 7 hari</li>
-                </ul>
-            </div>
+            @if(!empty($doc_settings['doc_quotation_terms']))
+                <div class="meta-box" style="margin-right: 10px;">
+                    <div class="meta-title">Terms & Conditions</div>
+                    <div style="font-size: 11px;">
+                        {!! $doc_settings['doc_quotation_terms'] !!}
+                    </div>
+                </div>
+            @endif
             
             @if($quotation->notes)
             <div class="meta-box" style="margin-right: 10px; margin-top: 10px;">

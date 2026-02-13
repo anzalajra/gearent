@@ -12,7 +12,7 @@
             font-size: 12px;
             line-height: 1.4;
             color: #333;
-            margin-top: 3cm;
+            margin-top: 3.5cm;
             margin-bottom: 2cm;
             margin-left: 2cm;
             margin-right: 2cm;
@@ -36,7 +36,7 @@
             left: 0cm;
             right: 0cm;
             height: 3cm;
-            padding: 1cm 2cm 0 2cm;
+            padding: 0.5cm 2cm 0 2cm;
             background-color: white;
             border-bottom: 1px solid {{ $doc_settings['doc_secondary_color'] ?? '#f3f4f6' }};
         }
@@ -52,7 +52,7 @@
         }
 
         .logo-container img {
-            max-height: 60px;
+            max-height: 55px;
             max-width: 100%;
         }
 
@@ -62,13 +62,14 @@
             text-align: right;
             font-size: 10px;
             color: #666;
+            line-height: 1.2;
         }
 
         .company-name {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             color: {{ $doc_settings['doc_primary_color'] ?? '#2563eb' }};
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         /* Footer */
@@ -77,14 +78,13 @@
             bottom: 0cm;
             left: 0cm;
             right: 0cm;
-            height: 2cm;
-            padding: 15px 2cm;
+            height: 1.5cm;
+            padding: 10px 2cm;
             background-color: {{ $doc_settings['doc_secondary_color'] ?? '#f3f4f6' }};
             color: #666;
             font-size: 10px;
-            line-height: 1.4;
+            line-height: 1.2;
             text-align: center;
-            box-sizing: border-box;
         }
 
         /* Tables */

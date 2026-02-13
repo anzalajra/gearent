@@ -22,10 +22,10 @@
         <div class="col-6">
             <div class="meta-box" style="margin-left: 10px;">
                 <div class="meta-title">Bill To</div>
-                <p class="mb-1"><strong>{{ $invoice->customer->name }}</strong></p>
-                <p class="mb-1">{{ $invoice->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $invoice->customer->phone ?? '-' }}</p>
-                <p class="mb-1">Email: {{ $invoice->customer->email ?? '-' }}</p>
+                <p class="mb-1"><strong>{{ $invoice->user->name }}</strong></p>
+                <p class="mb-1">{{ $invoice->user->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $invoice->user->phone ?? '-' }}</p>
+                <p class="mb-1">Email: {{ $invoice->user->email ?? '-' }}</p>
             </div>
         </div>
     </div>

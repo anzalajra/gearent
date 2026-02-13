@@ -130,6 +130,7 @@ if (!$isInstalled) {
     Route::prefix('public-documents')->name('public-documents.')->group(function () {
         Route::get('/rental/{rental}/checklist', [PublicDocumentController::class, 'rentalChecklist'])->name('rental.checklist');
         Route::get('/rental/{rental}/delivery-note', [PublicDocumentController::class, 'rentalDeliveryNote'])->name('rental.delivery-note');
+        Route::get('/delivery-note/{delivery}', [PublicDocumentController::class, 'deliveryNote'])->name('delivery-note');
         Route::get('/quotation/{quotation}', [PublicDocumentController::class, 'quotation'])->name('quotation');
         Route::get('/invoice/{invoice}', [PublicDocumentController::class, 'invoice'])->name('invoice');
     });

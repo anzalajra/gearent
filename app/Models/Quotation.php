@@ -65,6 +65,14 @@ class Quotation extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @deprecated Use user() instead
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function rentals(): HasMany
     {
         return $this->hasMany(Rental::class);

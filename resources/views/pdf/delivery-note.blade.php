@@ -33,9 +33,9 @@
         <div style="float: left; width: 40%;">
             <div class="meta-box" style="margin-left: 5px; margin-right: 5px;">
                 <div class="meta-title">Customer Info</div>
-                <p class="mb-1"><strong>{{ $delivery->rental->customer->name }}</strong></p>
-                <p class="mb-1">{{ $delivery->rental->customer->address ?? '-' }}</p>
-                <p class="mb-1">Phone: {{ $delivery->rental->customer->phone ?? '-' }}</p>
+                <p class="mb-1"><strong>{{ $delivery->rental->user->name }}</strong></p>
+                <p class="mb-1">{{ $delivery->rental->user->address ?? '-' }}</p>
+                <p class="mb-1">Phone: {{ $delivery->rental->user->phone ?? '-' }}</p>
             </div>
         </div>
         <div style="float: left; width: 20%; text-align: right;">
@@ -111,28 +111,24 @@
     </div>
     @endif
 
-    <div style="margin-top: 50px; page-break-inside: avoid;">
-        <table style="width: 100%; border: none;">
-            <tr>
-                <td style="text-align: center; border: none; width: 33%;">
-                    <p>Yang Menyerahkan</p>
-                    <div style="margin-top: 60px; border-top: 1px solid #333; width: 80%; margin-left: auto; margin-right: auto;">
-                        {{ $delivery->checkedBy?->name ?? '________________' }}
-                    </div>
-                </td>
-                <td style="text-align: center; border: none; width: 33%;">
-                    <p>Yang Menerima</p>
-                    <div style="margin-top: 60px; border-top: 1px solid #333; width: 80%; margin-left: auto; margin-right: auto;">
-                        {{ $delivery->rental->customer->name }}
-                    </div>
-                </td>
-                <td style="text-align: center; border: none; width: 33%;">
-                    <p>Mengetahui</p>
-                    <div style="margin-top: 60px; border-top: 1px solid #333; width: 80%; margin-left: auto; margin-right: auto;">
-                        ________________
-                    </div>
-                </td>
-            </tr>
+        <div style="margin-top: 50px; page-break-inside: avoid;">
+        <table style="width: 100%; border: 1px solid #333; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">RENTER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">CHECKER</th>
+                    <th style="border: 1px solid #333; width: 25%; text-align: center; padding: 8px;">VALIDATOR</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #333; height: 80px; vertical-align: bottom; text-align: center;"><p class="mb-1"><strong>{{ $delivery->rental->user->name }}</strong></p></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                    <td style="border: 1px solid #333; height: 80px;"></td>
+                </tr>
+
+            </tbody>
         </table>
+        <div style="font-style: italic; font-size: 10px; margin-top: 10px;">*Isi kolom dengan nama lengkap & tanda tangan.</div>
     </div>
 @endsection
