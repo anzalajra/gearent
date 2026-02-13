@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
+use Livewire\Component;
 
 class BackupRestore extends Page implements HasTable
 {
@@ -36,6 +37,12 @@ class BackupRestore extends Page implements HasTable
     protected static ?string $slug = 'backup-restore';
 
     protected string $view = 'filament.pages.backup-restore';
+
+    // Progress tracking properties
+    public bool $isProcessing = false;
+    public string $currentOperation = '';
+    public string $progressMessage = '';
+    public int $progressPercent = 0;
 
     public function table(Table $table): Table
     {
@@ -65,6 +72,7 @@ class BackupRestore extends Page implements HasTable
             Action::make('backup')
                 ->label('Create Backup')
                 ->modalHeading('Select Data to Backup')
+                ->disabled(fn() => $this->isProcessing)
                 ->form([
                     CheckboxList::make('options')
                         ->options([
@@ -82,6 +90,7 @@ class BackupRestore extends Page implements HasTable
             Action::make('restore')
                 ->label('Restore Data')
                 ->color('danger')
+                ->disabled(fn() => $this->isProcessing)
                 ->modalWidth('2xl')
                 ->form([
                     Wizard::make([
@@ -118,8 +127,9 @@ class BackupRestore extends Page implements HasTable
                                     ->columns(2)
                                     ->bulkToggleable(),
                             ]),
-                    ])->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-size-md relative grid-flow-col items-center justify-center font-semibold outline-none transition duration-75 focus-visible:ring-2 rounded-lg fi-btn-color-danger fi-color-custom fi-btn-style-solid fi-ac-btn-action gap-1.5 px-3 py-2 text-sm inline-grid shadow-sm bg-custom-600 text-white hover:bg-custom-500 focus-visible:ring-custom-500/50 dark:bg-custom-500 dark:hover:bg-custom-400 dark:focus-visible:ring-custom-400/50" style="--c-400:var(--danger-400);--c-500:var(--danger-500);--c-600:var(--danger-600);">Restore Selected Data</button>'))
+                    ])->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn relative grid-flow-col items-center justify-center font-semibold outline-none transition duration-75 focus-visible:ring-2 rounded-lg gap-1.5 px-3 py-2 text-sm inline-grid shadow-sm bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/50 dark:bg-red-500 dark:hover:bg-red-400 dark:focus-visible:ring-red-400/50">Restore Selected Data</button>'))
                 ])
+                ->modalSubmitAction(false)
                 ->action(function (array $data) {
                     if (empty($data['selected_tables'])) {
                         Notification::make()->title('No data selected')->warning()->send();
@@ -198,6 +208,11 @@ class BackupRestore extends Page implements HasTable
 
     public function processBackup(array $options)
     {
+        $this->isProcessing = true;
+        $this->currentOperation = 'Creating backup...';
+        $this->progressMessage = 'Initializing backup process...';
+        $this->progressPercent = 10;
+        
         $filename = 'backup-' . date('Y-m-d-H-i-s') . '.zip';
         $zipPath = storage_path('app/private/backups/' . $filename);
         
@@ -217,11 +232,17 @@ class BackupRestore extends Page implements HasTable
                 'total_records' => 0
             ];
             
+            $totalTables = count($tables);
+            $processedTables = 0;
+            
             foreach ($tables as $modelClass) {
                 if (!class_exists($modelClass)) continue;
                 
                 $model = new $modelClass;
                 $tableName = $model->getTable();
+                
+                $this->progressMessage = "Processing table: {$tableName}...";
+                $this->progressPercent = 20 + (int)(($processedTables / $totalTables) * 60);
                 
                 $allRecords = $modelClass::all();
                 // Ensure hidden fields (like password) are included in backup
@@ -240,18 +261,30 @@ class BackupRestore extends Page implements HasTable
                 $backupInfo['total_records'] += $recordCount;
                 
                 $zip->addFromString($tableName . '.json', json_encode($data, JSON_PRETTY_PRINT));
+                $processedTables++;
             }
+            
+            $this->progressMessage = 'Adding backup metadata...';
+            $this->progressPercent = 85;
             
             // Add backup metadata
             $zip->addFromString('backup_info.json', json_encode($backupInfo, JSON_PRETTY_PRINT));
             
             $zip->close();
         } else {
-             Notification::make()->title('Backup Failed')->danger()->send();
-             return;
+            $this->isProcessing = false;
+            $this->currentOperation = '';
+            $this->progressMessage = '';
+            $this->progressPercent = 0;
+            
+            Notification::make()->title('Backup Failed')->danger()->send();
+            return;
         }
 
         $size = filesize($zipPath);
+
+        $this->progressMessage = 'Saving backup record...';
+        $this->progressPercent = 95;
 
         $backupHistory = BackupHistory::create([
             'user_id' => Auth::id(),
@@ -260,6 +293,9 @@ class BackupRestore extends Page implements HasTable
             'size' => $size,
             'status' => 'success',
         ]);
+        
+        $this->progressMessage = 'Finalizing...';
+        $this->progressPercent = 100;
         
         // Log the backup operation
         Log::channel('backup-restore')->info('Backup created successfully', [
@@ -271,21 +307,33 @@ class BackupRestore extends Page implements HasTable
             'total_records' => $backupInfo['total_records']
         ]);
 
+        $this->isProcessing = false;
+        $this->currentOperation = '';
+        $this->progressMessage = '';
+        $this->progressPercent = 0;
+
         return response()->download($zipPath)->deleteFileAfterSend();
     }
 
     public function processRestore($filePath, array $selectedTables = [])
     {
+        $this->isProcessing = true;
+        $this->currentOperation = 'Restoring backup...';
+        $this->progressMessage = 'Initializing restore process...';
+        $this->progressPercent = 10;
+        
         try {
             $fullPath = Storage::disk('local')->path($filePath);
 
             if (!file_exists($fullPath)) {
+                $this->isProcessing = false;
                 Notification::make()->title('Backup file not found')->danger()->send();
                 return;
             }
 
             $zip = new ZipArchive;
             if ($zip->open($fullPath) !== TRUE) {
+                $this->isProcessing = false;
                 Notification::make()->title('Failed to open backup file')->danger()->send();
                 return;
             }
@@ -293,6 +341,7 @@ class BackupRestore extends Page implements HasTable
             // Validate backup file structure
             $backupInfo = $zip->getFromName('backup_info.json');
             if (!$backupInfo) {
+                $this->isProcessing = false;
                 Notification::make()->title('Invalid backup file format')->danger()->send();
                 $zip->close();
                 return;
@@ -300,10 +349,14 @@ class BackupRestore extends Page implements HasTable
             
             $backupData = json_decode($backupInfo, true);
             if (!$backupData || !isset($backupData['version'])) {
+                $this->isProcessing = false;
                 Notification::make()->title('Invalid backup file metadata')->danger()->send();
                 $zip->close();
                 return;
             }
+            
+            $this->progressMessage = 'Preparing database for restore...';
+            $this->progressPercent = 20;
             
             Schema::disableForeignKeyConstraints();
             Model::unguard();
@@ -312,6 +365,8 @@ class BackupRestore extends Page implements HasTable
             try {
                 $restoredTables = [];
                 $totalRecords = 0;
+                $totalFiles = $zip->numFiles;
+                $processedFiles = 0;
                 
                 for ($i = 0; $i < $zip->numFiles; $i++) {
                     $filename = $zip->getNameIndex($i);
@@ -321,6 +376,9 @@ class BackupRestore extends Page implements HasTable
                     if ($tableName === 'backup_info' || (!empty($selectedTables) && !in_array($tableName, $selectedTables))) {
                         continue;
                     }
+
+                    $this->progressMessage = "Processing table: {$tableName}...";
+                    $this->progressPercent = 25 + (int)(($processedFiles / $totalFiles) * 60);
 
                     // Identify model from table name
                     $modelClass = $this->getModelFromTable($tableName);
@@ -358,9 +416,15 @@ class BackupRestore extends Page implements HasTable
                             $totalRecords += $recordCount;
                         }
                     }
+                    $processedFiles++;
                 }
                 
                 DB::commit();
+                
+                $this->isProcessing = false;
+                $this->currentOperation = '';
+                $this->progressMessage = '';
+                $this->progressPercent = 0;
                 
                 $message = "Restore successful! ";
                 $message .= "Tables restored: " . count($restoredTables) . ". ";
@@ -370,6 +434,7 @@ class BackupRestore extends Page implements HasTable
                 
             } catch (\Exception $e) {
                 DB::rollBack();
+                $this->isProcessing = false;
                 Log::error('Restore failed: ' . $e->getMessage());
                 Notification::make()->title('Restore Failed: ' . $e->getMessage())->danger()->send();
             } finally {
@@ -381,6 +446,7 @@ class BackupRestore extends Page implements HasTable
             }
             
         } catch (\Exception $e) {
+            $this->isProcessing = false;
             Log::error('Restore process error: ' . $e->getMessage());
             Notification::make()->title('Restore process failed: ' . $e->getMessage())->danger()->send();
         }

@@ -1,4 +1,23 @@
 <x-filament-panels::page>
+    {{-- Progress Indicator --}}
+    @if($this->isProcessing)
+        <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <div class="flex items-center gap-3">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <div class="flex-1">
+                    <h4 class="font-medium text-blue-900 dark:text-blue-400">{{ $this->currentOperation }}</h4>
+                    <p class="text-sm text-blue-700 dark:text-blue-300">{{ $this->progressMessage }}</p>
+                    @if($this->progressPercent > 0)
+                        <div class="mt-2 w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ $this->progressPercent }}%"></div>
+                        </div>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">{{ $this->progressPercent }}% complete</p>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         @php
             $statuses = [
@@ -149,4 +168,43 @@
             </div>
         </div>
     </x-filament::section>
+
+    {{-- Operation History --}}
+    @if(!empty($operationHistory))
+        <x-filament::section>
+            <x-slot name="heading">
+                Recent Operations
+            </x-slot>
+            <div class="space-y-2">
+                @foreach($operationHistory as $operation)
+                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        <div class="flex items-center gap-3">
+                            @php
+                                $icon = match($operation['status']) {
+                                    'success' => 'heroicon-o-check-circle',
+                                    'error' => 'heroicon-o-x-circle',
+                                    'warning' => 'heroicon-o-exclamation-circle',
+                                    default => 'heroicon-o-information-circle',
+                                };
+                                $color = match($operation['status']) {
+                                    'success' => 'text-green-600',
+                                    'error' => 'text-red-600',
+                                    'warning' => 'text-yellow-600',
+                                    default => 'text-gray-600',
+                                };
+                            @endphp
+                            @svg($icon, 'w-5 h-5 ' . $color)
+                            <div>
+                                <p class="font-medium text-gray-900 dark:text-white">{{ $operation['operation'] }}</p>
+                                @if($operation['message'])
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ $operation['message'] }}</p>
+                                @endif
+                            </div>
+                        </div>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $operation['timestamp'] }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </x-filament::section>
+    @endif
 </x-filament-panels::page>
