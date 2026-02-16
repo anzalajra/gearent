@@ -97,7 +97,7 @@ class CatalogController extends Controller
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
             ->get();
 
-        $bookedDates = $product->getBookedDates();
+        $availabilityData = $product->getAvailabilityData();
 
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
@@ -108,7 +108,7 @@ class CatalogController extends Controller
         $operationalDays = array_map('strval', json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0']);
         $holidays = json_decode(Setting::get('holidays'), true) ?? [];
 
-        return view('frontend.catalog.show', compact('product', 'availableUnits', 'bookedDates', 'relatedProducts', 'operationalDays', 'holidays'));
+        return view('frontend.catalog.show', compact('product', 'availableUnits', 'availabilityData', 'relatedProducts', 'operationalDays', 'holidays'));
     }
 
     public function checkAvailability(Request $request, ProductUnit $unit)

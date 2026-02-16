@@ -236,6 +236,13 @@ class Settings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(30),
+                                        TextInput::make('rental_buffer_time')
+                                            ->label('Global Buffer Time')
+                                            ->helperText('Minimum hours required between rentals globally. The system will use the maximum of this value and the product-specific buffer time.')
+                                            ->numeric()
+                                            ->suffix('Hours')
+                                            ->default(0)
+                                            ->minValue(0),
                                     ]),
                                     
                                 Section::make('Operational Days & Holidays')

@@ -59,6 +59,14 @@ class ProductForm
                     ->prefix('Rp')
                     ->default(0),
 
+                TextInput::make('buffer_time')
+                    ->label('Buffer Time')
+                    ->helperText('Minimum hours required between rentals for units of this product. The system will use the maximum of this value and the global buffer setting.')
+                    ->numeric()
+                    ->suffix('Hours')
+                    ->default(0)
+                    ->minValue(0),
+
                 Section::make('Product Variations')
                     ->description('Create variations for this product (e.g. 5M, 10M). If defined, these can be assigned to units.')
                     ->schema([

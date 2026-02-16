@@ -26,6 +26,17 @@
         .flatpickr-day.closed-day.selected {
              background: #ef4444 !important; /* Should not happen if validation works, but fallback */
         }
+        .flatpickr-day.partial-day {
+            background: linear-gradient(135deg, #fee2e2 50%, transparent 50%);
+            border-color: transparent;
+        }
+        .flatpickr-day.partial-day:hover {
+            background: linear-gradient(135deg, #fee2e2 50%, #e6e6e6 50%);
+        }
+        .flatpickr-day.partial-day.selected {
+            background: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+        }
     </style>
 @endpush
 
@@ -406,7 +417,7 @@
                 });
             }
 
-            const bookedDates = @json($bookedDates);
+            const availabilityData = @json($availabilityData);
             const operationalDays = @json($operationalDays);
             const holidays = @json($holidays).map(h => h.date);
 
@@ -425,12 +436,27 @@
                 return false;
             };
 
+            const fullBookedDates = Object.keys(availabilityData).filter(date => availabilityData[date].status === 'full');
             const disableRules = [
-                ...bookedDates
+                ...fullBookedDates
             ];
 
             const pickupTimeInput = document.getElementById('pickup_time');
             const returnTimeInput = document.getElementById('return_time');
+            
+            // Helper to get partial info
+            const getPartialInfo = (date) => {
+                 const year = date.getFullYear();
+                 const month = String(date.getMonth() + 1).padStart(2, '0');
+                 const dayStr = String(date.getDate()).padStart(2, '0');
+                 const dateStr = `${year}-${month}-${dayStr}`;
+                 
+                 if (availabilityData[dateStr] && availabilityData[dateStr].status === 'partial') {
+                     return availabilityData[dateStr];
+                 }
+                 return null;
+            };
+
             
             // URL Params
             const urlStartDate = "{{ request('start_date') }}";
@@ -496,6 +522,11 @@
                     if (isClosed(dayElem.dateObj)) {
                         dayElem.classList.add('closed-day');
                     }
+                    const partial = getPartialInfo(dayElem.dateObj);
+                    if (partial) {
+                        dayElem.classList.add('partial-day');
+                        dayElem.title = `Available after ${partial.start_time}`;
+                    }
                 },
                 onChange: function(selectedDates, dateStr, instance) {
                     // Validate start/end dates are not closed days
@@ -509,6 +540,21 @@
                             });
                             instance.clear();
                             return;
+                        }
+                        
+                        const startDate = selectedDates[0];
+                        const partial = getPartialInfo(startDate);
+                        
+                        if (partial) {
+                            const minTime = partial.start_time.substring(0, 5); // ensure HH:mm
+                            pickupTimeInput.min = minTime;
+                            
+                            // Auto-adjust if current time is before allowed start time
+                            if (pickupTimeInput.value < minTime) {
+                                pickupTimeInput.value = minTime;
+                            }
+                        } else {
+                            pickupTimeInput.removeAttribute('min');
                         }
                     }
 
