@@ -20,7 +20,7 @@
             </div>
             <div>
                 <label class="block text-sm text-gray-500">Status</label>
-                <span class="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">Pending</span>
+                <span class="inline-block px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-medium">{{ ucfirst($rental->status) }}</span>
             </div>
             <div>
                 <label class="block text-sm text-gray-500">Start Date</label>

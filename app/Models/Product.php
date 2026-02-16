@@ -20,11 +20,15 @@ class Product extends Model
         'daily_rate',
         'image',
         'is_active',
+        'is_taxable',
+        'price_includes_tax',
     ];
 
     protected $casts = [
         'daily_rate' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_taxable' => 'boolean',
+        'price_includes_tax' => 'boolean',
     ];
 
     protected static function boot()
@@ -164,7 +168,7 @@ class Product extends Model
             ->whereHas('rental', function ($query) {
                 $query->whereNotIn('status', [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED])
                     ->whereIn('status', [
-                        Rental::STATUS_PENDING,
+                        Rental::STATUS_QUOTATION,
                         Rental::STATUS_CONFIRMED,
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_PICKUP,
@@ -213,7 +217,7 @@ class Product extends Model
             ->whereDoesntHave('rentalItems', function ($query) use ($startDate, $endDate) {
                 $query->whereHas('rental', function ($q) use ($startDate, $endDate) {
                     $q->whereIn('status', [
-                        Rental::STATUS_PENDING,
+                        Rental::STATUS_QUOTATION,
                         Rental::STATUS_CONFIRMED,
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_PICKUP,

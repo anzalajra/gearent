@@ -113,8 +113,44 @@
                     <td style="border: none; padding: 5px;" class="text-right">- Rp {{ number_format($totalDiscount, 0, ',', '.') }}</td>
                 </tr>
                 @endif
+
+                @if($invoice->late_fee > 0)
+                <tr>
+                    <td style="border: none; padding: 5px;">Late Fee</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($invoice->late_fee, 0, ',', '.') }}</td>
+                </tr>
+                @endif
+
+                @if($invoice->ppn_amount > 0)
+                <tr>
+                    <td style="border: none; padding: 5px;">DPP (Tax Base)</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($invoice->tax_base, 0, ',', '.') }}</td>
+                </tr>
+                <tr>
+                    <td style="border: none; padding: 5px;">PPN ({{ 11 }}%)</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($invoice->ppn_amount, 0, ',', '.') }}</td>
+                </tr>
+                @endif
+
+                @if($invoice->pph_amount > 0)
+                <tr>
+                    <td style="border: none; padding: 5px;">PPh ({{ $invoice->pph_rate }}%)</td>
+                    <td style="border: none; padding: 5px;" class="text-right">(Rp {{ number_format($invoice->pph_amount, 0, ',', '.') }})</td>
+                </tr>
+                @endif
+
+                @php
+                    $totalDeposit = $invoice->rentals->sum('deposit_amount');
+                @endphp
+                @if($totalDeposit > 0)
+                <tr>
+                    <td style="border: none; padding: 5px;">Security Deposit (Titipan)</td>
+                    <td style="border: none; padding: 5px;" class="text-right">Rp {{ number_format($totalDeposit, 0, ',', '.') }}</td>
+                </tr>
+                @endif
+
                 <tr style="font-weight: bold; font-size: 14px; background-color: {{ $doc_settings['doc_secondary_color'] ?? '#f3f4f6' }};">
-                    <td style="padding: 10px;">TOTAL</td>
+                    <td style="padding: 10px;">GRAND TOTAL</td>
                     <td style="padding: 10px;" class="text-right">Rp {{ number_format($invoice->total, 0, ',', '.') }}</td>
                 </tr>
             </table>

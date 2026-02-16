@@ -82,7 +82,7 @@ class Customer extends Authenticatable
     public function getActiveRentals()
     {
         return $this->rentals()
-            ->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+            ->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
             ->orderBy('start_date', 'desc')
             ->get();
     }

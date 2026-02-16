@@ -24,7 +24,7 @@ class StatsOverview extends BaseWidget
         $todayRentals = Rental::whereDate('created_at', today())->count();
         $todayRevenue = Rental::whereDate('created_at', today())->sum('total');
         $activeRentals = Rental::whereIn('status', ['active', 'late_pickup', 'late_return'])->count();
-        $pendingRentals = Rental::where('status', 'pending')->count();
+        $pendingRentals = Rental::where('status', 'quotation')->count();
         $availableUnits = ProductUnit::where('status', 'available')->count();
         $rentedUnits = ProductUnit::where('status', 'rented')->count();
         $totalCustomers = Customer::count();
@@ -42,7 +42,7 @@ class StatsOverview extends BaseWidget
                 ->color('success'),
 
             Stat::make('Active Rentals', $activeRentals)
-                ->description($pendingRentals . ' pending approval')
+                ->description($pendingRentals . ' quotations')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('warning'),
 

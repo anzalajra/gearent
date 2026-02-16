@@ -46,7 +46,7 @@
             <div class="flex flex-col sm:flex-row sm:justify-between border-b border-gray-100 dark:border-gray-800 pb-2 md:border-b-0">
                 <span class="font-medium text-gray-500 dark:text-gray-400">Status</span>
                 <div>
-                    <x-filament::badge :color="in_array($rental->status, ['pending']) ? 'warning' : 'danger'">
+                    <x-filament::badge :color="in_array($rental->status, ['quotation']) ? 'warning' : 'danger'">
                         {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
                     </x-filament::badge>
                 </div>

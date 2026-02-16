@@ -267,15 +267,28 @@ class CheckoutController extends Controller
                     $proportion = $subtotal / $globalSubtotal;
                     $rentalDiscount = $globalDiscountAmount * $proportion;
                 }
-                
+
                 // Deposit calculation
                 $deposit = Rental::calculateDeposit($subtotal); // Keeping it based on subtotal as per original logic
+
+                // Create Quotation first
+                $quotation = \App\Models\Quotation::create([
+                    'user_id' => $customer->id,
+                    'date' => now(),
+                    'valid_until' => now()->addDays(7),
+                    'status' => \App\Models\Quotation::STATUS_ON_QUOTE,
+                    'subtotal' => $subtotal,
+                    'tax' => 0,
+                    'total' => $subtotal - $rentalDiscount,
+                    'notes' => $request->notes,
+                ]);
 
                 $rental = Rental::create([
                     'user_id' => $customer->id,
                     'start_date' => $firstItem->start_date,
                     'end_date' => $firstItem->end_date,
-                    'status' => Rental::STATUS_PENDING,
+                    'status' => Rental::STATUS_QUOTATION,
+                    'quotation_id' => $quotation->id,
                     'subtotal' => $subtotal,
                     'discount' => $rentalDiscount,
                     'discount_id' => $discountId,

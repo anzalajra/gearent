@@ -14,7 +14,7 @@
                     <div class="flex justify-between items-start mb-3">
                         <span class="font-bold text-gray-900">{{ $rental->rental_code }}</span>
                         <span class="px-2 py-1 rounded-full text-xs font-medium
-                            @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
+                            @if($rental->status == 'quotation') bg-orange-100 text-orange-800
                             @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                             @elseif($rental->status == 'active') bg-green-100 text-green-800
                             @elseif($rental->status == 'completed') bg-gray-100 text-gray-800
@@ -67,7 +67,7 @@
                             <td class="px-6 py-4 font-semibold">Rp {{ number_format($rental->total, 0, ',', '.') }}</td>
                             <td class="px-6 py-4">
                                 <span class="px-3 py-1 rounded-full text-xs font-medium
-                                    @if($rental->status == 'pending') bg-orange-100 text-orange-800
+                                    @if($rental->status == 'quotation') bg-orange-100 text-orange-800
                                     @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                                     @elseif($rental->status == 'active') bg-green-100 text-green-800
                                     @elseif($rental->status == 'completed') bg-purple-100 text-purple-800

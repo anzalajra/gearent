@@ -103,6 +103,58 @@ class UserForm
                             ->columns(2)
                             ->visible(count($customComponents) > 0),
 
+                        Tab::make('Tax Identity')
+                            ->visible(fn () => filter_var(Setting::get('tax_enabled', true), FILTER_VALIDATE_BOOLEAN))
+                            ->schema([
+                                TextInput::make('tax_identity_name')
+                                    ->label('Tax Name (Nama Faktur Pajak)')
+                                    ->placeholder('Sesuai NPWP/KTP')
+                                    ->maxLength(255),
+                                TextInput::make('npwp')
+                                    ->label('NPWP')
+                                    ->maxLength(20),
+                                TextInput::make('tax_registration_number')
+                                    ->label('Tax Registration Number (TRN/VAT ID)')
+                                    ->placeholder('For international customers')
+                                    ->maxLength(50),
+                                Select::make('tax_type')
+                                    ->label('Tax Entity Type')
+                                    ->options([
+                                        'personal' => 'Personal (Pribadi)',
+                                        'corporate' => 'Corporate (Badan Usaha)',
+                                        'government' => 'Government (Instansi Pemerintah)',
+                                    ])
+                                    ->default('personal'),
+                                Toggle::make('is_pkp')
+                                    ->label('PKP (Pengusaha Kena Pajak)')
+                                    ->helperText('Enable if this customer is a PKP.'),
+                                Toggle::make('is_tax_exempt')
+                                    ->label('Tax Exempt (Zero-Rated)')
+                                    ->helperText('Enable for government entities or export services (No Tax applied).'),
+                                Textarea::make('tax_address')
+                                    ->label('Tax Address')
+                                    ->rows(3)
+                                    ->columnSpanFull(),
+                                Select::make('tax_country')
+                                    ->label('Tax Country')
+                                    ->options([
+                                        'ID' => 'Indonesia',
+                                        'SG' => 'Singapore',
+                                        'MY' => 'Malaysia',
+                                        'US' => 'United States',
+                                        'UK' => 'United Kingdom',
+                                        'AU' => 'Australia',
+                                        'JP' => 'Japan',
+                                        'CN' => 'China',
+                                        'IN' => 'India',
+                                        'TH' => 'Thailand',
+                                        'VN' => 'Vietnam',
+                                        'PH' => 'Philippines',
+                                    ])
+                                    ->searchable()
+                                    ->default('ID'),
+                            ])->columns(2),
+
                         Tab::make('Account')
                             ->schema([
                                 DateTimePicker::make('email_verified_at'),

@@ -36,7 +36,7 @@ class SendRentalReminders extends Command
 
         // 1. Pickup Reminder (H-1)
         // Check rentals starting tomorrow
-        $pickupRentals = Rental::where('status', Rental::STATUS_PENDING)
+        $pickupRentals = Rental::where('status', Rental::STATUS_QUOTATION)
             ->whereDate('start_date', now()->addDay()->toDateString())
             ->get();
 

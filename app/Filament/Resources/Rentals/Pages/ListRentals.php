@@ -32,7 +32,7 @@ class ListRentals extends ListRecords
     public function getStatuses(): array
     {
         return [
-            Rental::STATUS_PENDING => 'Pending',
+            Rental::STATUS_QUOTATION => 'Quotation',
             Rental::STATUS_LATE_PICKUP => 'Late Pickup',
             Rental::STATUS_ACTIVE => 'Active',
             Rental::STATUS_LATE_RETURN => 'Late Return',
@@ -56,7 +56,7 @@ class ListRentals extends ListRecords
 
         // Update late pickups - gunakan DB::table untuk bypass model events
         DB::table('rentals')
-            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereIn('status', ['quotation', 'confirmed'])
             ->where('start_date', '<', $now)
             ->update(['status' => 'late_pickup', 'updated_at' => $now]);
 

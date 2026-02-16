@@ -17,7 +17,7 @@
                 <p class="text-gray-600">Created on {{ $rental->created_at->format('d M Y H:i') }}</p>
             </div>
             <span class="px-4 py-2 rounded-full text-sm font-medium
-                @if($rental->status == 'pending') bg-orange-100 text-orange-800
+                @if($rental->status == 'quotation') bg-orange-100 text-orange-800
                 @elseif($rental->status == 'confirmed') bg-blue-100 text-blue-800
                 @elseif($rental->status == 'active') bg-green-100 text-green-800
                 @elseif($rental->status == 'completed') bg-purple-100 text-purple-800

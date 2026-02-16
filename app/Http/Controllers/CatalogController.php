@@ -34,7 +34,7 @@ class CatalogController extends Controller
                         ->whereDoesntHave('rentalItems', function ($rentalQuery) use ($startDate, $endDate) {
                             $rentalQuery->whereHas('rental', function ($rQuery) use ($startDate, $endDate) {
                                 $rQuery->whereIn('status', [
-                                    Rental::STATUS_PENDING,
+                                    Rental::STATUS_QUOTATION,
                                     Rental::STATUS_ACTIVE,
                                     Rental::STATUS_LATE_PICKUP,
                                     Rental::STATUS_LATE_RETURN
@@ -124,7 +124,7 @@ class CatalogController extends Controller
         // Check if unit is available for the given dates
         $isAvailable = !$unit->rentalItems()
             ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                $query->whereIn('status', ['pending', 'active', 'late_pickup', 'late_return'])
+                $query->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
                     ->where(function ($q) use ($startDate, $endDate) {
                         $q->where('start_date', '<', $endDate)
                           ->where('end_date', '>', $startDate);

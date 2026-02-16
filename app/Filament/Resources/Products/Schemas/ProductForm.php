@@ -95,6 +95,16 @@ class ProductForm
                 Toggle::make('is_active')
                     ->default(true),
 
+                Toggle::make('is_taxable')
+                    ->label('Taxable (Kena Pajak)')
+                    ->default(true)
+                    ->helperText('If disabled, this product will be excluded from tax calculations.'),
+
+                Toggle::make('price_includes_tax')
+                    ->label('Price Includes Tax (Harga Termasuk Pajak)')
+                    ->default(false)
+                    ->helperText('If enabled, the price is considered inclusive of tax.'),
+
                 CheckboxList::make('excludedCustomerCategories')
                     ->label('Hide from Customer Categories')
                     ->relationship('excludedCustomerCategories', 'name')

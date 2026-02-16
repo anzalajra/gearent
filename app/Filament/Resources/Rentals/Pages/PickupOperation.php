@@ -306,7 +306,7 @@ class PickupOperation extends Page implements HasTable
                                         ->where('id', '!=', $currentUnitId)
                                         ->whereDoesntHave('rentalItems', function ($q) use ($rental) {
                                             $q->whereHas('rental', function ($r) use ($rental) {
-                                                $r->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_CONFIRMED, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+                                                $r->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_CONFIRMED, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
                                                   ->where('id', '!=', $rental->id) // Exclude current rental
                                                   ->where(function ($d) use ($rental) {
                                                       $d->where('start_date', '<', $rental->end_date)

@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Models\DocumentType;
 use App\Models\Setting;
 use App\Models\CustomerCategory;
+use App\Models\FinanceTransaction;
+use App\Services\JournalService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
@@ -29,6 +31,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Tabs;
 use UnitEnum;
+
+use Illuminate\Support\Facades\Log;
 
 class Settings extends Page implements HasForms
 {
@@ -65,6 +69,46 @@ class Settings extends Page implements HasForms
             ...$settings,
             'document_types' => DocumentType::orderBy('sort_order')->get()->toArray(),
         ]);
+
+        if (session()->has('show_sync_confirmation')) {
+            Notification::make()
+                ->title('Switched to Advanced Mode')
+                ->body('Do you want to sync all existing simple transactions to journal entries?')
+                ->warning()
+                ->persistent()
+                ->actions([
+                    Action::make('sync')
+                        ->button()
+                        ->label('Sync Now')
+                        ->dispatch('syncSimpleTransactions'),
+                    Action::make('close')
+                        ->label('Later')
+                        ->close(),
+                ])
+                ->send();
+
+            session()->forget('show_sync_confirmation');
+        }
+    }
+
+    protected $listeners = ['syncSimpleTransactions' => 'syncSimpleTransactions'];
+
+    public function syncSimpleTransactions(): void
+    {
+        $count = 0;
+        FinanceTransaction::chunk(100, function ($transactions) use (&$count) {
+            foreach ($transactions as $transaction) {
+                JournalService::syncFromTransaction($transaction);
+                $count++;
+            }
+        });
+
+        Notification::make()
+            ->title("Synced {$count} transactions to Journal Entries")
+            ->success()
+            ->send();
+            
+        $this->redirect(request()->header('Referer'));
     }
 
     public function form(Schema $schema): Schema
@@ -159,6 +203,16 @@ class Settings extends Page implements HasForms
                                             ->label('Phone')
                                             ->tel()
                                             ->maxLength(20),
+                                        ToggleButtons::make('finance_mode')
+                                            ->label('Finance Mode')
+                                            ->options([
+                                                'simple' => 'Simple (Income/Expense)',
+                                                'advanced' => 'Advanced (Journal Entries)',
+                                            ])
+                                            ->default('advanced')
+                                            ->inline()
+                                            ->required()
+                                            ->columnSpanFull(),
                                     ]),
                                 Textarea::make('site_address')
                                     ->label('Address')
@@ -503,6 +557,14 @@ class Settings extends Page implements HasForms
         }
         if (isset($data['holidays']) && is_array($data['holidays'])) {
             $data['holidays'] = json_encode($data['holidays']);
+        }
+
+        // Check for mode switch
+        $oldMode = Setting::get('finance_mode', 'advanced');
+        $newMode = $data['finance_mode'] ?? 'advanced';
+        
+        if ($oldMode === 'simple' && $newMode === 'advanced') {
+            session()->put('show_sync_confirmation', true);
         }
 
         // Handle General/Rental/WhatsApp Settings

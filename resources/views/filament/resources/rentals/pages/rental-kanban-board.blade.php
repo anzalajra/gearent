@@ -4,7 +4,7 @@
             @php
                 $records = $this->getRecords()->get($status, collect());
                 $color = match($status) {
-                    'pending' => 'bg-gray-100 border-gray-200',
+                    'quotation' => 'bg-orange-50 border-orange-200',
                     'active' => 'bg-green-50 border-green-200',
                     'late_pickup', 'late_return' => 'bg-red-50 border-red-200',
                     'completed' => 'bg-blue-50 border-blue-200',
@@ -12,7 +12,7 @@
                     default => 'bg-gray-50 border-gray-200',
                 };
                 $headerColor = match($status) {
-                    'pending' => 'text-gray-700 bg-gray-200',
+                    'quotation' => 'text-orange-700 bg-orange-200',
                     'active' => 'text-green-700 bg-green-200',
                     'late_pickup', 'late_return' => 'text-red-700 bg-red-200',
                     'completed' => 'text-blue-700 bg-blue-200',
