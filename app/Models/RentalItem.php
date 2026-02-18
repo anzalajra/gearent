@@ -66,6 +66,11 @@ class RentalItem extends Model
         return $this->hasMany(RentalItemKit::class);
     }
 
+    public function deliveryItems(): HasMany
+    {
+        return $this->hasMany(DeliveryItem::class);
+    }
+
     /**
      * Attach all kits from the product unit to this rental item
      */

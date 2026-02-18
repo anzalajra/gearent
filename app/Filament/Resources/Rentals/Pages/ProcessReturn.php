@@ -461,6 +461,24 @@ class ProcessReturn extends Page implements HasTable
                     // 3. Complete the current delivery (now containing only checked items)
                     $this->delivery->complete();
                     
+                    // Update status of returned units
+                    foreach ($this->delivery->items as $item) {
+                        // Only process main units for status updates (kits don't affect main unit status directly here)
+                        if ($item->rental_item_kit_id) {
+                            continue;
+                        }
+
+                        if ($item->rentalItem && $item->rentalItem->productUnit) {
+                            // If broken/lost, set to maintenance
+                            if (in_array($item->condition, ['broken', 'lost'])) {
+                                $item->rentalItem->productUnit->update(['status' => \App\Models\ProductUnit::STATUS_MAINTENANCE]);
+                            } else {
+                                // Otherwise refresh status (it will now be seen as returned)
+                                $item->rentalItem->productUnit->refreshStatus();
+                            }
+                        }
+                    }
+                    
                     // 4. Update rental status to Partial Return
                     // Fetch fresh instance to ensure no stale state overrides the update
                     $freshRental = $this->rental->fresh();

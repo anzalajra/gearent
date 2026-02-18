@@ -108,8 +108,19 @@ class ProductUnit extends Model
         // Check for active rentals (Rented)
         $isRented = $this->rentalItems()
             ->whereHas('rental', function ($query) {
-                $query->whereIn('status', [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]);
-            })->exists();
+                $query->whereIn('status', [
+                    Rental::STATUS_ACTIVE, 
+                    Rental::STATUS_LATE_RETURN,
+                    Rental::STATUS_PARTIAL_RETURN
+                ]);
+            })
+            ->whereDoesntHave('deliveryItems', function ($q) {
+                $q->whereHas('delivery', function ($d) {
+                    $d->where('type', 'in') // Delivery::TYPE_IN
+                      ->where('status', 'completed'); // Delivery::STATUS_COMPLETED
+                });
+            })
+            ->exists();
 
         if ($isRented) {
             $newStatus = self::STATUS_RENTED;
