@@ -56,16 +56,26 @@ class ProcessReturn extends Page implements HasTable
         // Always sync deliveries to ensure all kits are present
         $this->rental->createDeliveries();
 
-        // Get delivery in
+        // Get the active delivery (not completed) or the latest one
         $this->delivery = $this->rental->deliveries()
             ->with(['items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit'])
             ->where('type', Delivery::TYPE_IN)
+            ->where('status', '!=', Delivery::STATUS_COMPLETED)
             ->first();
 
-        if (!in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])) {
+        // If no active delivery found, fallback to the latest one (even if completed)
+        if (!$this->delivery) {
+            $this->delivery = $this->rental->deliveries()
+                ->with(['items.rentalItem.productUnit.product', 'items.rentalItemKit.unitKit'])
+                ->where('type', Delivery::TYPE_IN)
+                ->latest()
+                ->first();
+        }
+
+        if (!in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN, Rental::STATUS_PARTIAL_RETURN])) {
             Notification::make()
                 ->title('Cannot return this rental')
-                ->body('This rental is not in active or late return status.')
+                ->body('This rental is not in active, partial return, or late return status.')
                 ->danger()
                 ->send();
 
@@ -398,23 +408,80 @@ class ProcessReturn extends Page implements HasTable
             ->color('success')
             ->size('lg')
             ->requiresConfirmation()
-            ->modalHeading('Confirm Return')
-            ->modalDescription('Are you sure all items have been returned? This will change the rental status to Completed.')
-            ->modalSubmitActionLabel('Yes, Confirm Return')
-            ->disabled(fn () => !$this->allItemsChecked())
+            ->modalHeading(function () {
+                if ($this->allItemsChecked()) {
+                    return 'Confirm Return';
+                }
+                return 'Partial Return Confirmation';
+            })
+            ->modalDescription(function () {
+                if ($this->allItemsChecked()) {
+                    return 'Are you sure all items have been returned? This will change the rental status to Completed.';
+                }
+                return 'Not all items are checked. Do you want to proceed with a Partial Return? This will mark currently checked items as returned and create a new Pending Return for the remaining items. The rental status will be updated to Partial Return.';
+            })
+            ->modalSubmitActionLabel(function () {
+                if ($this->allItemsChecked()) {
+                    return 'Yes, Confirm Return';
+                }
+                return 'Yes, Process Partial Return';
+            })
             ->action(function () {
-                $this->rental->validateReturn();
+                if ($this->allItemsChecked()) {
+                    // FULL RETURN
+                    $this->delivery->complete();
+                    $this->rental->validateReturn();
 
-                // Also complete the delivery
-                $this->delivery->complete();
+                    Notification::make()
+                        ->title('Return validated successfully')
+                        ->body('Rental status changed to Completed.')
+                        ->success()
+                        ->send();
 
-                Notification::make()
-                    ->title('Return validated successfully')
-                    ->body('Rental status changed to Completed.')
-                    ->success()
-                    ->send();
+                    $this->redirect(RentalResource::getUrl('index'));
+                } else {
+                    // PARTIAL RETURN
+                    // 1. Create new Delivery for unchecked items (remaining items)
+                    $newDelivery = Delivery::create([
+                        'rental_id' => $this->rental->id,
+                        'type' => Delivery::TYPE_IN,
+                        'date' => now(),
+                        'status' => Delivery::STATUS_DRAFT,
+                    ]);
 
-                $this->redirect(RentalResource::getUrl('index'));
+                    // 2. Move unchecked items to new delivery
+                    $uncheckedItems = $this->delivery->items()->where('is_checked', false)->get();
+
+                    foreach ($uncheckedItems as $item) {
+                        $item->update([
+                            'delivery_id' => $newDelivery->id,
+                        ]);
+                    }
+
+                    // 3. Complete the current delivery (now containing only checked items)
+                    $this->delivery->complete();
+                    
+                    // 4. Update rental status to Partial Return
+                    // Fetch fresh instance to ensure no stale state overrides the update
+                    $freshRental = $this->rental->fresh();
+                    $freshRental->update([
+                        'status' => Rental::STATUS_PARTIAL_RETURN
+                    ]);
+                    
+                    // Refresh current instance to reflect changes
+                    $this->rental->refresh();
+                    
+                    $finalStatus = $this->rental->status;
+
+                    Notification::make()
+                        ->title('Partial Return Processed')
+                        ->body("Checked items returned. Remaining items moved to a new return checklist. Rental status updated to: $finalStatus")
+                        ->warning()
+                        ->send();
+
+                    // Reload page to show the new delivery (which is now the active one)
+                    $this->redirect(request()->header('Referer'));
+                }
             });
     }
 

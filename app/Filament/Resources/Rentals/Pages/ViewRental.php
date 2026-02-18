@@ -278,7 +278,7 @@ class ViewRental extends Page
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('success')
                 ->url(fn () => RentalResource::getUrl('return', ['record' => $this->rental]))
-                ->visible(fn () => in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])),
+                ->visible(fn () => in_array($this->rental->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN, Rental::STATUS_PARTIAL_RETURN])),
 
             Action::make('cancel')
                 ->label('Cancel')

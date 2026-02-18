@@ -28,8 +28,8 @@
                     <tr class="border-b border-gray-200">
                         <td class="py-3 pr-6 font-medium text-gray-500">Status</td>
                         <td class="py-3 pr-6">
-                            <x-filament::badge :color="\App\Models\Rental::getStatusColor($rental->status)">
-                                {{ ucfirst(str_replace('_', ' ', $rental->status)) }}
+                            <x-filament::badge :color="\App\Models\Rental::getStatusColor($rental->getRealTimeStatus())">
+                                {{ ucfirst(str_replace('_', ' ', $rental->getRealTimeStatus())) }}
                             </x-filament::badge>
                         </td>
                         <td class="py-3 pr-6 font-medium text-gray-500">Total</td>

@@ -45,6 +45,7 @@ class Rental extends Model
     public const STATUS_CANCELLED = 'cancelled';
     public const STATUS_LATE_PICKUP = 'late_pickup';
     public const STATUS_LATE_RETURN = 'late_return';
+    public const STATUS_PARTIAL_RETURN = 'partial_return';
 
     protected static function booted()
     {
@@ -141,6 +142,7 @@ class Rental extends Model
             self::STATUS_CANCELLED => 'Cancelled',
             self::STATUS_LATE_PICKUP => 'Late Pickup',
             self::STATUS_LATE_RETURN => 'Late Return',
+            self::STATUS_PARTIAL_RETURN => 'Partial Return',
         ];
     }
 
@@ -152,6 +154,7 @@ class Rental extends Model
             self::STATUS_ACTIVE => 'success',
             self::STATUS_COMPLETED => 'purple',
             self::STATUS_CANCELLED => 'gray',
+            self::STATUS_PARTIAL_RETURN => 'orange',
             self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN => 'danger',
             default => 'gray',
         };
@@ -168,6 +171,7 @@ class Rental extends Model
             self::STATUS_LATE_PICKUP,
             self::STATUS_ACTIVE,
             self::STATUS_LATE_RETURN,
+            self::STATUS_PARTIAL_RETURN,
         ]);
     }
 
@@ -186,8 +190,17 @@ class Rental extends Model
             return self::STATUS_LATE_PICKUP;
         }
 
-        if ($this->status === self::STATUS_ACTIVE && $this->end_date < $now) {
-            return self::STATUS_LATE_RETURN;
+        // Check for Partial Return condition (Dynamic)
+        $hasPartialReturn = $this->deliveries->where('type', Delivery::TYPE_IN)->count() > 1;
+
+        if ($this->end_date < $now) {
+            if ($this->status === self::STATUS_ACTIVE || $this->status === self::STATUS_PARTIAL_RETURN || ($this->status === self::STATUS_ACTIVE && $hasPartialReturn)) {
+                return self::STATUS_LATE_RETURN;
+            }
+        }
+
+        if ($this->status === self::STATUS_ACTIVE && $hasPartialReturn) {
+            return self::STATUS_PARTIAL_RETURN;
         }
 
         return $this->status;
@@ -209,7 +222,7 @@ class Rental extends Model
             $newStatus = self::STATUS_LATE_PICKUP;
         }
 
-        if ($this->status === self::STATUS_ACTIVE && $this->end_date < $now) {
+        if (($this->status === self::STATUS_ACTIVE || $this->status === self::STATUS_PARTIAL_RETURN) && $this->end_date < $now) {
             $newStatus = self::STATUS_LATE_RETURN;
         }
 
@@ -487,25 +500,49 @@ class Rental extends Model
 
     public function validateReturn(): void
     {
-        // Check if all items (main units and kits) in Delivery IN are checked
-        $deliveryIn = $this->deliveries->where('type', Delivery::TYPE_IN)->first();
-        
-        if (!$deliveryIn || !$deliveryIn->allItemsChecked()) {
+        // Check if there are any pending/draft IN deliveries
+        // If there are pending deliveries, it means not all items are returned/checked yet.
+        $hasPendingDeliveries = $this->deliveries()
+            ->where('type', Delivery::TYPE_IN)
+            ->whereIn('status', [Delivery::STATUS_DRAFT, Delivery::STATUS_PENDING])
+            ->exists();
+            
+        if ($hasPendingDeliveries) {
+            return;
+        }
+
+        // Ensure at least one IN delivery exists
+        $hasInDelivery = $this->deliveries()
+            ->where('type', Delivery::TYPE_IN)
+            ->exists();
+            
+        if (!$hasInDelivery) {
             return;
         }
 
         $this->update(['status' => self::STATUS_COMPLETED]);
 
         // Update product unit statuses based on return condition
+        // We iterate all IN deliveries to find the condition for each item
+        $inDeliveries = $this->deliveries()->where('type', Delivery::TYPE_IN)->with('items')->get();
+        
         foreach ($this->items as $item) {
             if ($item->productUnit) {
-                // Check delivery item condition for the main unit
-                $mainUnitDeliveryItem = $deliveryIn->items
-                    ->where('rental_item_id', $item->id)
-                    ->whereNull('rental_item_kit_id')
-                    ->first();
+                // Find the delivery item for this rental item in ANY IN delivery
+                $condition = null;
+                
+                foreach ($inDeliveries as $delivery) {
+                    $dItem = $delivery->items
+                        ->where('rental_item_id', $item->id)
+                        ->whereNull('rental_item_kit_id')
+                        ->first();
 
-                if ($mainUnitDeliveryItem && in_array($mainUnitDeliveryItem->condition, ['broken', 'lost'])) {
+                    if ($dItem && $dItem->condition) {
+                        $condition = $dItem->condition;
+                    }
+                }
+
+                if ($condition && in_array($condition, ['broken', 'lost'])) {
                     $item->productUnit->update(['status' => ProductUnit::STATUS_MAINTENANCE]);
                 } else {
                     $item->productUnit->refreshStatus();
