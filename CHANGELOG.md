@@ -11,6 +11,11 @@
 
 
 
+
+## [v1.3.5] - 2026-02-18
+- (New) Rental return operation now support "Partial Return"
+- (New) When partial return happened, new delivery check-in will generated, validated product will marked as returned and other else will stay rented
+
 ## [v1.3.4] - 2026-02-16
 - (New) Rental product buffer time, now admin can set product buffer time before next rental
 - (New) Frontend order calendar can detect order return time. in return day, date will marked half circle. Customer can order on the same date as previous rental
