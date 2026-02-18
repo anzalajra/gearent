@@ -37,8 +37,8 @@ class CustomerCategoriesTable
                     ->toggleable()
                     ->visibleFrom('sm'),
 
-                TextColumn::make('customers_count')
-                    ->counts('customers')
+                TextColumn::make('users_count')
+                    ->counts('users')
                     ->label('Customers')
                     ->toggleable()
                     ->visibleFrom('md'),

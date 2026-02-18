@@ -311,18 +311,13 @@ class RentalsTable
                                 'type' => 'income',
                                 'amount' => $data['amount'],
                                 'description' => $data['description'],
+                                'category' => 'Rental Payment',
                                 'reference_type' => Rental::class,
                                 'reference_id' => $record->id,
                                 'date' => $data['transaction_date'],
                             ]);
                             
-                            // Auto Journal: Receive Rental Payment
-                            JournalService::recordSimpleTransaction(
-                                'RECEIVE_RENTAL_PAYMENT', 
-                                $record, 
-                                $data['amount'], 
-                                $data['description'] ?? 'Payment for Rental ' . $record->rental_code
-                            );
+                            // Auto Journal handled by Observer
 
                             Notification::make()->title('Payment Recorded')->success()->send();
                         }),
@@ -354,18 +349,13 @@ class RentalsTable
                                 'type' => FinanceTransaction::TYPE_DEPOSIT_IN,
                                 'amount' => $data['amount'],
                                 'description' => 'Security Deposit for Rental ' . $record->rental_code,
+                                'category' => 'Security Deposit In',
                                 'reference_type' => Rental::class,
                                 'reference_id' => $record->id,
                                 'date' => $data['transaction_date'],
                             ]);
                             
-                            // Auto Journal: Receive Security Deposit
-                            JournalService::recordSimpleTransaction(
-                                'SECURITY_DEPOSIT_IN', 
-                                $record, 
-                                $data['amount'], 
-                                'Security Deposit for Rental ' . $record->rental_code
-                            );
+                            // Auto Journal handled by Observer
 
                             $record->update([
                                 'security_deposit_status' => 'held',
@@ -406,6 +396,7 @@ class RentalsTable
                             $deduction = $data['deduction'] ?? 0;
                             $refundAmount = $data['amount'];
                             $notes = $data['notes'] ?? '';
+                            $transactionDate = $data['transaction_date'];
 
                             // Outgoing Refund
                             if ($refundAmount > 0) {
@@ -414,9 +405,10 @@ class RentalsTable
                                     'type' => FinanceTransaction::TYPE_DEPOSIT_OUT,
                                     'amount' => $refundAmount,
                                     'description' => 'Deposit Refund: ' . $record->rental_code,
+                                    'category' => 'Security Deposit Refund',
                                     'reference_type' => Rental::class,
                                     'reference_id' => $record->id,
-                                    'date' => $data['transaction_date'],
+                                    'date' => $transactionDate,
                                 ]);
                             }
 
@@ -427,34 +419,15 @@ class RentalsTable
                                     'type' => FinanceTransaction::TYPE_INCOME,
                                     'amount' => $deduction,
                                     'description' => 'Deposit Deduction: ' . $record->rental_code,
+                                    'category' => 'Security Deposit Deduction',
                                     'reference_type' => Rental::class,
                                     'reference_id' => $record->id,
-                                    'date' => $data['transaction_date'],
+                                    'date' => $transactionDate,
                                 ]);
                             }
 
-                            // Auto Journal: Refund Security Deposit
-                            if ($refundAmount > 0) {
-                                JournalService::recordSimpleTransaction(
-                                    'SECURITY_DEPOSIT_OUT',
-                                    $record,
-                                    $refundAmount,
-                                    'Refund Security Deposit for Rental ' . $record->rental_code . ($notes ? " ($notes)" : "")
-                                );
-                            }
-
-                            // Auto Journal: Security Deposit Deduction
-                            if ($deduction > 0) {
-                                JournalService::recordSimpleTransaction(
-                                    'SECURITY_DEPOSIT_DEDUCTION',
-                                    $record,
-                                    $deduction,
-                                    'Deposit Deduction: ' . $record->rental_code . ($notes ? " ($notes)" : "")
-                                );
-                            }
-
-                        $record->update([
-                            'security_deposit_status' => 'refunded',
+                            $record->update([
+                                'security_deposit_status' => 'refunded',
                                 'security_deposit_amount' => 0, // Reset held amount
                             ]);
                             Notification::make()->title('Deposit Refunded')->success()->send();

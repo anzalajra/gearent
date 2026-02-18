@@ -138,18 +138,13 @@ class CustomerDeposits extends Page implements HasTable
                             'type' => FinanceTransaction::TYPE_DEPOSIT_IN,
                             'amount' => $data['amount'],
                             'description' => 'Security Deposit for Rental ' . $record->rental_code,
+                            'category' => 'Security Deposit In',
                             'reference_type' => Rental::class,
                             'reference_id' => $record->id,
                             'date' => $data['transaction_date'],
                         ]);
                         
-                        // Auto Journal: Receive Security Deposit
-                        JournalService::recordSimpleTransaction(
-                            'SECURITY_DEPOSIT_IN', 
-                            $record, 
-                            $data['amount'], 
-                            'Security Deposit for Rental ' . $record->rental_code
-                        );
+                        // Auto Journal handled by Observer via 'Security Deposit In' category
 
                         $record->update([
                             'security_deposit_status' => 'held',

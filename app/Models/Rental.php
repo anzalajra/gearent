@@ -146,6 +146,11 @@ class Rental extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    public function journalEntry(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'reference');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(RentalItem::class);

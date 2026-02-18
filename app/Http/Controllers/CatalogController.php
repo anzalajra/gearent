@@ -28,19 +28,22 @@ class CatalogController extends Controller
                 
                 $startDate = Carbon::parse($request->start_date . ' ' . $pickupTime);
                 $endDate = Carbon::parse($request->end_date . ' ' . $returnTime);
+                
+                $bufferHours = (int) Setting::get('rental_buffer_time', 0);
 
-                $query->whereHas('units', function ($unitQuery) use ($startDate, $endDate) {
+                $query->whereHas('units', function ($unitQuery) use ($startDate, $endDate, $bufferHours) {
                     $unitQuery->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
-                        ->whereDoesntHave('rentalItems', function ($rentalQuery) use ($startDate, $endDate) {
-                            $rentalQuery->whereHas('rental', function ($rQuery) use ($startDate, $endDate) {
+                        ->whereDoesntHave('rentalItems', function ($rentalQuery) use ($startDate, $endDate, $bufferHours) {
+                            $rentalQuery->whereHas('rental', function ($rQuery) use ($startDate, $endDate, $bufferHours) {
                                 $rQuery->whereIn('status', [
                                     Rental::STATUS_QUOTATION,
+                                    Rental::STATUS_CONFIRMED,
                                     Rental::STATUS_ACTIVE,
                                     Rental::STATUS_LATE_PICKUP,
                                     Rental::STATUS_LATE_RETURN
-                                ])->where(function ($overlap) use ($startDate, $endDate) {
-                                    $overlap->where('start_date', '<', $endDate)
-                                            ->where('end_date', '>', $startDate);
+                                ])->where(function ($overlap) use ($startDate, $endDate, $bufferHours) {
+                                    $overlap->where('start_date', '<', $endDate->copy()->addHours($bufferHours))
+                                            ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$bufferHours, $startDate]);
                                 });
                             });
                         });
@@ -97,7 +100,9 @@ class CatalogController extends Controller
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
             ->get();
 
-        $bookedDates = $product->getBookedDates();
+        $availability = $product->getAvailabilityCalendar();
+        $bookedDates = $availability['booked'];
+        $partialDates = $availability['partial'];
 
         $relatedProducts = Product::where('category_id', $product->category_id)
             ->where('id', '!=', $product->id)
@@ -108,7 +113,7 @@ class CatalogController extends Controller
         $operationalDays = array_map('strval', json_decode(Setting::get('operational_days'), true) ?? ['1', '2', '3', '4', '5', '6', '0']);
         $holidays = json_decode(Setting::get('holidays'), true) ?? [];
 
-        return view('frontend.catalog.show', compact('product', 'availableUnits', 'bookedDates', 'relatedProducts', 'operationalDays', 'holidays'));
+        return view('frontend.catalog.show', compact('product', 'availableUnits', 'bookedDates', 'partialDates', 'relatedProducts', 'operationalDays', 'holidays'));
     }
 
     public function checkAvailability(Request $request, ProductUnit $unit)
@@ -120,14 +125,15 @@ class CatalogController extends Controller
 
         $startDate = \Carbon\Carbon::parse($request->start_date);
         $endDate = \Carbon\Carbon::parse($request->end_date);
+        $bufferHours = (int) Setting::get('rental_buffer_time', 0);
 
         // Check if unit is available for the given dates
         $isAvailable = !$unit->rentalItems()
-            ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                $query->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
-                    ->where(function ($q) use ($startDate, $endDate) {
-                        $q->where('start_date', '<', $endDate)
-                          ->where('end_date', '>', $startDate);
+            ->whereHas('rental', function ($query) use ($startDate, $endDate, $bufferHours) {
+                $query->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_CONFIRMED, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+                    ->where(function ($q) use ($startDate, $endDate, $bufferHours) {
+                        $q->where('start_date', '<', $endDate->copy()->addHours($bufferHours))
+                          ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$bufferHours, $startDate]);
                     });
             })
             ->exists();

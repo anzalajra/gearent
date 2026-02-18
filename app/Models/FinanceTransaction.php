@@ -51,6 +51,11 @@ class FinanceTransaction extends Model
     {
         return $this->morphTo();
     }
+
+    public function journalEntry(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'reference');
+    }
     
     protected static function boot()
     {

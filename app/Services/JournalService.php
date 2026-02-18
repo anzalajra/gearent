@@ -8,43 +8,13 @@ use App\Models\JournalEntry;
 use App\Models\JournalEntryItem;
 use App\Models\FinanceTransaction;
 use App\Models\Account;
+use App\Models\Setting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class JournalService
 {
-    protected static $keywordMap = [
-        // Income
-        'invoice' => 26, // Pendapatan Sewa
-        'rental' => 26, // Pendapatan Sewa
-        'sewa' => 26, // Pendapatan Sewa
-        'sales' => 26, // Pendapatan Sewa
-        'penjualan' => 26, // Pendapatan Sewa
-        'down payment' => 17, // Pendapatan Diterima Dimuka
-        'dp' => 17, // Pendapatan Diterima Dimuka
-        'interest' => 41, // Pendapatan Bunga Bank
-        'bunga' => 41, // Pendapatan Bunga Bank
-        
-        // Expense
-        'maintenance' => 30, // Beban Perawatan Aset
-        'repair' => 30, // Beban Perawatan Aset
-        'perawatan' => 30, // Beban Perawatan Aset
-        'salary' => 35, // Beban Gaji
-        'gaji' => 35, // Beban Gaji
-        'listrik' => 33, // Beban Listrik
-        'air' => 33, // Beban Air
-        'internet' => 33, // Beban Internet
-        'utility' => 33, // Beban Utility
-        'marketing' => 38, // Beban Pemasaran
-        'iklan' => 38, // Beban Pemasaran
-        'supplies' => 39, // Beban Perlengkapan
-        'perlengkapan' => 39, // Beban Perlengkapan
-        'admin' => 43, // Beban Administrasi Bank
-        'tax' => 44, // Beban Pajak
-        'pajak' => 44, // Beban Pajak
-    ];
-
     /**
      * Sync a FinanceTransaction to Journal Entry.
      * Creates a Journal Entry if it doesn't exist.
@@ -52,32 +22,21 @@ class JournalService
     public static function syncFromTransaction(FinanceTransaction $transaction, array $manualMappings = []): void
     {
         // Check if Journal Entry already exists
-        $exists = JournalEntry::where('reference_type', FinanceTransaction::class)
-            ->where('reference_id', $transaction->id)
-            ->exists();
-
-        if ($exists) {
+        if ($transaction->journalEntry()->exists()) {
             return;
         }
 
         // 1. Get the Cash/Bank Account (from FinanceAccount)
-        $transaction->load('account');
         $financeAccount = $transaction->account;
 
         if (!$financeAccount) {
+            Log::warning("FinanceTransaction #{$transaction->id} has no FinanceAccount.");
             return;
         }
 
         if (!$financeAccount->linked_account_id) {
-            // Try to auto-link if an account with same name exists
-            $linkedAccount = Account::where('name', $financeAccount->name)->first();
-            if ($linkedAccount) {
-                $financeAccount->update(['linked_account_id' => $linkedAccount->id]);
-            } else {
-                // Cannot proceed without a linked GL account
-                Log::warning("FinanceTransaction #{$transaction->id} sync failed: FinanceAccount #{$financeAccount->id} is not linked to a GL Account.");
-                return;
-            }
+             Log::warning("FinanceTransaction #{$transaction->id}: FinanceAccount #{$financeAccount->id} is not linked to a GL Account.");
+             return;
         }
         
         $cashAccountId = $financeAccount->linked_account_id;
@@ -86,13 +45,14 @@ class JournalService
         $contraAccountId = self::resolveContraAccount($transaction, $manualMappings);
 
         if (!$contraAccountId) {
-            Log::warning("FinanceTransaction #{$transaction->id}: Could not determine contra GL account for category '{$transaction->category}' or type '{$transaction->type}'.");
+            Log::warning("FinanceTransaction #{$transaction->id}: Could not determine contra GL account for category '{$transaction->category}'.");
             return;
         }
 
-        // 3. Create Journal Entry
+        // 3. Create Journal Items
         $items = [];
         $amount = $transaction->amount;
+        $description = $transaction->description ?: "Transaction #{$transaction->type} - {$transaction->category}";
 
         if ($transaction->type === FinanceTransaction::TYPE_INCOME || $transaction->type === FinanceTransaction::TYPE_DEPOSIT_IN) {
             // Debit Cash, Credit Income/Liability
@@ -102,16 +62,58 @@ class JournalService
             // Debit Expense/Liability, Credit Cash
             $items[] = ['account_id' => $contraAccountId, 'debit' => $amount, 'credit' => 0];
             $items[] = ['account_id' => $cashAccountId, 'debit' => 0, 'credit' => $amount];
+        } elseif ($transaction->type === FinanceTransaction::TYPE_TRANSFER) {
+             // For transfer, if we treat it as mapped to another account:
+             $items[] = ['account_id' => $contraAccountId, 'debit' => $amount, 'credit' => 0];
+             $items[] = ['account_id' => $cashAccountId, 'debit' => 0, 'credit' => $amount];
         }
 
         if (!empty($items)) {
-            self::createEntry(
-                $transaction,
-                $transaction->description ?? "Transaction #{$transaction->id} ({$transaction->type})",
-                $items,
-                $transaction->date
-            );
+            self::createEntry($transaction, $description, $items, $transaction->date);
         }
+    }
+
+    public static function syncFromInvoice(\App\Models\Invoice $invoice): void
+    {
+        if ($invoice->journalEntry()->exists()) {
+            return;
+        }
+        
+        // Ensure invoice is sent/paid/partial
+        if (!in_array($invoice->status, ['sent', 'paid', 'partial'])) {
+            return;
+        }
+
+        $arAccountId = Setting::get('account_receivable_id');
+        $revenueAccountId = Setting::get('rental_revenue_id');
+        $taxPayableAccountId = Setting::get('tax_payable_account_id'); // Optional
+
+        if (!$arAccountId || !$revenueAccountId) {
+            Log::warning("Invoice #{$invoice->id}: Missing Default AR or Revenue Account in Settings.");
+            return;
+        }
+
+        $items = [];
+        
+        // Debit AR (Total)
+        $items[] = ['account_id' => $arAccountId, 'debit' => $invoice->total, 'credit' => 0];
+        
+        // Credit Revenue (Subtotal)
+        // Assuming subtotal is net revenue. 
+        $revenueAmount = $invoice->subtotal; 
+        $items[] = ['account_id' => $revenueAccountId, 'debit' => 0, 'credit' => $revenueAmount];
+        
+        // Credit Tax Payable
+        if ($invoice->tax > 0) {
+            if ($taxPayableAccountId) {
+                $items[] = ['account_id' => $taxPayableAccountId, 'debit' => 0, 'credit' => $invoice->tax];
+            } else {
+                // Add to revenue if no tax account
+                $items[1]['credit'] += $invoice->tax;
+            }
+        }
+
+        self::createEntry($invoice, "Invoice #{$invoice->number}", $items, $invoice->date);
     }
 
     /**
@@ -120,16 +122,12 @@ class JournalService
      */
     public static function getUnresolvedCategories(): array
     {
-        $unsyncedCategories = FinanceTransaction::whereNotExists(function ($query) {
-            $query->select(DB::raw(1))
-                ->from('journal_entries')
-                ->whereColumn('journal_entries.reference_id', 'finance_transactions.id')
-                ->where('journal_entries.reference_type', FinanceTransaction::class);
-        })
-        ->whereNotNull('category')
-        ->where('category', '!=', '')
-        ->distinct()
-        ->pluck('category');
+        // Get categories from FinanceTransactions that don't have a JournalEntry
+        $unsyncedCategories = FinanceTransaction::doesntHave('journalEntry')
+            ->distinct()
+            ->pluck('category')
+            ->filter()
+            ->toArray();
 
         $unresolved = [];
         foreach ($unsyncedCategories as $category) {
@@ -144,24 +142,13 @@ class JournalService
     /**
      * Check if a category can be automatically resolved to an account.
      */
-    protected static function isCategoryAutomaticallyResolvable(string $category): bool
+    protected static function isCategoryAutomaticallyResolvable(?string $category): bool
     {
-        // 0. Check Category Mapping
+        if (empty($category)) return false;
+        
+        // Check Category Mapping
         if (CategoryMapping::where('category', $category)->exists()) {
             return true;
-        }
-
-        // 1. Exact match
-        if (Account::where('name', $category)->exists()) {
-            return true;
-        }
-
-        // 2. Keyword match
-        $categoryLower = strtolower($category);
-        foreach (self::$keywordMap as $keyword => $id) {
-            if (str_contains($categoryLower, $keyword)) {
-                return true;
-            }
         }
 
         return false;
@@ -172,64 +159,23 @@ class JournalService
      */
     protected static function resolveContraAccount(FinanceTransaction $transaction, array $manualMappings = []): ?int
     {
-        // 0. Check Manual Mappings (passed from UI)
-        if ($transaction->category && isset($manualMappings[$transaction->category])) {
-            // Persist this mapping for future use if it doesn't exist
-            CategoryMapping::firstOrCreate(
-                ['category' => $transaction->category],
-                ['account_id' => $manualMappings[$transaction->category]]
+        $category = $transaction->category ?? '';
+        
+        // 1. Check Manual Mappings
+        if (isset($manualMappings[$category])) {
+            // Persist mapping
+            CategoryMapping::updateOrCreate(
+                ['category' => $category],
+                ['account_id' => $manualMappings[$category]]
             );
-            return $manualMappings[$transaction->category];
+            return $manualMappings[$category];
         }
 
-        // 0.5 Check Persisted Category Mappings
-        if ($transaction->category) {
-            $mappedId = CategoryMapping::where('category', $transaction->category)->value('account_id');
-            if ($mappedId) return $mappedId;
+        // 2. Check Database Mappings
+        $mapping = CategoryMapping::where('category', $category)->first();
+        if ($mapping) {
+            return $mapping->account_id;
         }
-
-        // 1. Try exact match by Category Name
-        if ($transaction->category) {
-            $accountId = Account::where('name', $transaction->category)->value('id');
-            if ($accountId) return $accountId;
-        }
-
-        // 2. Keyword Matching for Common Categories (English/Indonesian)
-        if ($transaction->category) {
-            $category = strtolower($transaction->category);
-            
-            foreach (self::$keywordMap as $keyword => $id) {
-                if (str_contains($category, $keyword)) {
-                    return $id;
-                }
-            }
-        }
-
-        // 3. Fallback to Mappings based on Type - REMOVED to force manual mapping
-        /*
-        $event = match ($transaction->type) {
-            FinanceTransaction::TYPE_INCOME => 'INCOME_DEFAULT',
-            FinanceTransaction::TYPE_EXPENSE => 'EXPENSE_DEFAULT',
-            FinanceTransaction::TYPE_DEPOSIT_IN => 'SECURITY_DEPOSIT_IN',
-            FinanceTransaction::TYPE_DEPOSIT_OUT => 'SECURITY_DEPOSIT_OUT',
-            default => null,
-        };
-
-        if ($event) {
-            $role = ($transaction->type === FinanceTransaction::TYPE_INCOME || $transaction->type === FinanceTransaction::TYPE_DEPOSIT_IN) ? 'credit' : 'debit';
-            $mappedId = self::getAccount($event, $role);
-            if ($mappedId) return $mappedId;
-        }
-        */
-
-        // 4. Hard Fallback if Mappings Missing - REMOVED to force manual mapping
-        /*
-        if ($transaction->type === FinanceTransaction::TYPE_INCOME) {
-            return 40; // Pendapatan Lain-lain
-        } elseif ($transaction->type === FinanceTransaction::TYPE_EXPENSE) {
-            return 42; // Beban Lain-lain
-        }
-        */
 
         return null;
     }
@@ -259,10 +205,6 @@ class JournalService
         $totalCredit = collect($items)->sum('credit');
 
         if (abs($totalDebit - $totalCredit) > 0.01) {
-            // Log error or throw exception? For now just log and continue or throw
-            // throw new \Exception("Journal Entry is not balanced: Debit $totalDebit != Credit $totalCredit");
-            // Better to allow it but maybe mark as draft? Or just force balance?
-            // Let's just create it but maybe add a warning in description?
             $description .= " [WARNING: Unbalanced D:$totalDebit C:$totalCredit]";
         }
 
@@ -287,6 +229,14 @@ class JournalService
                     'credit' => $item['credit'] ?? 0,
                 ]);
             }
+            
+            // Recalculate balances
+            foreach ($items as $item) {
+                if ($item['account_id']) {
+                     $account = Account::find($item['account_id']);
+                     $account?->recalculateBalance();
+                }
+            }
 
             return $entry;
         });
@@ -301,7 +251,6 @@ class JournalService
         $creditAccountId = self::getAccount($event, 'credit');
 
         if (!$debitAccountId || !$creditAccountId) {
-            // Missing mapping
             return null;
         }
 
@@ -318,6 +267,6 @@ class JournalService
             ],
         ];
 
-        return self::createEntry($reference, $description ?? "Auto-generated for $event", $items);
+        return self::createEntry($reference, $description ?? $event, $items);
     }
 }

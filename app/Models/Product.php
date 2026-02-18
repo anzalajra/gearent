@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Builder;
+use App\Models\Setting;
 
 class Product extends Model
 {
@@ -140,29 +141,30 @@ class Product extends Model
     }
 
     /**
-     * Get dates where all units are booked
+     * Get availability calendar data
+     * Returns ['booked' => [], 'partial' => []]
      */
-    public function getBookedDates(): array
+    public function getAvailabilityCalendar(): array
     {
         $bookedDates = [];
-        // Consider all units that are NOT maintenance or retired as potentially available
+        $partialDates = [];
+        
         $unitsCount = $this->units()
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
             ->count();
         
         if ($unitsCount === 0) {
-            // If no units available at all (all are retired or in maintenance), everything is booked for the next year
             $start = now();
             $end = now()->addYear();
             while ($start <= $end) {
                 $bookedDates[] = $start->format('Y-m-d');
                 $start->addDay();
             }
-            return $bookedDates;
+            return ['booked' => $bookedDates, 'partial' => []];
         }
 
-        // Get all rentals for this product's units
         $unitIds = $this->units()->pluck('id');
+        $bufferHours = (int) Setting::get('rental_buffer_time', 0);
         
         $rentals = RentalItem::whereIn('product_unit_id', $unitIds)
             ->whereHas('rental', function ($query) {
@@ -180,27 +182,55 @@ class Product extends Model
             }])
             ->get();
 
-        // Calculate bookings per day
-        $dailyBookings = [];
+        $dailyStats = []; // 'Y-m-d' => ['full' => 0, 'partial' => 0]
+        
         foreach ($rentals as $item) {
-            $start = $item->rental->start_date->copy()->startOfDay();
-            $end = $item->rental->end_date->copy()->startOfDay();
+            $rentalStart = $item->rental->start_date;
+            $rentalEnd = $item->rental->end_date->copy()->addHours($bufferHours);
             
-            while ($start <= $end) {
-                $dateStr = $start->format('Y-m-d');
-                $dailyBookings[$dateStr] = ($dailyBookings[$dateStr] ?? 0) + 1;
-                $start->addDay();
+            $periodStart = $rentalStart->copy()->startOfDay();
+            $periodEnd = $rentalEnd->copy()->startOfDay();
+            
+            $current = $periodStart->copy();
+            
+            while ($current <= $periodEnd) {
+                $dateStr = $current->format('Y-m-d');
+                $dayStart = $current->copy()->startOfDay();
+                $dayEnd = $current->copy()->endOfDay();
+
+                // Skip if rental ends exactly at start of day (0 duration on this day)
+                if ($rentalEnd->eq($dayStart)) {
+                    $current->addDay();
+                    continue;
+                }
+                
+                $isFullDay = ($rentalStart->lte($dayStart) && $rentalEnd->gte($dayEnd));
+                
+                if (!isset($dailyStats[$dateStr])) {
+                    $dailyStats[$dateStr] = ['full' => 0, 'partial' => 0];
+                }
+                
+                if ($isFullDay) {
+                    $dailyStats[$dateStr]['full']++;
+                } else {
+                    $dailyStats[$dateStr]['partial']++;
+                }
+                
+                $current->addDay();
             }
         }
 
-        // Dates where bookings >= available units
-        foreach ($dailyBookings as $date => $count) {
-            if ($count >= $unitsCount) {
+        foreach ($dailyStats as $date => $stats) {
+            $totalOccupancy = $stats['full'] + $stats['partial'];
+            
+            if ($stats['full'] >= $unitsCount) {
                 $bookedDates[] = $date;
+            } elseif ($totalOccupancy >= $unitsCount) {
+                $partialDates[] = $date;
             }
         }
-
-        return $bookedDates;
+        
+        return ['booked' => $bookedDates, 'partial' => $partialDates];
     }
 
     /**

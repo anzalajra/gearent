@@ -280,6 +280,14 @@ class Settings extends Page implements HasForms
                                                     ->minValue(0),
                                             ])->columnSpanFull(),
 
+                                        TextInput::make('rental_buffer_time')
+                                            ->label('Product Unit Buffer Time (Hours)')
+                                            ->helperText('Minimum time required between rentals for maintenance/preparation.')
+                                            ->numeric()
+                                            ->suffix('Hours')
+                                            ->minValue(0)
+                                            ->default(0),
+
                                         TextInput::make('min_rental_days')
                                             ->label('Minimum Rental Days')
                                             ->numeric()

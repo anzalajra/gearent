@@ -111,6 +111,11 @@ class Invoice extends Model
         return $this->hasMany(Rental::class);
     }
 
+    public function journalEntry(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'reference');
+    }
+
     public function transactions(): MorphMany
     {
         return $this->morphMany(FinanceTransaction::class, 'reference');
