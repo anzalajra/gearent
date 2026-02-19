@@ -180,20 +180,9 @@ class UnitsRelationManager extends RelationManager
                     ->label('Duplicate')
                     ->modalHeading('Duplicate Product Unit')
                     ->modalDescription('Please enter a new serial number for the duplicated unit and its kits.')
-                    ->fillForm(function (ProductUnit $record) {
-                        $data = [
-                            'serial_number' => $record->serial_number . ' (Copy)',
-                        ];
-                        
-                        if ($record->kits()->exists()) {
-                            foreach ($record->kits as $index => $kit) {
-                                $data["duplicate_kits.{$index}.serial_number"] = $kit->serial_number ? "{$kit->serial_number} (Copy)" : '';
-                                $data["duplicate_kits.{$index}.original_id"] = $kit->id;
-                            }
-                        }
-                        
-                        return $data;
-                    })
+                    ->fillForm(fn (ProductUnit $record) => [
+                        'serial_number' => $record->serial_number . ' (Copy)',
+                    ])
                     ->form(function (ProductUnit $record) {
                         $schema = [
                             TextInput::make('serial_number')
@@ -211,9 +200,11 @@ class UnitsRelationManager extends RelationManager
                                 $kitFields[] = TextInput::make("duplicate_kits.{$index}.serial_number")
                                     ->label("New Serial for Kit: {$kit->name}")
                                     ->placeholder("Enter new serial for {$kit->name}")
+                                    ->default($kit->serial_number ? "{$kit->serial_number} (Copy)" : '')
                                     ->required();
                                 // Store original kit ID to map data later
-                                $kitFields[] = \Filament\Forms\Components\Hidden::make("duplicate_kits.{$index}.original_id");
+                                $kitFields[] = \Filament\Forms\Components\Hidden::make("duplicate_kits.{$index}.original_id")
+                                    ->default($kit->id);
                             }
                             
                             $schema[] = Section::make('Duplicate Kits')
