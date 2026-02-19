@@ -195,13 +195,13 @@ class UnitsRelationManager extends RelationManager
                         if ($record->kits()->exists()) {
                             $kitFields = [];
                             foreach ($record->kits as $index => $kit) {
-                                $kitFields[] = TextInput::make("kits.{$index}.serial_number")
+                                $kitFields[] = TextInput::make("duplicate_kits.{$index}.serial_number")
                                     ->label("New Serial for Kit: {$kit->name}")
                                     ->placeholder("Enter new serial for {$kit->name}")
                                     ->default($kit->serial_number ? "{$kit->serial_number} (Copy)" : '')
                                     ->required();
                                 // Store original kit ID to map data later
-                                $kitFields[] = \Filament\Forms\Components\Hidden::make("kits.{$index}.original_id")
+                                $kitFields[] = \Filament\Forms\Components\Hidden::make("duplicate_kits.{$index}.original_id")
                                     ->default($kit->id);
                             }
                             
@@ -219,8 +219,8 @@ class UnitsRelationManager extends RelationManager
                     })
                     ->afterReplicaSaved(function (ProductUnit $replica, array $data): void {
                         // Handle Kit Duplication manually
-                        if (isset($data['kits']) && is_array($data['kits'])) {
-                            foreach ($data['kits'] as $kitData) {
+                        if (isset($data['duplicate_kits']) && is_array($data['duplicate_kits'])) {
+                            foreach ($data['duplicate_kits'] as $kitData) {
                                 $originalKitId = $kitData['original_id'] ?? null;
                                 if ($originalKitId) {
                                     $originalKit = \App\Models\UnitKit::find($originalKitId);
