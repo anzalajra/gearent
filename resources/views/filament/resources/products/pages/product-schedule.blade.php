@@ -91,6 +91,7 @@
                                             'cancelled' => ['bg' => 'bg-gray-500', 'text' => 'text-white'],
                                             'late_pickup' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                             'late_return' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
+                                            'partial_return' => ['bg' => 'bg-yellow-500', 'text' => 'text-white'],
                                         ];
                                         $status = $rental['status'] ?? '';
                                         $colors = $colorMap[$status] ?? ['bg' => 'bg-gray-100 dark:bg-white/5', 'text' => 'text-transparent'];
@@ -125,6 +126,7 @@
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-purple-500"></div> Completed</div>
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-500"></div> Cancelled</div>
             <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-600"></div> Late Pickup/Return</div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-yellow-500"></div> Partial Return</div>
         </div>
     </div>
 

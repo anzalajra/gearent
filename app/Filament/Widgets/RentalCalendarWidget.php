@@ -129,6 +129,7 @@ class RentalCalendarWidget extends FullCalendarWidget implements HasActions
                 'cancelled' => '#6b7280', // Gray
                 'late_pickup' => '#ef4444', // Red
                 'late_return' => '#ef4444', // Red
+                'partial_return' => '#eab308', // Yellow
                 default => '#6b7280',
             };
 

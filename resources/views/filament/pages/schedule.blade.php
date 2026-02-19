@@ -42,6 +42,10 @@
                     <div class="w-4 h-4 rounded" style="background: #ef4444;"></div>
                     <span class="text-sm">Late Pickup/Return</span>
                 </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded" style="background: #eab308;"></div>
+                    <span class="text-sm">Partial Return</span>
+                </div>
             </div>
 
             <a href="{{ url('/admin/rentals/create') }}" class="filament-button filament-button-size-md bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition">
@@ -173,6 +177,7 @@
                                                     'cancelled' => ['bg' => 'bg-gray-500', 'text' => 'text-white'],
                                                     'late_pickup' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
                                                     'late_return' => ['bg' => 'bg-red-600', 'text' => 'text-white'],
+                                                    'partial_return' => ['bg' => 'bg-yellow-500', 'text' => 'text-white'],
                                                 ];
                                                 $status = strtolower($rental['status'] ?? '');
                                                 $colors = $colorMap[$status] ?? ['bg' => 'bg-gray-100 dark:bg-white/5', 'text' => 'text-transparent'];
@@ -235,7 +240,8 @@
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-purple-500"></div> Completed</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-gray-500"></div> Cancelled</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-red-600"></div> Late Pickup/Return</div>
-            </div>
+            <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-yellow-500"></div> Partial Return</div>
+        </div>
         </div>
     @endif
     
