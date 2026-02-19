@@ -179,19 +179,60 @@ class UnitsRelationManager extends RelationManager
                 ReplicateAction::make()
                     ->label('Duplicate')
                     ->modalHeading('Duplicate Product Unit')
-                    ->modalDescription('Please enter a new serial number for the duplicated unit.')
-                    ->form([
-                        TextInput::make('serial_number')
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(ignoreRecord: true)
-                            ->label('New Serial Number')
-                            ->placeholder('Enter new serial number'),
-                    ])
+                    ->modalDescription('Please enter a new serial number for the duplicated unit and its kits.')
+                    ->excludeAttributes(['kits_count']) // Fix SQL Error: Unknown column 'kits_count'
+                    ->form(function (ProductUnit $record) {
+                        $schema = [
+                            TextInput::make('serial_number')
+                                ->required()
+                                ->maxLength(255)
+                                ->unique(ignoreRecord: true)
+                                ->label('New Unit Serial Number')
+                                ->placeholder('Enter new serial number'),
+                        ];
+
+                        // Add fields for kits if they exist
+                        if ($record->kits()->exists()) {
+                            $kitFields = [];
+                            foreach ($record->kits as $index => $kit) {
+                                $kitFields[] = TextInput::make("kits.{$index}.serial_number")
+                                    ->label("New Serial for Kit: {$kit->name}")
+                                    ->placeholder("Enter new serial for {$kit->name}")
+                                    ->default($kit->serial_number ? "{$kit->serial_number} (Copy)" : '')
+                                    ->required();
+                                // Store original kit ID to map data later
+                                $kitFields[] = \Filament\Forms\Components\Hidden::make("kits.{$index}.original_id")
+                                    ->default($kit->id);
+                            }
+                            
+                            $schema[] = Section::make('Duplicate Kits')
+                                ->description('Enter new serial numbers for the duplicated kits')
+                                ->schema($kitFields);
+                        }
+
+                        return $schema;
+                    })
                     ->beforeReplicaSaved(function (ProductUnit $replica, array $data): void {
                         $replica->serial_number = $data['serial_number'];
                         // Reset status to available for the new unit
                         $replica->status = 'available';
+                    })
+                    ->afterReplicaSaved(function (ProductUnit $replica, array $data): void {
+                        // Handle Kit Duplication manually
+                        if (isset($data['kits']) && is_array($data['kits'])) {
+                            foreach ($data['kits'] as $kitData) {
+                                $originalKitId = $kitData['original_id'] ?? null;
+                                if ($originalKitId) {
+                                    $originalKit = \App\Models\UnitKit::find($originalKitId);
+                                    if ($originalKit) {
+                                        $newKit = $originalKit->replicate(['unit_id']);
+                                        $newKit->unit_id = $replica->id;
+                                        $newKit->serial_number = $kitData['serial_number'];
+                                        $newKit->save();
+                                    }
+                                }
+                            }
+                        }
                     }),
                 DeleteAction::make(),
             ])
