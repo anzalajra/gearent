@@ -12,6 +12,11 @@
 
 
 
+
+## [v1.3.6] - 2026-02-19
+- (New) Product Unit duplicate function, make admin easeier to make duplicate unit with different serial number
+- (Tweak) Add "Partial Return" status view at schedule calendar
+
 ## [v1.3.5] - 2026-02-18
 - (New) Rental return operation now support "Partial Return"
 - (New) When partial return happened, new delivery check-in will generated, validated product will marked as returned and other else will stay rented
