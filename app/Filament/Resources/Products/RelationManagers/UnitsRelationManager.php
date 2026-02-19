@@ -8,6 +8,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ReplicateAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Section;
@@ -175,6 +176,23 @@ class UnitsRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make(),
+                ReplicateAction::make()
+                    ->label('Duplicate')
+                    ->modalHeading('Duplicate Product Unit')
+                    ->modalDescription('Please enter a new serial number for the duplicated unit.')
+                    ->form([
+                        TextInput::make('serial_number')
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(ignoreRecord: true)
+                            ->label('New Serial Number')
+                            ->placeholder('Enter new serial number'),
+                    ])
+                    ->beforeReplicaSaved(function (ProductUnit $replica, array $data): void {
+                        $replica->serial_number = $data['serial_number'];
+                        // Reset status to available for the new unit
+                        $replica->status = 'available';
+                    }),
                 DeleteAction::make(),
             ])
             ->toolbarActions([

@@ -18,14 +18,12 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\Builder;
 
 class RentalsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['deliveries']))
             ->columns([
                 TextColumn::make('rental_code')
                     ->searchable()
@@ -48,9 +46,8 @@ class RentalsTable
                     ->visibleFrom('lg'),
                 TextColumn::make('status')
                     ->badge()
-                    ->getStateUsing(fn (Rental $record): string => $record->getRealTimeStatus())
-                    ->formatStateUsing(fn (string $state): string => Rental::getStatusOptions()[$state] ?? $state)
-                    ->color(fn (string $state): string => Rental::getStatusColor($state))
+                    ->formatStateUsing(fn (Rental $record): string => Rental::getStatusOptions()[$record->getRealTimeStatus()] ?? $record->getRealTimeStatus())
+                    ->color(fn (Rental $record): string => Rental::getStatusColor($record->getRealTimeStatus()))
                     ->toggleable(),
                 TextColumn::make('total')
                     ->money('IDR')
@@ -100,7 +97,6 @@ class RentalsTable
                     ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_RETURN,
-                        Rental::STATUS_PARTIAL_RETURN,
                     ])),
 
                 // PDF Actions Group
