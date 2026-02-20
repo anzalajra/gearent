@@ -13,6 +13,12 @@
 
 
 
+
+## [v1.3.7] - 2026-02-20
+- (New) Product unit now can share same kit, add same kit serial number on both unit to connect them
+- (New) Add new page "Product Unit" to see all unit available at system
+- (Tweak) Product page now renamed to "Product Catalog"
+
 ## [v1.3.6] - 2026-02-19
 - (New) Product Unit duplicate function, make admin easeier to make duplicate unit with different serial number
 - (Tweak) Add "Partial Return" status view at schedule calendar
