@@ -9,6 +9,7 @@ class UnitKit extends Model
 {
     protected $fillable = [
         'unit_id',
+        'linked_unit_id',
         'name',
         'serial_number',
         'condition',
@@ -30,6 +31,11 @@ class UnitKit extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class, 'unit_id');
+    }
+
+    public function linkedUnit(): BelongsTo
+    {
+        return $this->belongsTo(ProductUnit::class, 'linked_unit_id');
     }
 
     public static function getConditionOptions(): array

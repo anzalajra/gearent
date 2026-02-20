@@ -21,9 +21,16 @@ class EditQuotation extends EditRecord
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->disabled(fn () => empty($this->getRecord()->customer->phone))
+                    ->tooltip(fn () => empty($this->getRecord()->customer->phone) ? 'Customer phone number is missing' : null)
                     ->url(function () {
                         $record = $this->getRecord();
                         $customer = $record->customer;
+                        
+                        if (empty($customer->phone)) {
+                            return '#';
+                        }
+                        
                         $templateKey = 'whatsapp_template_quotation';
                         
                         $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.quotation', ['quotation' => $record]);

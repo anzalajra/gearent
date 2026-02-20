@@ -336,6 +336,13 @@ class CheckoutController extends Controller
                 $rental->load('items.rentalItemKits');
                 $rental->createDeliveries();
 
+                // FINAL AVAILABILITY CHECK
+                // Ensure no conflicts were missed by the query builder logic
+                $conflicts = $rental->checkAvailability();
+                if (!empty($conflicts)) {
+                    throw new \Exception("Beberapa item dalam pesanan Anda tidak tersedia karena bentrok dengan penyewaan lain (Kit/Unit Conflict). Silakan pilih tanggal atau unit lain.");
+                }
+
                 $rentals[] = $rental;
             }
 

@@ -10,6 +10,7 @@ class RentalItem extends Model
 {
     protected $fillable = [
         'rental_id',
+        'parent_item_id',
         'product_unit_id',
         'daily_rate',
         'days',
@@ -44,6 +45,47 @@ class RentalItem extends Model
 
         static::saved(function ($item) {
             $item->productUnit?->refreshStatus();
+
+            // Link shadow item to parent if applicable
+            if ($item->product_unit_id && !$item->parent_item_id) {
+                 // Check if this unit is a linked component of another unit
+                 // Get all parent unit IDs that have this unit as a component
+                 $parentUnitIds = \App\Models\UnitKit::where('linked_unit_id', $item->product_unit_id)
+                     ->pluck('unit_id');
+                 
+                 if ($parentUnitIds->isNotEmpty()) {
+                     // Find if any of these parent units are in the same rental
+                     $parentItem = \App\Models\RentalItem::where('rental_id', $item->rental_id)
+                         ->where('id', '!=', $item->id) // Avoid self-reference just in case
+                         ->whereIn('product_unit_id', $parentUnitIds)
+                         ->first();
+                     
+                     if ($parentItem) {
+                         $item->parent_item_id = $parentItem->id;
+                         $item->saveQuietly();
+                     }
+                 }
+            }
+
+            // Reverse check: Is THIS item a parent to any existing unlinked items?
+            // (Handles case where Child is saved before Parent)
+            $childUnitIds = \App\Models\UnitKit::where('unit_id', $item->product_unit_id)
+                ->whereNotNull('linked_unit_id')
+                ->pluck('linked_unit_id');
+            
+            if ($childUnitIds->isNotEmpty()) {
+                 // Find unlinked items in this rental that match these child units
+                 $unlinkedChildren = \App\Models\RentalItem::where('rental_id', $item->rental_id)
+                     ->where('id', '!=', $item->id)
+                     ->whereNull('parent_item_id')
+                     ->whereIn('product_unit_id', $childUnitIds)
+                     ->get();
+                 
+                 foreach ($unlinkedChildren as $child) {
+                     $child->parent_item_id = $item->id;
+                     $child->saveQuietly();
+                 }
+            }
         });
 
         static::deleted(function ($item) {
@@ -54,6 +96,16 @@ class RentalItem extends Model
     public function rental(): BelongsTo
     {
         return $this->belongsTo(Rental::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(RentalItem::class, 'parent_item_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(RentalItem::class, 'parent_item_id');
     }
 
     public function productUnit(): BelongsTo

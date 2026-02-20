@@ -121,16 +121,9 @@ class CatalogController extends Controller
         $startDate = \Carbon\Carbon::parse($request->start_date);
         $endDate = \Carbon\Carbon::parse($request->end_date);
 
-        // Check if unit is available for the given dates
-        $isAvailable = !$unit->rentalItems()
-            ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                $query->whereIn('status', ['pending', 'active', 'late_pickup', 'late_return'])
-                    ->where(function ($q) use ($startDate, $endDate) {
-                        $q->where('start_date', '<', $endDate)
-                          ->where('end_date', '>', $startDate);
-                    });
-            })
-            ->exists();
+        // Check if unit is available for the given dates using centralized logic
+        // This ensures shared kits/bundles are correctly handled
+        $isAvailable = $unit->isAvailable($startDate, $endDate);
 
         $days = max(1, $startDate->diffInDays($endDate));
         $totalPrice = $unit->product->daily_rate * $days;

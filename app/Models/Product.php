@@ -97,6 +97,23 @@ class Product extends Model
         return $this->variations()->exists();
     }
 
+    // Relasi ke ProductComponent (Sebagai Parent)
+    public function components(): HasMany
+    {
+        return $this->hasMany(ProductComponent::class, 'parent_product_id');
+    }
+
+    // Relasi ke ProductComponent (Sebagai Child)
+    public function parentComponents(): HasMany
+    {
+        return $this->hasMany(ProductComponent::class, 'child_product_id');
+    }
+
+    public function isBundle(): bool
+    {
+        return $this->components()->exists();
+    }
+
     public function rentalItems(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
     {
         return $this->hasManyThrough(RentalItem::class, ProductUnit::class);
@@ -151,6 +168,7 @@ class Product extends Model
         $data = [];
         $units = $this->units()
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+            ->whereNotIn('condition', ['broken', 'lost'])
             ->get();
         
         if ($units->isEmpty()) {
@@ -165,9 +183,32 @@ class Product extends Model
         }
 
         // Get all rentals for this product's units
-        $unitIds = $units->pluck('id');
+        $unitIds = $units->pluck('id')->toArray();
         
-        $rentals = RentalItem::whereIn('product_unit_id', $unitIds)
+        // 1. Get kits used by these units
+        $kitIds = \App\Models\UnitKit::whereIn('unit_id', $unitIds)
+            ->whereNotNull('linked_unit_id')
+            ->pluck('linked_unit_id')
+            ->unique()
+            ->toArray();
+            
+        // 2. Get other parent units that use these kits
+        $otherParentIds = \App\Models\UnitKit::whereIn('linked_unit_id', $kitIds)
+            ->whereNotIn('unit_id', $unitIds)
+            ->pluck('unit_id')
+            ->unique()
+            ->toArray();
+
+        // 3. Get parents of My Units (if My Unit is a child/component of another unit)
+        $parentOfMyUnitIds = \App\Models\UnitKit::whereIn('linked_unit_id', $unitIds)
+            ->pluck('unit_id')
+            ->unique()
+            ->toArray();
+            
+        // 4. Fetch all relevant rentals
+        $allRelevantUnitIds = array_unique(array_merge($unitIds, $kitIds, $otherParentIds, $parentOfMyUnitIds));
+        
+        $rentals = RentalItem::whereIn('product_unit_id', $allRelevantUnitIds)
             ->whereHas('rental', function ($query) {
                 $query->whereNotIn('status', [Rental::STATUS_COMPLETED, Rental::STATUS_CANCELLED])
                     ->whereIn('status', [
@@ -181,13 +222,78 @@ class Product extends Model
             })
             ->with(['rental' => function ($query) {
                 $query->select('id', 'start_date', 'end_date');
-            }])
+            }, 'productUnit.kits'])
             ->get();
 
-        // Map rentals by unit
+        // 4. Map rentals to My Units
         $unitRentals = [];
+        
+        // Pre-compute kit usage for my units (Optimized)
+        $unitKits = \App\Models\UnitKit::whereIn('unit_id', $unitIds)
+            ->whereNotNull('linked_unit_id')
+            ->select('unit_id', 'linked_unit_id')
+            ->get();
+            
+        $unitKitMap = []; // UnitID -> [KitID, KitID]
+        foreach ($unitKits as $uk) {
+            $unitKitMap[$uk->unit_id][] = $uk->linked_unit_id;
+        }
+        
+        // Pre-compute reverse map: KitID -> [UnitID, UnitID] (My units using this kit)
+        $kitUnitMap = [];
+        foreach ($unitKitMap as $uId => $kIds) {
+            foreach ($kIds as $kId) {
+                $kitUnitMap[$kId][] = $uId;
+            }
+        }
+
+        // Pre-compute map: ParentID -> [MyUnitID] (Parents that contain My Units)
+        $parentOfMyUnitMap = [];
+        $myUnitParents = \App\Models\UnitKit::whereIn('linked_unit_id', $unitIds)
+            ->select('unit_id', 'linked_unit_id')
+            ->get();
+            
+        foreach ($myUnitParents as $up) {
+            $parentOfMyUnitMap[$up->unit_id][] = $up->linked_unit_id;
+        }
+
         foreach ($rentals as $item) {
-            $unitRentals[$item->product_unit_id][] = $item->rental;
+            $rentedUnitId = $item->product_unit_id;
+            $rental = $item->rental;
+            
+            // Case 1: Direct Rental of my unit
+            if (in_array($rentedUnitId, $unitIds)) {
+                $unitRentals[$rentedUnitId][$rental->id] = $rental;
+            }
+            
+            // Case 2: Rental of a Kit (that my unit uses)
+            if (isset($kitUnitMap[$rentedUnitId])) {
+                foreach ($kitUnitMap[$rentedUnitId] as $affectedUnitId) {
+                    $unitRentals[$affectedUnitId][$rental->id] = $rental;
+                }
+            }
+            
+            // Case 3: Rental of a Parent (that contains my unit)
+            if (isset($parentOfMyUnitMap[$rentedUnitId])) {
+                foreach ($parentOfMyUnitMap[$rentedUnitId] as $affectedUnitId) {
+                    $unitRentals[$affectedUnitId][$rental->id] = $rental;
+                }
+            }
+            
+            // Case 4: Rental of another Parent (that uses a kit my unit uses)
+            if ($item->productUnit && $item->productUnit->kits->isNotEmpty()) {
+                foreach ($item->productUnit->kits as $kit) {
+                    $kId = $kit->linked_unit_id;
+                    if ($kId && isset($kitUnitMap[$kId])) {
+                        foreach ($kitUnitMap[$kId] as $affectedUnitId) {
+                            // If the rented unit is NOT the affected unit (avoid double counting direct rentals)
+                            if ($rentedUnitId != $affectedUnitId) {
+                                $unitRentals[$affectedUnitId][$rental->id] = $rental;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         $start = now()->startOfDay();
@@ -219,20 +325,20 @@ class Product extends Model
                             break; 
                         }
                         
-                        // If rental blocks the start of the day
+                        // If rental blocks the start of the day (ends today)
                         if ($rental->start_date <= $dayStart && $rentalEnd > $dayStart) {
                             // Available after this rental
                             $endHour = $rentalEnd->format('H:i');
-                            // If multiple rentals, we take the latest end time?
-                            // Assuming sequential rentals, we want the latest block.
-                            // But simpler: if blocked at start, available from endHour.
                             $blockedUntil = $endHour;
                         }
-                        // Note: If rental starts in middle of day, we consider it 'all_day' available for STARTING a rental 
-                        // (because you can start before it). 
-                        // But wait, if rental starts at 10:00, can I start at 12:00? No.
-                        // The prompt scenario is: Rental A ends -> User B starts.
-                        // So we focus on "When does the unit become free?"
+                        
+                        // If rental starts during the day
+                        if ($rental->start_date > $dayStart) {
+                            // Since we can't represent "Available until X" in the current UI structure,
+                            // and any rental on the day prevents a full day rental, we block the whole day.
+                            $blockedUntil = '24:00';
+                            break;
+                        }
                     }
                 }
                 
@@ -307,6 +413,68 @@ class Product extends Model
                                 ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$buffer, $startDate]);
                     });
                 });
+            })
+            // Check if this unit is a BUNDLE that has a component that is rented
+            ->whereDoesntHave('kits', function ($qKit) use ($startDate, $endDate, $buffer) {
+                $qKit->whereNotNull('linked_unit_id')
+                     ->whereHas('linkedUnit', function ($qLinkedUnit) use ($startDate, $endDate, $buffer) {
+                        // Check if the component is unavailable either directly or via another parent
+                        $qLinkedUnit->where(function ($query) use ($startDate, $endDate, $buffer) {
+                            // 1. Component is directly rented
+                            $query->whereHas('rentalItems', function ($qRentalItem) use ($startDate, $endDate, $buffer) {
+                                $qRentalItem->whereHas('rental', function ($qRental) use ($startDate, $endDate, $buffer) {
+                                    $qRental->whereIn('status', [
+                                        Rental::STATUS_PENDING,
+                                        Rental::STATUS_CONFIRMED,
+                                        Rental::STATUS_ACTIVE,
+                                        Rental::STATUS_LATE_PICKUP,
+                                        Rental::STATUS_LATE_RETURN
+                                    ])->where(function ($overlap) use ($startDate, $endDate, $buffer) {
+                                        $overlap->where('start_date', '<', $endDate)
+                                                ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$buffer, $startDate]);
+                                    });
+                                });
+                            })
+                            // 2. Component is part of ANOTHER rented bundle (Parent is rented)
+                            ->orWhereHas('linkedInKits', function ($qLink) use ($startDate, $endDate, $buffer) {
+                                 $qLink->whereHas('unit', function ($qParentUnit) use ($startDate, $endDate, $buffer) {
+                                      $qParentUnit->whereHas('rentalItems', function ($qRentalItem) use ($startDate, $endDate, $buffer) {
+                                            $qRentalItem->whereHas('rental', function ($qRental) use ($startDate, $endDate, $buffer) {
+                                                $qRental->whereIn('status', [
+                                                    Rental::STATUS_PENDING,
+                                                    Rental::STATUS_CONFIRMED,
+                                                    Rental::STATUS_ACTIVE,
+                                                    Rental::STATUS_LATE_PICKUP,
+                                                    Rental::STATUS_LATE_RETURN
+                                                ])->where(function ($overlap) use ($startDate, $endDate, $buffer) {
+                                                    $overlap->where('start_date', '<', $endDate)
+                                                            ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$buffer, $startDate]);
+                                                });
+                                            });
+                                      });
+                                 });
+                            });
+                        });
+                     });
+            })
+            // Check if this unit is a COMPONENT of a Bundle that is rented
+            ->whereDoesntHave('linkedInKits', function ($qLink) use ($startDate, $endDate, $buffer) {
+                 $qLink->whereHas('unit', function ($qParentUnit) use ($startDate, $endDate, $buffer) {
+                      $qParentUnit->whereHas('rentalItems', function ($qRentalItem) use ($startDate, $endDate, $buffer) {
+                            $qRentalItem->whereHas('rental', function ($qRental) use ($startDate, $endDate, $buffer) {
+                                $qRental->whereIn('status', [
+                                    Rental::STATUS_PENDING,
+                                    Rental::STATUS_CONFIRMED,
+                                    Rental::STATUS_ACTIVE,
+                                    Rental::STATUS_LATE_PICKUP,
+                                    Rental::STATUS_LATE_RETURN
+                                ])->where(function ($overlap) use ($startDate, $endDate, $buffer) {
+                                    $overlap->where('start_date', '<', $endDate)
+                                            ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$buffer, $startDate]);
+                                });
+                            });
+                      });
+                 });
             })
             ->get();
             

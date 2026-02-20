@@ -88,8 +88,47 @@ class PickupOperation extends Page implements HasTable
             if ($item->productUnit) {
                 // Ensure we have the latest status
                 $item->productUnit->refresh();
+                
+                // 1. Check direct unit status
                 if (in_array($item->productUnit->status, [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])) {
                     $unavailableUnits[] = $item->productUnit;
+                }
+
+                // 2. Check Components (if this is a Kit)
+                $componentIds = $item->productUnit->kits()
+                    ->whereNotNull('linked_unit_id')
+                    ->pluck('linked_unit_id')
+                    ->toArray();
+                
+                if (!empty($componentIds)) {
+                    $unavailableComponents = \App\Models\ProductUnit::whereIn('id', $componentIds)
+                        ->whereIn('status', [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])
+                        ->get();
+                    
+                    foreach ($unavailableComponents as $comp) {
+                        // Avoid duplicates
+                        if (!collect($unavailableUnits)->contains('id', $comp->id)) {
+                             $unavailableUnits[] = $comp;
+                        }
+                    }
+                }
+
+                // 3. Check Parent Kits (if this is a Component)
+                $parentIds = \App\Models\UnitKit::where('linked_unit_id', $item->productUnit->id)
+                    ->pluck('unit_id')
+                    ->toArray();
+                
+                if (!empty($parentIds)) {
+                    $unavailableParents = \App\Models\ProductUnit::whereIn('id', $parentIds)
+                        ->whereIn('status', [\App\Models\ProductUnit::STATUS_RENTED, \App\Models\ProductUnit::STATUS_MAINTENANCE])
+                        ->get();
+
+                    foreach ($unavailableParents as $parent) {
+                        // Avoid duplicates
+                        if (!collect($unavailableUnits)->contains('id', $parent->id)) {
+                            $unavailableUnits[] = $parent;
+                        }
+                    }
                 }
             }
         }
@@ -462,9 +501,16 @@ class PickupOperation extends Page implements HasTable
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->disabled(fn () => empty($this->rental->customer->phone))
+                    ->tooltip(fn () => empty($this->rental->customer->phone) ? 'Customer phone number is missing' : null)
                     ->url(function () {
                         $rental = $this->rental;
                         $customer = $rental->customer;
+                        
+                        // Safety check if phone is missing
+                        if (empty($customer->phone)) {
+                            return '#';
+                        }
                         
                         $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.rental.checklist', ['rental' => $rental]);
                         
@@ -555,9 +601,11 @@ class PickupOperation extends Page implements HasTable
             ->modalSubmitActionLabel('Yes, Confirm Pickup')
             ->disabled(fn () => !$this->allItemsChecked())
             ->form(function () {
-                $conflicts = $this->rental->checkAvailability();
+                $status = $this->getAvailabilityStatus();
+                $conflicts = $status['conflicts'];
+                $unavailableUnits = $status['unavailable_units'];
                 
-                if (empty($conflicts)) {
+                if (empty($conflicts) && empty($unavailableUnits)) {
                     return [
                          Placeholder::make('confirmation')
                             ->label('')
@@ -568,13 +616,25 @@ class PickupOperation extends Page implements HasTable
                 // If conflicts exist
                 $conflictMessages = [];
                 foreach ($conflicts as $conflict) {
-                     $unitName = $conflict['product_unit']->product->name;
-                     $serial = $conflict['product_unit']->serial_number;
-                     $rentalInfo = $conflict['conflicting_rentals']->map(function ($r) {
+                     $item = $conflict['item'];
+                     $unit = $item->productUnit;
+                     $unitName = $unit->product->name ?? 'Unknown Product';
+                     $serial = $unit->serial_number ?? '-';
+                     
+                     $conflictingRentals = $conflict['conflicting_rentals'];
+                     $rentalInfo = $conflictingRentals->map(function ($r) {
                         $customerName = $r->customer->name ?? 'Unknown';
                         return "{$r->rental_code} ($customerName)";
                     })->implode(', ');
+                    
                     $conflictMessages[] = "<li><strong>$unitName ($serial)</strong> vs $rentalInfo</li>";
+                }
+
+                // If unavailable units exist
+                foreach ($unavailableUnits as $unit) {
+                    $unitName = $unit->product->name ?? 'Unknown Product';
+                    $serial = $unit->serial_number ?? '-';
+                    $conflictMessages[] = "<li><strong>$unitName ($serial)</strong> is currently <strong>" . strtoupper($unit->status) . "</strong></li>";
                 }
                 
                 return [
@@ -582,42 +642,27 @@ class PickupOperation extends Page implements HasTable
                         ->label('⚠️ Scheduling Conflicts Detected')
                         ->content(new \Illuminate\Support\HtmlString(
                             '<div class="text-danger-600 dark:text-danger-400" style="color: red;">
-                                <p>The following units are double-booked:</p>
-                                <ul class="list-disc pl-5 mt-2 mb-2">' . implode('', $conflictMessages) . '</ul>
-                                <p class="mt-2 font-bold">You cannot proceed unless you resolve these conflicts.</p>
+                                <p>The following units are unavailable or double-booked:</p>
+                                <ul class="list-disc pl-5 mt-2 mb-4">' . implode('', $conflictMessages) . '</ul>
+                                <p class="font-bold">You cannot proceed with this pickup until these conflicts are resolved manually.</p>
+                                <p class="text-sm text-gray-600">Please cancel or modify the conflicting rentals first.</p>
                             </div>'
                         )),
-                    
-                    Checkbox::make('resolve_conflicts')
-                        ->label('Force remove conflicting items from the OTHER rentals to proceed with this pickup.')
-                        ->required()
-                        ->accepted(), 
                 ];
             })
             ->action(function (array $data) {
                 // Check conflicts again to be safe
-                $conflicts = $this->rental->checkAvailability();
+                $status = $this->getAvailabilityStatus();
                 
-                if (!empty($conflicts)) {
-                    // The 'accepted' validation on the checkbox handles the check, 
-                    // but we verify here too.
-                    if (empty($data['resolve_conflicts'])) {
-                        Notification::make()
-                            ->title('Conflicts not resolved')
-                            ->body('You must agree to resolve conflicts to proceed.')
-                            ->danger()
-                            ->send();
-                        return;
-                    }
-                    
-                    // Resolve conflicts
-                    $this->rental->resolveConflicts($conflicts);
-                    
+                if (!$status['available']) {
                     Notification::make()
-                        ->title('Conflicts Resolved')
-                        ->body('Conflicting items have been removed from other rentals.')
-                        ->warning()
+                        ->title('Cannot Validate Pickup')
+                        ->body('There are unresolved scheduling conflicts or unavailable units. Please resolve them manually before validating pickup.')
+                        ->danger()
                         ->send();
+                    
+                    $this->halt();
+                    return;
                 }
 
                 $this->rental->validatePickup();

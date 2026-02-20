@@ -29,7 +29,10 @@ class ProductResource extends Resource
     
     // protected static ?int $navigationSort = 1;
     
-    protected static ?string $navigationLabel = 'Product';
+    protected static ?string $navigationLabel = 'Product Catalog';
+
+    protected static ?string $modelLabel = 'Product Catalog';
+    protected static ?string $pluralModelLabel = 'Product Catalog';
 
     public static function getNavigationIcon(): ?string
     {

@@ -52,9 +52,15 @@ class ViewRental extends Page
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->disabled(fn () => empty($this->rental->user->phone))
+                    ->tooltip(fn () => empty($this->rental->user->phone) ? 'Customer phone number is missing' : null)
                     ->url(function () {
                         $rental = $this->rental;
                         $customer = $rental->user;
+                        
+                        if (empty($customer->phone)) {
+                            return '#';
+                        }
                         
                         $itemsList = $rental->items->map(function ($item) {
                              return "- " . $item->productUnit->product->name . " (" . $item->productUnit->unit_code . ")";

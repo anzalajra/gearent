@@ -8,6 +8,8 @@ use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Tables\Table;
 
 class ProductsTable
@@ -15,10 +17,13 @@ class ProductsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn($query) => $query->withCount([
-                'units',
-                'units as available_units_count' => fn($query) => $query->where('status', 'available'),
-            ]))
+            ->modifyQueryUsing(fn($query) => $query
+                ->withCount([
+                    'units',
+                    'units as available_units_count' => fn($query) => $query->where('status', 'available'),
+                ])
+                ->whereDoesntHave('category', fn ($q) => $q->where('slug', 'accessories-kits'))
+            )
             ->recordClasses('!p-0 !border-none !shadow-none [&_.fi-ta-record-content]:!p-0 [&_.fi-ta-record-content-ctn]:!p-0')
             ->contentGrid([
                 'sm' => 2,

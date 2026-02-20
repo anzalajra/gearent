@@ -239,10 +239,16 @@ class ProcessDelivery extends Page implements HasTable
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->disabled(fn () => empty($this->delivery->rental->customer->phone))
+                    ->tooltip(fn () => empty($this->delivery->rental->customer->phone) ? 'Customer phone number is missing' : null)
                     ->url(function () {
                         $delivery = $this->delivery;
                         $rental = $delivery->rental;
                         $customer = $rental->customer;
+                        
+                        if (empty($customer->phone)) {
+                            return '#';
+                        }
                         
                         $templateKey = $delivery->type === 'out' 
                             ? 'whatsapp_template_rental_delivery_in' // To Customer

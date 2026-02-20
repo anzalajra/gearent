@@ -19,9 +19,14 @@ class ProductUnitResource extends Resource
 {
     protected static ?string $model = ProductUnit::class;
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static bool $shouldRegisterNavigation = true;
 
     protected static ?string $recordTitleAttribute = 'serial_number';
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['serial_number', 'product.name'];
+    }
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';

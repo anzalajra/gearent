@@ -6,8 +6,12 @@ use App\Models\Setting;
 
 class WhatsAppHelper
 {
-    public static function getLink(string $phone, string $message): string
+    public static function getLink(?string $phone, string $message): string
     {
+        if (empty($phone)) {
+            return '#';
+        }
+
         // Clean phone number
         $phone = preg_replace('/[^0-9]/', '', $phone);
         

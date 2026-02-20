@@ -96,6 +96,8 @@ class ProductForm
                     ->collapsed()
                     ->collapsible(),
 
+
+
                 FileUpload::make('image')
                     ->image()
                     ->directory('products'),

@@ -89,9 +89,25 @@ class Rental extends Model
     {
         $prefix = 'RNT';
         $date = now()->format('Ymd');
-        $lastRental = self::whereDate('created_at', today())->latest()->first();
+        
+        // Find the last rental code for today directly from the code pattern
+        // This is more robust than relying on created_at
+        $lastRental = self::where('rental_code', 'like', $prefix . $date . '%')
+                          ->orderBy('rental_code', 'desc')
+                          ->first();
+                          
         $sequence = $lastRental ? intval(substr($lastRental->rental_code, -4)) + 1 : 1;
-        return $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        
+        // Ensure uniqueness with a loop
+        do {
+            $code = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+            $exists = self::where('rental_code', $code)->exists();
+            if ($exists) {
+                $sequence++;
+            }
+        } while ($exists);
+
+        return $code;
     }
 
     public function user(): BelongsTo
@@ -240,6 +256,25 @@ class Rental extends Model
         foreach ($this->items as $item) {
             if ($item->productUnit) {
                 $item->productUnit->refreshStatus();
+                
+                // Also refresh linked components (Children)
+                foreach ($item->productUnit->kits as $kit) {
+                    if ($kit->linked_unit_id) {
+                         // We need to fetch the linked unit if not loaded
+                         $linkedUnit = $kit->linkedUnit ?? \App\Models\ProductUnit::find($kit->linked_unit_id);
+                         if ($linkedUnit) {
+                             $linkedUnit->refreshStatus();
+                         }
+                    }
+                }
+
+                // Also refresh parent units (if this item is a component)
+                // (Though usually parent status depends on component availability, not vice versa for "Rented" status,
+                // but for "Scheduled" it might matter. Let's be safe.)
+                $parentUnitIds = \App\Models\UnitKit::where('linked_unit_id', $item->product_unit_id)->pluck('unit_id');
+                if ($parentUnitIds->isNotEmpty()) {
+                    \App\Models\ProductUnit::whereIn('id', $parentUnitIds)->each(fn($u) => $u->refreshStatus());
+                }
             }
         }
     }
@@ -249,10 +284,35 @@ class Rental extends Model
      */
     public function checkAvailability(): array
     {
+        if (!$this->relationLoaded('items')) {
+            $this->load(['items.productUnit.kits']);
+        }
+
+        \Illuminate\Support\Facades\Log::info("Checking availability for Rental {$this->id} ({$this->rental_code})");
         $conflicts = [];
 
         foreach ($this->items as $item) {
-            // Check if the product unit is already rented in an overlapping period
+            // Get all related unit IDs that would cause a conflict
+            // 1. The unit itself
+            $conflictUnitIds = [$item->product_unit_id];
+            
+            // 2. Parent units (Units that use this unit as a kit)
+            // If I rent a Lens, I cannot rent the Camera Kit that contains it.
+            $parentIds = \App\Models\UnitKit::where('linked_unit_id', $item->product_unit_id)->pluck('unit_id')->toArray();
+            $conflictUnitIds = array_merge($conflictUnitIds, $parentIds);
+
+            // 3. Child units (Units that are kits of this unit)
+            // If I rent a Camera Kit, I cannot rent the Lens inside it.
+            if ($item->productUnit) {
+                 $childIds = $item->productUnit->kits()->whereNotNull('linked_unit_id')->pluck('linked_unit_id')->toArray();
+                 $conflictUnitIds = array_merge($conflictUnitIds, $childIds);
+            }
+            
+            $conflictUnitIds = array_unique($conflictUnitIds);
+
+            \Illuminate\Support\Facades\Log::info("Item {$item->id} (Unit {$item->product_unit_id}) conflicts with units: " . implode(',', $conflictUnitIds));
+
+            // Check if any of the conflicting units are already rented in an overlapping period
             $conflictingRentals = self::where('id', '!=', $this->id)
                 ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
                 ->where(function ($query) {
@@ -263,13 +323,27 @@ class Rental extends Model
                               ->where('end_date', '>=', $this->end_date);
                         });
                 })
-                ->whereHas('items', function ($query) use ($item) {
-                    $query->where('product_unit_id', $item->product_unit_id);
+                ->whereHas('items', function ($query) use ($conflictUnitIds) {
+                    $query->where(function ($q) use ($conflictUnitIds) {
+                        // 1. Direct match (Item IS one of the conflict units)
+                        $q->whereIn('product_unit_id', $conflictUnitIds)
+                        // 2. Item CONTAINS one of the conflict units (Item is a Parent of a conflict unit)
+                        ->orWhereHas('productUnit', function ($pu) use ($conflictUnitIds) {
+                            $pu->whereHas('kits', function ($k) use ($conflictUnitIds) {
+                                $k->whereIn('linked_unit_id', $conflictUnitIds);
+                            });
+                        });
+                        // 3. Item IS CONTAINED BY one of the conflict units (Item is a Child of a conflict unit)
+                        // This is covered by "Direct match" if $conflictUnitIds was expanded correctly to include parents.
+                        // (e.g. My item = Parent. $conflictUnitIds includes Child.
+                        // Their item = Child. Child IS in $conflictUnitIds. -> Direct match.)
+                    });
                 })
                 ->with('customer')
                 ->get();
 
             if ($conflictingRentals->isNotEmpty()) {
+                \Illuminate\Support\Facades\Log::warning("Conflict detected for Rental {$this->id} with rentals: " . $conflictingRentals->pluck('rental_code')->implode(', '));
                 $conflicts[] = [
                     'product_unit' => $item->productUnit,
                     'conflicting_rentals' => $conflictingRentals,
@@ -349,9 +423,46 @@ class Rental extends Model
             if ($item->productUnit) {
                 // Refresh status first to be sure
                 $item->productUnit->refreshStatus();
+                $unit = $item->productUnit;
 
-                if (in_array($item->productUnit->status, [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])) {
-                    throw new \Exception("Unit {$item->productUnit->serial_number} ({$item->productUnit->product->name}) is currently {$item->productUnit->status}. Please swap the unit in the list before validating pickup.");
+                // 1. Check direct unit status
+                if (in_array($unit->status, [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])) {
+                    throw new \Exception("Unit {$unit->serial_number} ({$unit->product->name}) is currently {$unit->status}. Please swap the unit in the list before validating pickup.");
+                }
+
+                // 2. Check Components (if this is a Kit)
+                // If I am picking up a Kit, all its components must be available
+                $componentIds = $unit->kits()
+                    ->whereNotNull('linked_unit_id')
+                    ->pluck('linked_unit_id')
+                    ->toArray();
+                
+                if (!empty($componentIds)) {
+                    $unavailableComponents = ProductUnit::whereIn('id', $componentIds)
+                        ->whereIn('status', [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])
+                        ->get();
+                    
+                    if ($unavailableComponents->isNotEmpty()) {
+                         $comp = $unavailableComponents->first();
+                         throw new \Exception("Component Unit {$comp->serial_number} ({$comp->product->name}) inside Kit {$unit->product->name} is currently {$comp->status}. Cannot pickup this kit.");
+                    }
+                }
+
+                // 3. Check Parent Kits (if this is a Component)
+                // If I am picking up a Component, the Kit containing it must not be rented out
+                $parentIds = \App\Models\UnitKit::where('linked_unit_id', $unit->id)
+                    ->pluck('unit_id')
+                    ->toArray();
+                
+                if (!empty($parentIds)) {
+                    $unavailableParents = ProductUnit::whereIn('id', $parentIds)
+                        ->whereIn('status', [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])
+                        ->get();
+
+                    if ($unavailableParents->isNotEmpty()) {
+                        $parent = $unavailableParents->first();
+                        throw new \Exception("This unit is part of Kit {$parent->serial_number} ({$parent->product->name}) which is currently {$parent->status}. Cannot pickup this unit.");
+                    }
                 }
             }
         }
@@ -372,11 +483,7 @@ class Rental extends Model
         $this->update(['status' => self::STATUS_ACTIVE]);
 
         // Update product unit statuses to Rented
-        foreach ($this->items as $item) {
-            if ($item->productUnit) {
-                $item->productUnit->refreshStatus();
-            }
-        }
+        $this->refreshUnitStatuses();
     }
 
     /**

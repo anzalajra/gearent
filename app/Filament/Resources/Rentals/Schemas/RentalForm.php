@@ -159,9 +159,9 @@ class RentalForm
                             ->searchable()
                             ->live()
                             ->columnSpan(3)
-                            ->afterStateUpdated(function ($state, $old, callable $get, callable $set) {
+                            ->afterStateUpdated(function ($state, $old, callable $get, callable $set, \Filament\Forms\Components\Select $component) {
                                 if ($state && $state !== $old) {
-                                    $unit = ProductUnit::with(['product', 'variation'])->find($state);
+                                    $unit = ProductUnit::with(['product', 'variation', 'kits.linkedUnit.product'])->find($state);
                                     if ($unit) {
                                         // Use variation price if available, otherwise product price
                                         $dailyRate = $unit->variation?->daily_rate ?? $unit->product->daily_rate;
@@ -184,7 +184,64 @@ class RentalForm
 
                                         // Refresh status
                                         $unit->refreshStatus();
+
+                                        // SHADOW ITEMS LOGIC (Unit Bundling)
+                                        $path = $component->getStatePath(); 
+                                        $pathParts = explode('.', $path);
+                                        // items.UUID.product_unit_id -> UUID is second to last
+                                        $currentItemUuid = $pathParts[count($pathParts) - 2];
+                                        
+                                        $allItems = $get('../../items') ?? [];
+                                        
+                                        // 1. Remove old shadow items
+                                        foreach ($allItems as $key => $item) {
+                                             if (isset($item['parent_item_key']) && $item['parent_item_key'] === $currentItemUuid) {
+                                                 unset($allItems[$key]);
+                                             }
+                                        }
+                                        
+                                        // 2. Add new shadow items
+                                        if ($unit->kits->isNotEmpty()) {
+                                            foreach ($unit->kits as $kit) {
+                                                if ($kit->linked_unit_id && $kit->linkedUnit) {
+                                                    $linkedUnit = $kit->linkedUnit;
+                                                    
+                                                    $childPid = $linkedUnit->product_id;
+                                                    if ($linkedUnit->product_variation_id) {
+                                                         $childPid .= ":{$linkedUnit->product_variation_id}";
+                                                    }
+                                                    
+                                                    $childUuid = (string) \Illuminate\Support\Str::uuid();
+                                                    $childItem = [
+                                                        'product_id' => $childPid,
+                                                        'product_unit_id' => $linkedUnit->id,
+                                                        'daily_rate' => 0, // Included in bundle
+                                                        'days' => $days ?? 1,
+                                                        'discount' => 0,
+                                                        'subtotal' => 0,
+                                                        'parent_item_key' => $currentItemUuid,
+                                                    ];
+                                                    $allItems[$childUuid] = $childItem;
+                                                }
+                                            }
+                                        }
+                                        
+                                        $set('../../items', $allItems);
                                     }
+                                }
+
+                                // Handle cleanup if cleared ($state is null)
+                                if (!$state && $old) {
+                                     $path = $component->getStatePath(); 
+                                     $pathParts = explode('.', $path);
+                                     $currentItemUuid = $pathParts[count($pathParts) - 2];
+                                     $allItems = $get('../../items') ?? [];
+                                     foreach ($allItems as $key => $item) {
+                                          if (isset($item['parent_item_key']) && $item['parent_item_key'] === $currentItemUuid) {
+                                              unset($allItems[$key]);
+                                          }
+                                     }
+                                     $set('../../items', $allItems);
                                 }
 
                                 if ($old) {
@@ -194,7 +251,12 @@ class RentalForm
                                     }
                                 }
                             })
-                            ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
+                            ->distinct()
+                            ->validationMessages([
+                                'distinct' => 'This unit is already selected in another item.',
+                            ])
+                            ->disabled(fn (callable $get) => $get('parent_item_key') !== null),
 
                         TextInput::make('daily_rate')
                             ->label('Price')
@@ -208,6 +270,15 @@ class RentalForm
 
                         Hidden::make('days')
                             ->default(1),
+
+                        Hidden::make('parent_item_key')
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function ($component, $state, $record) {
+                                // For existing records, populate the key from parent_item_id
+                                if ($record && $record->parent_item_id) {
+                                     $component->state($record->parent_item_id);
+                                }
+                            }),
                             
                         TextInput::make('discount')
                             ->label('Disc %')
@@ -388,12 +459,13 @@ class RentalForm
      */
     public static function getAvailableUnits($startDate, $endDate, $currentRentalId = null, $productId = null, $variationId = null): array
     {
+        $query = ProductUnit::with(['product', 'variation'])
+            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+            ->when($productId, fn($q) => $q->where('product_id', $productId))
+            ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId));
+
         if (!$startDate || !$endDate) {
-            return ProductUnit::with(['product', 'variation'])
-                ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
-                ->when($productId, fn($q) => $q->where('product_id', $productId))
-                ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId))
-                ->get()
+            return $query->get()
                 ->mapWithKeys(function ($unit) {
                     $statusLabel = $unit->status !== 'available' ? " [{$unit->status}]" : '';
                     return [$unit->id => $unit->serial_number . $statusLabel];
@@ -401,38 +473,14 @@ class RentalForm
                 ->toArray();
         }
 
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
-
-        $overlappingUnitIds = Rental::where('status', '!=', 'cancelled')
-            ->where('status', '!=', 'completed')
-            ->when($currentRentalId, function ($query) use ($currentRentalId) {
-                $query->where('id', '!=', $currentRentalId);
+        // Use the centralized isAvailable method to ensure all kit/bundle constraints are checked
+        return $query->get()
+            ->filter(function ($unit) use ($startDate, $endDate, $currentRentalId) {
+                return $unit->isAvailable($startDate, $endDate, $currentRentalId);
             })
-            ->where(function ($query) use ($start, $end) {
-                $query->where('start_date', '<', $end)
-                      ->where('end_date', '>', $start);
-            })
-            ->with('items')
-            ->get()
-            ->pluck('items')
-            ->flatten()
-            ->pluck('product_unit_id')
-            ->unique()
-            ->toArray();
-
-        return ProductUnit::with(['product', 'variation'])
-            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
-            ->when($productId, fn($q) => $q->where('product_id', $productId))
-            ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId))
-            ->get()
-            ->mapWithKeys(function ($unit) use ($overlappingUnitIds) {
-                $isBooked = in_array($unit->id, $overlappingUnitIds);
-                if ($isBooked) return [];
-                
+            ->mapWithKeys(function ($unit) {
                 return [$unit->id => $unit->serial_number];
             })
-            ->filter()
             ->toArray();
     }
 

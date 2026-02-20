@@ -324,9 +324,15 @@ class ProcessReturn extends Page implements HasTable
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
                     ->visible(fn () => \App\Models\Setting::get('whatsapp_enabled', true))
+                    ->disabled(fn () => empty($this->rental->customer->phone))
+                    ->tooltip(fn () => empty($this->rental->customer->phone) ? 'Customer phone number is missing' : null)
                     ->url(function () {
                         $rental = $this->rental;
                         $customer = $rental->customer;
+                        
+                        if (empty($customer->phone)) {
+                            return '#';
+                        }
                         
                         $pdfLink = \Illuminate\Support\Facades\URL::signedRoute('public-documents.rental.checklist', ['rental' => $rental]);
                         
