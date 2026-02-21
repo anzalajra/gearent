@@ -14,6 +14,12 @@
 
 
 
+
+## [v1.4.0] - 2026-02-21
+- (New) Warehouse management for product unit. Plot a product warehouse location for stock management
+- (New) Product "Website" availabelity. Switch for a product to be available for customer frontend order
+- (Tweak) Product edit page layout arrangment
+
 ## [v1.3.7] - 2026-02-20
 - (New) Product unit now can share same kit, add same kit serial number on both unit to connect them
 - (New) Add new page "Product Unit" to see all unit available at system
