@@ -130,7 +130,7 @@
                         </div>
                         <div class="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-start">
                             <span class="px-3 py-1 rounded-full text-sm font-medium
-                                @if($rental->status == 'pending') bg-yellow-100 text-yellow-800
+                                @if($rental->status == 'quotation') bg-orange-100 text-orange-800
                                 @elseif($rental->status == 'active') bg-green-100 text-green-800
                                 @else bg-red-100 text-red-800
                                 @endif">

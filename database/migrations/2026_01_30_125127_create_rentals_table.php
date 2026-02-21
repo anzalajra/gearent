@@ -12,10 +12,10 @@ return new class extends Migration
             $table->id();
             $table->string('rental_code')->unique();           // RNT-20260130-001
             $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
-            $table->date('start_date');
-            $table->date('end_date');
+            $table->date('start_date')->nullable();
+            $table->date('end_date')->nullable();
             $table->date('returned_date')->nullable();         // Tanggal dikembalikan
-            $table->enum('status', ['pending', 'active', 'completed', 'cancelled'])->default('pending');
+            $table->enum('status', ['quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return'])->default('quotation');
             $table->decimal('subtotal', 12, 2)->default(0);
             $table->decimal('discount', 12, 2)->default(0);
             $table->decimal('total', 12, 2)->default(0);

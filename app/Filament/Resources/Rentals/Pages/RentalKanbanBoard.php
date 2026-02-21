@@ -18,7 +18,7 @@ class RentalKanbanBoard extends Page
     public function getStatuses(): array
     {
         return [
-            Rental::STATUS_PENDING => 'Pending',
+            Rental::STATUS_QUOTATION => 'Quotation',
             Rental::STATUS_CONFIRMED => 'Confirmed',
             Rental::STATUS_LATE_PICKUP => 'Late Pickup',
             Rental::STATUS_ACTIVE => 'Active',

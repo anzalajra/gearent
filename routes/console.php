@@ -19,3 +19,9 @@ Schedule::command('app:send-rental-reminders')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/rental-reminders.log'));
+
+Schedule::command('finance:run-depreciation')
+    ->lastDayOfMonth('23:00')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/depreciation.log'));

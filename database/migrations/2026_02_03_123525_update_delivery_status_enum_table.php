@@ -12,7 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'pending', 'completed', 'cancelled') NOT NULL DEFAULT 'draft'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'pending', 'completed', 'cancelled') NOT NULL DEFAULT 'draft'");
+        }
     }
 
     /**

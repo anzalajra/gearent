@@ -34,6 +34,15 @@ class User extends Authenticatable implements FilamentUser
         'verified_by',
         'customer_category_id',
         'custom_fields',
+        'nik',
+        'npwp',
+        'tax_identity_name',
+        'tax_address',
+        'tax_country',
+        'tax_registration_number',
+        'is_tax_exempt',
+        'is_pkp',
+        'tax_type',
     ];
 
     /**
@@ -59,6 +68,7 @@ class User extends Authenticatable implements FilamentUser
             'verified_at' => 'datetime',
             'is_verified' => 'boolean',
             'custom_fields' => 'array',
+            'is_tax_exempt' => 'boolean',
         ];
     }
 
@@ -82,6 +92,11 @@ class User extends Authenticatable implements FilamentUser
     public function rentals(): HasMany
     {
         return $this->hasMany(Rental::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     public function carts(): HasMany
@@ -112,7 +127,7 @@ class User extends Authenticatable implements FilamentUser
     public function getActiveRentals()
     {
         return $this->rentals()
-            ->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
+            ->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
             ->orderBy('start_date', 'desc')
             ->get();
     }

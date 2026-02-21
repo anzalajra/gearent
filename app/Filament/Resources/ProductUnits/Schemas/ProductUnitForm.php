@@ -59,6 +59,18 @@ class ProductUnitForm
                     ->label('Purchase Price')
                     ->numeric()
                     ->prefix('Rp'),
+
+                TextInput::make('residual_value')
+                    ->label('Residual Value')
+                    ->numeric()
+                    ->prefix('Rp')
+                    ->helperText('Estimated value at end of life'),
+
+                TextInput::make('useful_life')
+                    ->label('Useful Life (Months)')
+                    ->numeric()
+                    ->default(60)
+                    ->suffix('months'),
             ]);
     }
 }

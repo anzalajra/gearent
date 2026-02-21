@@ -131,23 +131,34 @@ class ProductForm
                                 'default' => 1,
                                 'sm' => 2,
                             ])
-                            ->defaultItems(0)
-                            ->columnSpan(1),
+                            ->defaultItems(0),
                     ])
-                    ->columns(2)
-                    ->columnSpanFull(),
+                    ->collapsed()
+                    ->collapsible(),
 
-                // Visibility Exclusions
-                Section::make()
-                    ->schema([
-                        CheckboxList::make('excludedCustomerCategories')
-                            ->label('Hide from Customer Categories')
-                            ->relationship('excludedCustomerCategories', 'name')
-                            ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
-                            ->columns(2)
-                            ->helperText('Selected categories will NOT be able to see this product.'),
-                    ])
-                    ->columnSpanFull(),
+                FileUpload::make('image')
+                    ->image()
+                    ->directory('products'),
+
+                Toggle::make('is_active')
+                    ->default(true),
+
+                Toggle::make('is_taxable')
+                    ->label('Taxable (Kena Pajak)')
+                    ->default(true)
+                    ->helperText('If disabled, this product will be excluded from tax calculations.'),
+
+                Toggle::make('price_includes_tax')
+                    ->label('Price Includes Tax (Harga Termasuk Pajak)')
+                    ->default(false)
+                    ->helperText('If enabled, the price is considered inclusive of tax.'),
+
+                CheckboxList::make('excludedCustomerCategories')
+                    ->label('Hide from Customer Categories')
+                    ->relationship('excludedCustomerCategories', 'name')
+                    ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                    ->columns(2)
+                    ->helperText('Selected categories will NOT be able to see this product.'),
             ]);
     }
 }

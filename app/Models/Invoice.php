@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Invoice extends Model
 {
@@ -17,16 +18,38 @@ class Invoice extends Model
         'subtotal',
         'tax',
         'total',
+        'paid_amount',
+        'late_fee',
         'status',
         'notes',
+        'tax_base',
+        'ppn_rate',
+        'tax_name',
+        'ppn_amount',
+        'pph_rate',
+        'pph_amount',
+        'is_taxable',
+        'price_includes_tax',
+        'tax_invoice_number',
+        'tax_invoice_date',
     ];
 
     protected $casts = [
         'date' => 'date',
         'due_date' => 'date',
+        'tax_invoice_date' => 'date',
         'subtotal' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'late_fee' => 'decimal:2',
+        'tax_base' => 'decimal:2',
+        'ppn_rate' => 'decimal:2',
+        'ppn_amount' => 'decimal:2',
+        'pph_rate' => 'decimal:2',
+        'pph_amount' => 'decimal:2',
+        'is_taxable' => 'boolean',
+        'price_includes_tax' => 'boolean',
     ];
 
     public const STATUS_SENT = 'sent';
@@ -88,11 +111,60 @@ class Invoice extends Model
         return $this->hasMany(Rental::class);
     }
 
+    public function journalEntry(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'reference');
+    }
+
+    public function transactions(): MorphMany
+    {
+        return $this->morphMany(FinanceTransaction::class, 'reference');
+    }
+
     public function recalculate(): void
     {
-        $total = $this->rentals()->sum('total');
-        $this->subtotal = $total;
-        $this->total = $total;
+        // Aggregate from Rentals
+        $rentals = $this->rentals;
+        
+        // Subtotal (Sum of Rental Subtotals)
+        $this->subtotal = $rentals->sum('subtotal');
+        
+        // Tax Base
+        $this->tax_base = $rentals->sum('tax_base');
+        
+        // Taxes
+        $this->ppn_amount = $rentals->sum('ppn_amount');
+        $this->pph_amount = $rentals->sum('pph_amount');
+
+        // Set Tax details from first rental (assuming uniform rate)
+        if ($rentals->isNotEmpty()) {
+            $firstRental = $rentals->first();
+            $this->ppn_rate = $firstRental->ppn_rate;
+            $this->tax_name = $firstRental->tax_name;
+            $this->is_taxable = $firstRental->is_taxable;
+            $this->price_includes_tax = $firstRental->price_includes_tax;
+        }
+        
+        // Late Fee
+        $this->late_fee = $rentals->sum('late_fee');
+        
+        // Total (Sum of Rental Totals - which includes everything)
+        $this->total = $rentals->sum('total');
+        
+        // Recalculate paid amount from transactions
+        $this->paid_amount = $this->transactions()
+            ->where('type', FinanceTransaction::TYPE_INCOME)
+            ->sum('amount');
+            
+        // Update status based on payment
+        if ($this->paid_amount >= $this->total - 0.01) {
+            $this->status = self::STATUS_PAID;
+        } elseif ($this->paid_amount > 0) {
+            $this->status = self::STATUS_PARTIAL;
+        } else {
+            $this->status = self::STATUS_WAITING_FOR_PAYMENT;
+        }
+        
         $this->save();
     }
 }

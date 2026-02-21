@@ -26,6 +26,7 @@ class RentalForm
         return $schema
             ->components([
                 Hidden::make('id')->dehydrated(false),
+                Hidden::make('ppn_rate')->default(0),
                 TextInput::make('rental_code')
                     ->label('Rental Code')
                     ->default('AUTO')
@@ -65,7 +66,7 @@ class RentalForm
                 Select::make('status')
                     ->options(Rental::getStatusOptions())
                     ->required()
-                    ->default('pending')
+                    ->default('quotation')
                     ->disabled(fn ($record) => $record && (!$record->canBeEdited() || in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))),
 
                 Placeholder::make('duration_display')
@@ -389,6 +390,14 @@ class RentalForm
                     ->content(new HtmlString('<div class="border-t pt-4"></div>'))
                     ->columnSpanFull(),
                 
+                Hidden::make('is_taxable')
+                    ->default(fn () => filter_var(\App\Models\Setting::get('is_taxable', true), FILTER_VALIDATE_BOOLEAN))
+                    ->dehydrated(),
+
+                Hidden::make('price_includes_tax')
+                    ->default(fn () => filter_var(\App\Models\Setting::get('price_includes_tax', false), FILTER_VALIDATE_BOOLEAN))
+                    ->dehydrated(),
+                
                 TextInput::make('subtotal')
                     ->label('Untaxed Amount (Subtotal)')
                     ->numeric()
@@ -418,6 +427,26 @@ class RentalForm
                     ->prefix(fn (callable $get) => $get('discount_type') === 'percent' ? '%' : 'Rp')
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
+                TextInput::make('tax_base')
+                    ->label('Dasar Pengenaan Pajak (DPP)')
+                    ->numeric()
+                    ->prefix('Rp')
+                    ->default(0)
+                    ->readOnly()
+                    ->dehydrated()
+                    ->visible(fn (callable $get) => $get('is_taxable'))
+                    ->columnSpan(1),
+
+                TextInput::make('ppn_amount')
+                    ->label('PPN (11%)')
+                    ->numeric()
+                    ->prefix('Rp')
+                    ->default(0)
+                    ->readOnly()
+                    ->dehydrated()
+                    ->visible(fn (callable $get) => $get('is_taxable'))
+                    ->columnSpan(1),
+
                 TextInput::make('total')
                     ->label('Total')
                     ->numeric()
@@ -440,12 +469,35 @@ class RentalForm
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
                 TextInput::make('deposit')
-                    ->label('Deposit')
+                    ->label('Security Deposit')
+                    ->helperText('Required deposit amount/rate')
                     ->numeric()
                     ->default(0)
                     ->live(onBlur: true)
                     ->prefix(fn (callable $get) => $get('deposit_type') === 'percent' ? '%' : 'Rp')
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
+
+                TextInput::make('late_fee')
+                    ->label('Late Fee')
+                    ->numeric()
+                    ->prefix('Rp')
+                    ->default(0)
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
+
+                TextInput::make('down_payment_amount')
+                    ->label('Down Payment (DP)')
+                    ->numeric()
+                    ->prefix('Rp')
+                    ->default(0),
+
+                Select::make('down_payment_status')
+                    ->label('DP Status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'paid' => 'Paid',
+                    ])
+                    ->default('pending'),
 
                 Textarea::make('notes')
                     ->label('Notes')
@@ -532,15 +584,6 @@ class RentalForm
 
     public static function calculateTotals(callable $get, callable $set): void
     {
-        // Check context to determine how to access items and top-level fields
-        // If we are inside repeater item, we might need ../../
-        // But this method is designed to be called with a $get/$set that can access top level?
-        // Or we handle both.
-        
-        // If called from top level (start_date, discount_type), $get('items') works.
-        // If called from inside repeater, $get('items') might fail or return null.
-        // Inside repeater, $get('../../items') works.
-        
         $items = $get('items');
         if ($items === null) {
             $items = $get('../../items');
@@ -550,87 +593,95 @@ class RentalForm
         }
         
         $items = $items ?? [];
-        $subtotal = 0;
+        $grossSubtotal = 0;
 
         foreach ($items as $item) {
-            $subtotal += (float) ($item['subtotal'] ?? 0);
+            $grossSubtotal += (float) ($item['subtotal'] ?? 0);
         }
 
-        // Set Subtotal
+        // Helper to get value based on context
+        $getValue = fn($field) => $isInside ? $get("../../{$field}") : $get($field);
+        
+        // Get Settings & Inputs
+        $isTaxable = (bool) $getValue('is_taxable');
+        $priceIncludesTax = (bool) $getValue('price_includes_tax');
+        $discountType = $getValue('discount_type') ?? 'fixed';
+        $discountValue = (float) ($getValue('discount') ?? 0);
+        $depositType = $getValue('deposit_type') ?? 'fixed';
+        $depositValue = (float) ($getValue('deposit') ?? 0);
+        $lateFee = (float) ($getValue('late_fee') ?? 0);
+
+        // Set Subtotal (Gross)
         if ($isInside) {
-            $set('../../subtotal', $subtotal);
-            $discountType = $get('../../discount_type') ?? 'fixed';
-            $discountValue = (float) ($get('../../discount') ?? 0);
+            $set('../../subtotal', $grossSubtotal);
         } else {
-            $set('subtotal', $subtotal);
-            $discountType = $get('discount_type') ?? 'fixed';
-            $discountValue = (float) ($get('discount') ?? 0);
+            $set('subtotal', $grossSubtotal);
         }
 
         // Calculate Discount Amount
         $discountAmount = 0;
         if ($discountType === 'percent') {
-            $discountAmount = $subtotal * ($discountValue / 100);
+            $discountAmount = $grossSubtotal * ($discountValue / 100);
         } else {
             $discountAmount = $discountValue;
         }
 
-        $total = max(0, $subtotal - $discountAmount);
+        // Calculate Net Subtotal (After Discount)
+        $netSubtotal = max(0, $grossSubtotal - $discountAmount);
 
-        if ($isInside) {
-            $set('../../total', $total);
-            $depositType = $get('../../deposit_type') ?? 'fixed';
-            $depositValue = (float) ($get('../../deposit') ?? 0);
+        // Get Tax Settings
+        $taxEnabled = filter_var(\App\Models\Setting::get('tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
+        $isPkp = filter_var(\App\Models\Setting::get('is_pkp', false), FILTER_VALIDATE_BOOLEAN);
+        $ppnRate = (float) \App\Models\Setting::get('ppn_rate', 11);
+
+        // Calculate Tax Base (DPP)
+        // Taxable Amount includes Late Fee
+        $taxableAmount = $netSubtotal + $lateFee;
+        
+        $taxBase = $taxableAmount;
+        $ppnAmount = 0;
+
+        if ($taxEnabled && $isPkp && $isTaxable) {
+            if ($priceIncludesTax) {
+                // If inclusive, TaxableAmount = DPP + PPN
+                // PPN = DPP * (rate/100)
+                // TaxableAmount = DPP * (1 + rate/100)
+                $taxBase = $taxableAmount / (1 + ($ppnRate / 100));
+            }
+            
+            $ppnAmount = $taxBase * ($ppnRate / 100);
         } else {
-            $set('total', $total);
-            $depositType = $get('deposit_type') ?? 'fixed';
-            $depositValue = (float) ($get('deposit') ?? 0);
+            $ppnRate = 0;
         }
-        
-        // Deposit Calculation (assuming it's based on subtotal if percent)
-        // Or maybe based on Total? Let's use Total as it's the final amount to pay.
-        // Wait, deposit is usually separate.
-        // Let's use Subtotal as base for deposit if percent.
-        // Actually, often deposit is % of equipment value, but here we only have rental price.
-        // Let's assume % of Total Rental Price (Total).
-        
-        /* 
-           Wait, if I update 'deposit' field value to be the calculated amount,
-           I overwrite the percentage input (e.g. 10 becomes 1000).
-           But I am NOT updating the 'deposit' field here.
-           The 'deposit' field holds the INPUT value.
-           I am NOT adding a separate 'deposit_amount' field to display.
-           Wait, the user wants "Deposit" to be the amount stored in DB.
-           If I use the logic "Value in Input = Stored in DB", then:
-           - If Percent: Input 10 -> Store 10.
-           - If Fixed: Input 1000 -> Store 1000.
-           
-           This means the DB stores 10 or 1000.
-           And the application logic (Invoice/Payment) must know how to interpret it.
-           Since I added `deposit_type` column, the backend logic CAN interpret it!
-           So I DO NOT need to calculate the deposit amount in the form and store it.
-           I just store the value (10 or 1000) and the type.
-           
-           BUT, does the `Rental` model have logic to get `deposit_amount`?
-           I should add an accessor `getDepositAmountAttribute()` to the model.
-           And `getDiscountAmountAttribute()`.
-           
-           And `total`?
-           `total` is stored in DB.
-           If `discount` is percentage (10), then `total` should be calculated as `subtotal - (subtotal * 10/100)`.
-           The form calculates `total` and saves it.
-           So `total` column is correct.
-           
-           But `discount` column stores 10.
-           So when displaying invoice, if I just show `discount`, it shows 10.
-           I need to use `discount_type` to format it.
-           
-           So, in `calculateTotals`:
-           - We calculate `total` based on type and value.
-           - We do NOT change `discount` or `deposit` field values (they are inputs).
-           - We update `total` field.
-           
-           This works!
-        */
+
+        // Calculate Payable Amount (Rental + Late Fee + Tax)
+        // If inclusive: taxableAmount is the total for those items
+        // If exclusive: taxBase + ppnAmount (which effectively is taxableAmount + ppnAmount if exclusive)
+        // Note: if exclusive, taxBase = taxableAmount.
+        $payableAmount = $priceIncludesTax ? $taxableAmount : ($taxBase + $ppnAmount);
+
+        // Calculate Deposit (Excluded from Tax)
+        $depositAmount = 0;
+        if ($depositType === 'percent') {
+            $depositAmount = $grossSubtotal * ($depositValue / 100);
+        } else {
+            $depositAmount = $depositValue;
+        }
+
+        // Total = Payable + Deposit
+        $total = $payableAmount + $depositAmount;
+
+        // Set Values
+        if ($isInside) {
+            $set('../../tax_base', round($taxBase, 2));
+            $set('../../ppn_amount', round($ppnAmount, 2));
+            $set('../../ppn_rate', $ppnRate);
+            $set('../../total', round($total, 2));
+        } else {
+            $set('tax_base', round($taxBase, 2));
+            $set('ppn_amount', round($ppnAmount, 2));
+            $set('ppn_rate', $ppnRate);
+            $set('total', round($total, 2));
+        }
     }
 }

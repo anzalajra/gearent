@@ -3,7 +3,7 @@
         <div class="flex flex-wrap gap-4">
             <div class="flex items-center gap-2">
             <div class="w-4 h-4 rounded" style="background: #f97316;"></div>
-            <span class="text-sm">Pending</span>
+            <span class="text-sm">Quotation</span>
         </div>
         <div class="flex items-center gap-2">
             <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>

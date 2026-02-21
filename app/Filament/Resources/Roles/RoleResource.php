@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Roles;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Filament\Resources\Roles\Pages\CreateRole;
 use App\Filament\Resources\Roles\Pages\EditRole;
@@ -27,12 +28,17 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Unique;
+use UnitEnum;
 
 class RoleResource extends Resource
 {
     use HasShieldFormComponents;
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static ?string $cluster = SettingsCluster::class;
+
+    protected static string|UnitEnum|null $navigationGroup = 'Admin & Roles';
+
+    // protected static bool $shouldRegisterNavigation = false;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -158,7 +164,12 @@ class RoleResource extends Resource
 
     public static function getCluster(): ?string
     {
-        return Utils::getResourceCluster();
+        return SettingsCluster::class;
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Admin & Roles';
     }
 
     public static function getEssentialsPlugin(): ?FilamentShieldPlugin

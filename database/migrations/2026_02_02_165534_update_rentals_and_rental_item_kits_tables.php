@@ -17,7 +17,9 @@ return new class extends Migration
         });
 
         // Fix condition_in enum to include lost and broken
-        DB::statement("ALTER TABLE rental_item_kits MODIFY COLUMN condition_in ENUM('excellent', 'good', 'fair', 'poor', 'lost', 'broken') NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE rental_item_kits MODIFY COLUMN condition_in ENUM('excellent', 'good', 'fair', 'poor', 'lost', 'broken') NULL");
+        }
     }
 
     public function down(): void

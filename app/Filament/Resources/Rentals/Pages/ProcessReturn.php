@@ -7,6 +7,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryItem;
 use App\Models\Rental;
 use App\Models\RentalItemKit;
+use App\Services\JournalService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
@@ -23,6 +24,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Filament\Schemas\Components\Section;
 use Illuminate\Contracts\Support\Htmlable;
 
 class ProcessReturn extends Page implements HasTable
@@ -414,35 +416,136 @@ class ProcessReturn extends Page implements HasTable
             ->color('success')
             ->size('lg')
             ->requiresConfirmation()
-            ->modalHeading(function () {
-                if ($this->allItemsChecked()) {
-                    return 'Confirm Return';
-                }
-                return 'Partial Return Confirmation';
+            ->modalHeading('Confirm Return & Financial Settlement')
+            ->form(function () {
+                $lateFee = $this->rental->calculateOverdueFee();
+                $deposit = $this->rental->security_deposit_amount;
+                $depositStatus = $this->rental->security_deposit_status;
+                
+                return [
+                    Section::make('Financial Summary')
+                        ->schema([
+                            Placeholder::make('late_fee_preview')
+                                ->label('Calculated Late Fee')
+                                ->content(fn () => 'Rp ' . number_format($lateFee, 0, ',', '.'))
+                                ->helperText(fn () => $lateFee > 0 ? 'Based on overdue days.' : 'No late fee.'),
+                            
+                            TextInput::make('manual_late_fee')
+                                ->label('Adjust Late Fee')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default($lateFee),
+                                
+                            Placeholder::make('deposit_info')
+                                ->label('Security Deposit Held')
+                                ->content('Rp ' . number_format($deposit, 0, ',', '.')),
+                                
+                            Select::make('final_deposit_action')
+                                ->label('Deposit Action')
+                                ->options([
+                                    'refund' => 'Full Refund to Customer',
+                                    'forfeit' => 'Forfeit (Keep as Penalty/Revenue)',
+                                    'partial' => 'Partial Refund',
+                                ])
+                                ->default('refund')
+                                ->reactive()
+                                ->visible($deposit > 0 && $depositStatus !== 'refunded'),
+                                
+                            TextInput::make('refund_amount')
+                                ->label('Refund Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default($deposit)
+                                ->maxValue($deposit)
+                                ->visible(fn ($get) => $get('final_deposit_action') === 'partial')
+                                ->required(fn ($get) => $get('final_deposit_action') === 'partial'),
+                        ])
+                ];
             })
-            ->modalDescription(function () {
-                if ($this->allItemsChecked()) {
-                    return 'Are you sure all items have been returned? This will change the rental status to Completed.';
+            ->action(function (array $data) {
+                // Apply manual late fee if provided
+                if (isset($data['manual_late_fee'])) {
+                    $this->rental->late_fee = $data['manual_late_fee'];
+                    $this->rental->recalculateTotal();
+                    $this->rental->save();
                 }
-                return 'Not all items are checked. Do you want to proceed with a Partial Return? This will mark currently checked items as returned and create a new Pending Return for the remaining items. The rental status will be updated to Partial Return.';
-            })
-            ->modalSubmitActionLabel(function () {
-                if ($this->allItemsChecked()) {
-                    return 'Yes, Confirm Return';
-                }
-                return 'Yes, Process Partial Return';
-            })
-            ->action(function () {
-                if ($this->allItemsChecked()) {
-                    // FULL RETURN
-                    $this->delivery->complete();
-                    $this->rental->validateReturn();
 
-                    Notification::make()
-                        ->title('Return validated successfully')
-                        ->body('Rental status changed to Completed.')
-                        ->success()
-                        ->send();
+                // JOURNAL: Recognize Rental Revenue (RENTAL_COMPLETION)
+                // Move from Unearned Revenue (2-1300) to Rental Revenue (4-1100)
+                // We exclude deposit and late fee from this specific entry as they are handled separately
+                $rentalRevenue = $this->rental->total - $this->rental->security_deposit_amount - ($this->rental->late_fee ?? 0);
+                
+                if ($rentalRevenue > 0) {
+                    JournalService::recordSimpleTransaction(
+                        'RENTAL_COMPLETION',
+                        $this->rental,
+                        $rentalRevenue,
+                        'Revenue recognition for Rental ' . $this->rental->rental_code
+                    );
+                }
+
+                // Handle Deposit Logic
+                if (isset($data['final_deposit_action']) && $this->rental->security_deposit_amount > 0) {
+                    $action = $data['final_deposit_action'];
+                    $depositAmount = $this->rental->security_deposit_amount;
+
+                    if ($action === 'refund') {
+                        $this->rental->security_deposit_status = 'refunded';
+                        
+                        JournalService::recordSimpleTransaction(
+                            'SECURITY_DEPOSIT_OUT',
+                            $this->rental,
+                            $depositAmount,
+                            'Full deposit refund'
+                        );
+                        
+                    } elseif ($action === 'forfeit') {
+                        $this->rental->security_deposit_status = 'forfeited';
+                        
+                        JournalService::recordSimpleTransaction(
+                            'SECURITY_DEPOSIT_DEDUCTION',
+                            $this->rental,
+                            $depositAmount,
+                            'Full deposit forfeiture'
+                        );
+                        
+                    } elseif ($action === 'partial') {
+                        $this->rental->security_deposit_status = 'partial_refunded';
+                        
+                        $refundAmount = (float) ($data['refund_amount'] ?? 0);
+                        $forfeitAmount = $depositAmount - $refundAmount;
+
+                        if ($refundAmount > 0) {
+                            JournalService::recordSimpleTransaction(
+                                'SECURITY_DEPOSIT_OUT',
+                                $this->rental,
+                                $refundAmount,
+                                'Partial deposit refund'
+                            );
+                        }
+
+                        if ($forfeitAmount > 0) {
+                            JournalService::recordSimpleTransaction(
+                                'SECURITY_DEPOSIT_DEDUCTION',
+                                $this->rental,
+                                $forfeitAmount,
+                                'Partial deposit forfeiture'
+                            );
+                        }
+                    }
+                    $this->rental->save();
+                }
+
+                $this->rental->validateReturn();
+
+                // Also complete the delivery
+                $this->delivery->complete();
+
+                Notification::make()
+                    ->title('Return validated successfully')
+                    ->body('Rental status completed. Financials updated.')
+                    ->success()
+                    ->send();
 
                     $this->redirect(RentalResource::getUrl('index'));
                 } else {

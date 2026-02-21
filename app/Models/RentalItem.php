@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RentalItem extends Model
 {
+    protected $touches = ['rental'];
+
     protected $fillable = [
         'rental_id',
         'parent_item_id',

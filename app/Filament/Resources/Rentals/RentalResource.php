@@ -36,27 +36,27 @@ class RentalResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $pending = static::getModel()::where('status', Rental::STATUS_PENDING)->count();
+        $quotation = static::getModel()::where('status', Rental::STATUS_QUOTATION)->count();
         $late = static::getModel()::whereIn('status', [Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])->count();
 
-        if ($pending === 0 && $late === 0) {
+        if ($quotation === 0 && $late === 0) {
             return null;
         }
 
         if ($late > 0) {
-             return $pending > 0 ? "{$pending} | {$late}" : (string) $late;
+             return $quotation > 0 ? "{$quotation} | {$late}" : (string) $late;
         }
 
-        return (string) $pending;
+        return (string) $quotation;
     }
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        $pending = static::getModel()::where('status', Rental::STATUS_PENDING)->count();
+        $quotation = static::getModel()::where('status', Rental::STATUS_QUOTATION)->count();
         $late = static::getModel()::whereIn('status', [Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])->count();
         
         $parts = [];
-        if ($pending > 0) $parts[] = "{$pending} Pending";
+        if ($quotation > 0) $parts[] = "{$quotation} Quotation";
         if ($late > 0) $parts[] = "{$late} Late Rental";
         
         return implode(' & ', $parts);

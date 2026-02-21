@@ -35,7 +35,7 @@ class CheckLateRentals extends Command
         $isDryRun = $this->option('dry-run');
 
         // Count rentals that will be affected
-        $latePickupsCount = Rental::where('status', Rental::STATUS_PENDING)
+        $latePickupsCount = Rental::where('status', Rental::STATUS_QUOTATION)
             ->where('start_date', '<', $now)
             ->count();
 
@@ -52,7 +52,7 @@ class CheckLateRentals extends Command
         $this->table(
             ['Status Change', 'Count'],
             [
-                ['Pending → Late Pickup', $latePickupsCount],
+                ['Quotation → Late Pickup', $latePickupsCount],
                 ['Active → Late Return', $lateReturnsCount],
             ]
         );
@@ -63,7 +63,7 @@ class CheckLateRentals extends Command
                 $this->newLine();
                 $this->info('Late Pickup Rentals:');
                 $latePickups = Rental::with('customer')
-                    ->where('status', Rental::STATUS_PENDING)
+                    ->where('status', Rental::STATUS_QUOTATION)
                     ->where('start_date', '<', $now)
                     ->get();
                 
@@ -97,7 +97,7 @@ class CheckLateRentals extends Command
 
             // Update late pickups
             $updatedPickups = DB::table('rentals')
-                ->where('status', Rental::STATUS_PENDING)
+                ->where('status', Rental::STATUS_QUOTATION)
                 ->where('start_date', '<', $now)
                 ->update([
                     'status' => Rental::STATUS_LATE_PICKUP,

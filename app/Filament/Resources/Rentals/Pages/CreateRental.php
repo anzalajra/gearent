@@ -32,14 +32,26 @@ class CreateRental extends CreateRecord
                     }
 
                     $discount = (float) ($this->data['discount'] ?? 0);
-                    $total = $subtotal - $discount;
+                    $subtotalAfterDiscount = max(0, $subtotal - $discount);
+                    
+                    // Tax Calculation
+                    $taxAmount = 0;
+                    $taxRate = 0;
+                    if (\App\Models\Setting::get('tax_enabled', false)) {
+                        $taxRate = (float) \App\Models\Setting::get('tax_rate', 11);
+                        $taxAmount = $subtotalAfterDiscount * ($taxRate / 100);
+                    }
+
+                    $total = $subtotalAfterDiscount + $taxAmount;
 
                     $this->data['subtotal'] = $subtotal;
+                    $this->data['ppn_rate'] = $taxRate;
+                    $this->data['ppn_amount'] = $taxAmount;
                     $this->data['total'] = $total;
 
                     Notification::make()
                         ->title('Calculated!')
-                        ->body("Subtotal: Rp " . number_format($subtotal, 0, ',', '.') . " | Total: Rp " . number_format($total, 0, ',', '.'))
+                        ->body("Subtotal: Rp " . number_format($subtotal, 0, ',', '.') . " | Tax: Rp " . number_format($taxAmount, 0, ',', '.') . " | Total: Rp " . number_format($total, 0, ',', '.'))
                         ->success()
                         ->send();
                 }),

@@ -17,12 +17,18 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use UnitEnum;
+use App\Models\FinanceAccount;
+use App\Models\FinanceTransaction;
+use App\Models\Account;
+use App\Services\JournalService;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Auth;
 
 class InvoiceResource extends Resource
 {
@@ -109,6 +115,122 @@ class InvoiceResource extends Resource
                 //
             ])
             ->recordActions([
+                Action::make('record_payment')
+                    ->label('Record Payment')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->visible(fn (Invoice $record) => $record->status !== Invoice::STATUS_PAID && $record->status !== 'cancelled' && ($record->total - $record->paid_amount) > 0)
+                    ->form(function (Invoice $record) {
+                        return [
+                            Select::make('finance_account_id')
+                                ->label('Deposit To Account')
+                                ->options(FinanceAccount::where('is_active', true)->pluck('name', 'id'))
+                                ->required(),
+                            TextInput::make('amount')
+                                ->label('Amount')
+                                ->required()
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default($record->total - $record->paid_amount)
+                                ->maxValue($record->total - $record->paid_amount),
+                            DatePicker::make('date')
+                                ->label('Payment Date')
+                                ->default(now())
+                                ->required(),
+                            Select::make('payment_method')
+                                ->label('Payment Method')
+                                ->options([
+                                    'Cash' => 'Cash',
+                                    'Transfer' => 'Bank Transfer',
+                                    'QRIS' => 'QRIS',
+                                    'Credit Card' => 'Credit Card',
+                                ])
+                                ->required(),
+                            Textarea::make('notes')
+                                ->label('Notes'),
+                        ];
+                    })
+                    ->action(function (Invoice $record, array $data) {
+                        $transaction = new FinanceTransaction([
+                            'finance_account_id' => $data['finance_account_id'],
+                            'user_id' => Auth::id(),
+                            'type' => FinanceTransaction::TYPE_INCOME,
+                            'amount' => $data['amount'],
+                            'date' => $data['date'],
+                            'category' => 'Invoice Payment',
+                            'description' => 'Payment for Invoice #' . $record->number,
+                            'payment_method' => $data['payment_method'],
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+                        $transaction->reference()->associate($record);
+                        $transaction->save();
+
+                        // Recalculate invoice status
+                        $record->recalculate();
+
+                        // Journal Entry: Debit 1-1100 (Kas/Bank), Credit 2-1300 (Pendapatan Diterima Dimuka)
+                        $financeAccount = FinanceAccount::find($data['finance_account_id']);
+                        $debitAccountId = $financeAccount?->linked_account_id;
+                        
+                        // Default to 2-1300 Pendapatan Diterima Dimuka for Invoice Payments (usually Rentals)
+                        $creditAccount = Account::where('code', '2-1300')->first();
+                        $creditAccountId = $creditAccount?->id;
+
+                        if ($debitAccountId && $creditAccountId) {
+                            JournalService::createEntry(
+                                $record,
+                                'Payment for Invoice #' . $record->number,
+                                [
+                                    [
+                                        'account_id' => $debitAccountId,
+                                        'debit' => $data['amount'],
+                                        'credit' => 0,
+                                    ],
+                                    [
+                                        'account_id' => $creditAccountId,
+                                        'debit' => 0,
+                                        'credit' => $data['amount'],
+                                    ],
+                                ],
+                                $data['date']
+                            );
+                        }
+
+                        Notification::make()
+                            ->title('Payment Recorded')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('add_late_fee')
+                    ->label('Add Late Fee')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('warning')
+                    ->visible(fn (Invoice $record) => $record->status !== Invoice::STATUS_PAID && $record->status !== 'cancelled')
+                    ->form([
+                        TextInput::make('late_fee_amount')
+                            ->label('Late Fee Amount')
+                            ->required()
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->minValue(1),
+                        Textarea::make('reason')
+                            ->label('Reason')
+                            ->required(),
+                    ])
+                    ->action(function (Invoice $record, array $data) {
+                        $record->late_fee = ($record->late_fee ?? 0) + $data['late_fee_amount'];
+                        $record->notes .= "\n[Late Fee] Rp " . number_format($data['late_fee_amount'], 0, ',', '.') . " - Reason: " . $data['reason'];
+                        $record->save();
+                        
+                        // Recalculate totals
+                        $record->recalculate();
+
+                        Notification::make()
+                            ->title('Late Fee Added')
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
                 Action::make('change_status')
@@ -149,6 +271,14 @@ class InvoiceResource extends Resource
     {
         return [
             RentalsRelationManager::class,
+            \App\Filament\Resources\Invoices\RelationManagers\FinanceTransactionsRelationManager::class,
+        ];
+    }
+
+    public static function getWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\Invoices\Widgets\InvoiceStatsOverview::class,
         ];
     }
 

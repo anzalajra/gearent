@@ -28,14 +28,10 @@
         }
         .flatpickr-day.partial-day {
             background: linear-gradient(135deg, #fee2e2 50%, transparent 50%);
-            border-color: transparent;
+            border: 1px solid #fee2e2;
         }
         .flatpickr-day.partial-day:hover {
-            background: linear-gradient(135deg, #fee2e2 50%, #e6e6e6 50%);
-        }
-        .flatpickr-day.partial-day.selected {
-            background: #3b82f6 !important;
-            border-color: #3b82f6 !important;
+            background: linear-gradient(135deg, #fecaca 50%, #f3f4f6 50%);
         }
     </style>
 @endpush
@@ -417,7 +413,8 @@
                 });
             }
 
-            const availabilityData = @json($availabilityData);
+            const bookedDates = @json($bookedDates);
+            const partialDates = @json($partialDates ?? []);
             const operationalDays = @json($operationalDays);
             const holidays = @json($holidays).map(h => h.date);
 
@@ -522,10 +519,10 @@
                     if (isClosed(dayElem.dateObj)) {
                         dayElem.classList.add('closed-day');
                     }
-                    const partial = getPartialInfo(dayElem.dateObj);
-                    if (partial) {
+                    
+                    const dateStr = fp.formatDate(dObj, "Y-m-d");
+                    if (partialDates.includes(dateStr)) {
                         dayElem.classList.add('partial-day');
-                        dayElem.title = `Available after ${partial.start_time}`;
                     }
                 },
                 onChange: function(selectedDates, dateStr, instance) {

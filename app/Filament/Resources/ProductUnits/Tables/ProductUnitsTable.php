@@ -73,6 +73,24 @@ class ProductUnitsTable
                     ->toggleable()
                     ->visibleFrom('md'),
 
+                TextColumn::make('current_value')
+                    ->label('Current Value')
+                    ->money('IDR')
+                    ->getStateUsing(fn ($record) => $record->current_value)
+                    ->sortable(false)
+                    ->toggleable()
+                    ->visibleFrom('lg')
+                    ->helperText('Depreciated Value'),
+
+                TextColumn::make('profitability')
+                    ->label('Profit/Loss')
+                    ->money('IDR')
+                    ->getStateUsing(fn ($record) => $record->calculateProfitability())
+                    ->color(fn (string $state): string => $state >= 0 ? 'success' : 'danger')
+                    ->sortable(false)
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->helperText('Rev - Maint - Cost'),
+
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

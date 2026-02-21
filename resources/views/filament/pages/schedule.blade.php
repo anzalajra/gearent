@@ -20,7 +20,7 @@
                 <div class="flex flex-wrap gap-4">
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 rounded" style="background: #f97316;"></div>
-                    <span class="text-sm">Pending</span>
+                    <span class="text-sm">Quotation</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>
@@ -170,7 +170,7 @@
                                                 }
                                                 
                                                 $colorMap = [
-                                                    'pending' => ['bg' => 'bg-orange-500', 'text' => 'text-white'],
+                                                    'quotation' => ['bg' => 'bg-orange-500', 'text' => 'text-white'],
                                                     'confirmed' => ['bg' => 'bg-blue-500', 'text' => 'text-white'],
                                                     'active' => ['bg' => 'bg-green-500', 'text' => 'text-white'],
                                                     'completed' => ['bg' => 'bg-purple-500', 'text' => 'text-white'],
@@ -234,7 +234,7 @@
             {{-- Legend --}}
             <div class="flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-white dark:bg-gray-900 p-3 rounded-xl border border-gray-200 dark:border-white/10">
                 <span class="mr-2">Status Legend:</span>
-                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-orange-500"></div> Pending</div>
+                <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-orange-500"></div> Quotation</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-blue-500"></div> Confirmed</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-green-500"></div> Active</div>
                 <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-purple-500"></div> Completed</div>

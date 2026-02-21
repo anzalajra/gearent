@@ -5,14 +5,19 @@ namespace App\Filament\Resources\Maintenances;
 use App\Filament\Resources\Maintenances\Pages\ManageMaintenances;
 use App\Models\ProductUnit;
 use App\Models\UnitKit;
+use App\Models\MaintenanceRecord;
+use App\Models\FinanceTransaction;
+use App\Models\FinanceAccount;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -203,6 +208,68 @@ class MaintenanceResource extends Resource
                             ->send();
                     }),
 
+                \Filament\Actions\Action::make('record_expense')
+                    ->label('Record Cost')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('danger')
+                    ->visible(fn ($record) => $record && (
+                        in_array($record->condition, ['broken', 'lost']) || 
+                        $record->status === 'maintenance' ||
+                        $record->kits()->whereIn('condition', ['broken', 'lost'])->exists()
+                    ))
+                    ->form([
+                        TextInput::make('title')
+                            ->label('Expense Title')
+                            ->placeholder('e.g. Sparepart Replacement')
+                            ->required(),
+                        TextInput::make('cost')
+                            ->label('Amount')
+                            ->numeric()
+                            ->prefix('Rp')
+                            ->required(),
+                        Select::make('finance_account_id')
+                            ->label('Source Account')
+                            ->options(FinanceAccount::pluck('name', 'id'))
+                            ->required(),
+                        DatePicker::make('date')
+                            ->default(now())
+                            ->required(),
+                        Textarea::make('notes')
+                            ->label('Notes'),
+                    ])
+                    ->action(function (ProductUnit $record, array $data) {
+                        DB::transaction(function () use ($record, $data) {
+                            // Create Maintenance Record
+                            $maintenanceRecord = MaintenanceRecord::create([
+                                'product_unit_id' => $record->id,
+                                'technician_id' => \Illuminate\Support\Facades\Auth::id(),
+                                'title' => $data['title'],
+                                'description' => $data['notes'],
+                                'cost' => $data['cost'],
+                                'date' => $data['date'],
+                                'status' => 'in_progress',
+                            ]);
+
+                            // Create Finance Transaction
+                            FinanceTransaction::create([
+                                'finance_account_id' => $data['finance_account_id'],
+                                'user_id' => \Illuminate\Support\Facades\Auth::id(),
+                                'type' => FinanceTransaction::TYPE_EXPENSE,
+                                'amount' => $data['cost'],
+                                'date' => $data['date'],
+                                'category' => 'Maintenance',
+                                'description' => "Maintenance Cost: {$record->product->name} ({$record->serial_number}) - {$data['title']}",
+                                'reference_type' => MaintenanceRecord::class,
+                                'reference_id' => $maintenanceRecord->id,
+                            ]);
+                        });
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Expense Recorded')
+                            ->success()
+                            ->send();
+                    }),
+
                 \Filament\Actions\Action::make('update_progress')
                     ->label('Update Progress')
                     ->icon('heroicon-o-pencil-square')
@@ -304,6 +371,14 @@ class MaintenanceResource extends Resource
                                 $updates['status'] = ProductUnit::STATUS_AVAILABLE;
                                 $updates['condition'] = $data['condition'];
                                 
+                                // Close any active maintenance records
+                                $record->maintenanceRecords()
+                                    ->whereIn('status', ['pending', 'in_progress'])
+                                    ->update([
+                                        'status' => 'completed',
+                                        'description' => DB::raw("CONCAT(description, '\n[RESOLVED " . now()->format('Y-m-d') . "] " . $data['resolution'] . ": " . $data['notes'] . "')")
+                                    ]);
+
                                 // Update Kits
                                 if (isset($data['kit_updates']) && is_array($data['kit_updates'])) {
                                     foreach ($data['kit_updates'] as $kitData) {

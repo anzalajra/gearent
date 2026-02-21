@@ -8,12 +8,18 @@ use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Delivery;
 use App\Models\Rental;
 use App\Models\Quotation;
+use App\Models\FinanceTransaction;
+use App\Models\FinanceAccount;
+use App\Services\JournalService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -66,16 +72,194 @@ class RentalsTable
                     ->color('info')
                     ->requiresConfirmation()
                     ->modalHeading('Confirm Rental')
-                    ->modalDescription('Are you sure you want to confirm this rental? This will change status to Confirmed and allow pickup.')
-                    ->modalSubmitActionLabel('Yes, Confirm')
-                    ->action(function (Rental $record) {
+                    ->modalDescription(fn (Rental $record) => $record->down_payment_amount > 0 && $record->down_payment_status !== 'paid' 
+                        ? 'This rental requires a Down Payment. Please confirm receipt to lock the schedule.' 
+                        : ($record->total == 0 
+                            ? 'This rental has a total value of 0. Do you want to confirm it?'
+                            : 'Are you sure you want to confirm this rental? This will change status to Confirmed and allow pickup.'))
+                    ->form(function (Rental $record) {
+                        $form = [];
+                        
+                        // Check for existing payments
+                        $existingPayment = FinanceTransaction::where(function ($query) use ($record) {
+                            $query->where('reference_type', Rental::class)
+                                ->where('reference_id', $record->id);
+                            
+                            if ($record->quotation_id) {
+                                $query->orWhere(function ($q) use ($record) {
+                                    $q->where('reference_type', Quotation::class)
+                                        ->where('reference_id', $record->quotation_id);
+                                });
+                            }
+                        })
+                        ->where('type', FinanceTransaction::TYPE_INCOME)
+                        ->sum('amount');
+                        $isPaidEnough = $existingPayment >= $record->down_payment_amount;
+
+                        if ($record->down_payment_amount > 0 && $record->down_payment_status !== 'paid') {
+                            $form[] = \Filament\Forms\Components\Placeholder::make('dp_info')
+                                ->label('Down Payment Amount')
+                                ->content('Rp ' . number_format($record->down_payment_amount, 0, ',', '.'));
+                            
+                            if ($isPaidEnough) {
+                                $form[] = \Filament\Forms\Components\Placeholder::make('payment_detected')
+                                    ->label('Payment Detected')
+                                    ->content('A payment of Rp ' . number_format($existingPayment, 0, ',', '.') . ' has already been recorded. Confirming will mark DP as paid.')
+                                    ->extraAttributes(['class' => 'text-success-600 font-bold']);
+                                
+                                $form[] = \Filament\Forms\Components\Hidden::make('payment_already_recorded')->default(true);
+                                $form[] = \Filament\Forms\Components\Hidden::make('mark_dp_paid')->default(true);
+                            } else {
+                                $form[] = \Filament\Forms\Components\Toggle::make('mark_dp_paid')
+                                    ->label('Mark Down Payment as Paid')
+                                    ->helperText('Required to confirm this rental.')
+                                    ->required();
+                                
+                                $form[] = \Filament\Forms\Components\Select::make('finance_account_id')
+                                    ->label('Deposit To Account')
+                                    ->options(\App\Models\FinanceAccount::where('is_active', true)->pluck('name', 'id'))
+                                    ->required()
+                                    ->visible(fn ($get) => $get('mark_dp_paid'));
+    
+                                $form[] = \Filament\Forms\Components\Select::make('payment_method')
+                                    ->label('Payment Method')
+                                    ->options([
+                                        'Cash' => 'Cash',
+                                        'Transfer' => 'Bank Transfer',
+                                        'QRIS' => 'QRIS',
+                                        'Credit Card' => 'Credit Card',
+                                    ])
+                                    ->required()
+                                    ->visible(fn ($get) => $get('mark_dp_paid'));
+                            }
+                        }
+                        
+                        if ($record->total == 0) {
+                            $form[] = \Filament\Forms\Components\Radio::make('create_invoice_choice')
+                                ->label('Create Invoice?')
+                                ->options([
+                                    'yes' => 'Yes, create invoice',
+                                    'no' => 'No, skip invoice'
+                                ])
+                                ->default('no')
+                                ->required();
+                        }
+                        return $form;
+                    })
+                    ->action(function (Rental $record, array $data) {
+                        $dpTransaction = null;
+                        
+                        if ($record->down_payment_amount > 0 && $record->down_payment_status !== 'paid') {
+                            $paymentAlreadyRecorded = $data['payment_already_recorded'] ?? false;
+
+                            if (!$paymentAlreadyRecorded && empty($data['mark_dp_paid'])) {
+                                Notification::make()
+                                    ->title('Confirmation Failed')
+                                    ->body('Down payment must be paid to confirm.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+                            $record->update(['down_payment_status' => 'paid']);
+                            
+                            if (!$paymentAlreadyRecorded) {
+                                // Create Income Transaction for DP
+                                $dpTransaction = new \App\Models\FinanceTransaction([
+                                    'finance_account_id' => $data['finance_account_id'],
+                                    'user_id' => Auth::id(),
+                                    'type' => \App\Models\FinanceTransaction::TYPE_INCOME,
+                                    'amount' => $record->down_payment_amount,
+                                    'date' => now(),
+                                    'category' => 'Down Payment',
+                                    'description' => 'Down Payment for Rental ' . $record->rental_code,
+                                    'payment_method' => $data['payment_method'],
+                                ]);
+                                // Initially link to Rental, will update to Invoice if created
+                                $dpTransaction->reference()->associate($record);
+                                $dpTransaction->save();
+                            }
+                        }
+
                         $record->update(['status' => Rental::STATUS_CONFIRMED]);
+                        
+                        // Update Quotation Status
+                        if ($record->quotation_id) {
+                            $quotation = Quotation::find($record->quotation_id);
+                            if ($quotation) {
+                                $quotation->update(['status' => Quotation::STATUS_ACCEPTED]);
+                            }
+                        }
+
+                        // Invoice Creation Logic
+                        $shouldCreateInvoice = $record->total > 0;
+                        if ($record->total == 0 && isset($data['create_invoice_choice']) && $data['create_invoice_choice'] === 'yes') {
+                            $shouldCreateInvoice = true;
+                        }
+
+                        if ($shouldCreateInvoice && !$record->invoice_id) {
+                            $invoice = \App\Models\Invoice::create([
+                                'user_id' => $record->user_id,
+                                'quotation_id' => $record->quotation_id,
+                                'date' => now(),
+                                'due_date' => now()->addDays(7),
+                                'status' => \App\Models\Invoice::STATUS_WAITING_FOR_PAYMENT,
+                                'subtotal' => $record->subtotal,
+                                'tax' => 0,
+                                'total' => $record->total,
+                                'notes' => 'Generated from Rental ' . $record->rental_code,
+                            ]);
+                            
+                            // Move all payments (DP, etc) from Rental/Quotation to Invoice
+                            $existingTransactions = FinanceTransaction::where(function ($query) use ($record) {
+                                $query->where('reference_type', Rental::class)
+                                    ->where('reference_id', $record->id);
+                                
+                                if ($record->quotation_id) {
+                                    $query->orWhere(function ($q) use ($record) {
+                                        $q->where('reference_type', Quotation::class)
+                                            ->where('reference_id', $record->quotation_id);
+                                    });
+                                }
+                            })
+                            ->where('type', FinanceTransaction::TYPE_INCOME)
+                            ->get();
+
+                            $totalPaid = 0;
+
+                            foreach ($existingTransactions as $transaction) {
+                                $transaction->reference()->associate($invoice);
+                                if (!str_contains($transaction->description, 'Invoice #')) {
+                                    $transaction->description = $transaction->description . ' (Inv #' . $invoice->number . ')';
+                                }
+                                $transaction->save();
+                                
+                                $totalPaid += $transaction->amount;
+                            }
+                            
+                            $invoice->paid_amount = $totalPaid;
+                            
+                            // Update Status if fully paid
+                            if ($invoice->paid_amount >= $invoice->total) {
+                                $invoice->status = \App\Models\Invoice::STATUS_PAID;
+                            } elseif ($invoice->paid_amount > 0) {
+                                $invoice->status = \App\Models\Invoice::STATUS_PARTIAL;
+                            }
+                            $invoice->save();
+                            
+                            $record->update(['invoice_id' => $invoice->id]);
+                            
+                            Notification::make()
+                                ->title('Invoice created')
+                                ->success()
+                                ->send();
+                        }
+
                         Notification::make()
                             ->title('Rental confirmed')
                             ->success()
                             ->send();
                     })
-                    ->visible(fn (Rental $record) => $record->status === Rental::STATUS_PENDING),
+                    ->visible(fn (Rental $record) => $record->status === Rental::STATUS_QUOTATION),
 
                 // Pickup button
                 Action::make('pickup')
@@ -98,6 +282,202 @@ class RentalsTable
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_RETURN,
                     ])),
+
+                // Finance Actions Group
+                ActionGroup::make([
+                    // Record DP / Payment
+                    Action::make('record_payment')
+                        ->label('Record Payment/DP')
+                        ->icon('heroicon-o-banknotes')
+                        ->form([
+                            Select::make('finance_account_id')
+                                ->label('Account')
+                                ->options(FinanceAccount::pluck('name', 'id'))
+                                ->required(),
+                            TextInput::make('amount')
+                                ->label('Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->required(),
+                            DatePicker::make('transaction_date')
+                                ->default(now())
+                                ->required(),
+                            Textarea::make('description')
+                                ->default(fn (Rental $record) => 'Payment for Rental ' . $record->rental_code),
+                        ])
+                        ->action(function (Rental $record, array $data) {
+                            FinanceTransaction::create([
+                                'finance_account_id' => $data['finance_account_id'],
+                                'type' => 'income',
+                                'amount' => $data['amount'],
+                                'description' => $data['description'],
+                                'category' => 'Rental Payment',
+                                'reference_type' => Rental::class,
+                                'reference_id' => $record->id,
+                                'date' => $data['transaction_date'],
+                            ]);
+                            
+                            // Auto Journal handled by Observer
+
+                            Notification::make()->title('Payment Recorded')->success()->send();
+                        }),
+
+                    // Receive Security Deposit
+                    Action::make('receive_deposit')
+                        ->label('Receive Deposit')
+                        ->icon('heroicon-o-shield-check')
+                        ->color('success')
+                        ->visible(fn (Rental $record) => $record->deposit > 0 && $record->security_deposit_status === 'pending')
+                        ->form([
+                            Select::make('finance_account_id')
+                                ->label('Account')
+                                ->options(FinanceAccount::pluck('name', 'id'))
+                                ->required(),
+                            TextInput::make('amount')
+                                ->label('Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default(fn (Rental $record) => $record->deposit)
+                                ->required(),
+                            DatePicker::make('transaction_date')
+                                ->default(now())
+                                ->required(),
+                        ])
+                        ->action(function (Rental $record, array $data) {
+                            FinanceTransaction::create([
+                                'finance_account_id' => $data['finance_account_id'],
+                                'type' => FinanceTransaction::TYPE_DEPOSIT_IN,
+                                'amount' => $data['amount'],
+                                'description' => 'Security Deposit for Rental ' . $record->rental_code,
+                                'category' => 'Security Deposit In',
+                                'reference_type' => Rental::class,
+                                'reference_id' => $record->id,
+                                'date' => $data['transaction_date'],
+                            ]);
+                            
+                            // Auto Journal handled by Observer
+
+                            $record->update([
+                                'security_deposit_status' => 'held',
+                                'security_deposit_amount' => $data['amount'],
+                            ]);
+                            Notification::make()->title('Deposit Received')->success()->send();
+                        }),
+
+                    // Refund Security Deposit
+                    Action::make('refund_deposit')
+                        ->label('Refund Deposit')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('warning')
+                        ->visible(fn (Rental $record) => $record->security_deposit_status === 'held')
+                        ->form([
+                            Select::make('finance_account_id')
+                                ->label('Account')
+                                ->options(FinanceAccount::pluck('name', 'id'))
+                                ->required(),
+                            TextInput::make('amount')
+                                ->label('Refund Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default(fn (Rental $record) => $record->security_deposit_amount > 0 ? $record->security_deposit_amount : $record->deposit)
+                                ->required(),
+                            TextInput::make('deduction')
+                                ->label('Deduction (Damage/Late)')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default(0),
+                            DatePicker::make('transaction_date')
+                                ->default(now())
+                                ->required(),
+                            Textarea::make('notes')
+                                ->label('Refund Notes'),
+                        ])
+                        ->action(function (Rental $record, array $data) {
+                            $deduction = $data['deduction'] ?? 0;
+                            $refundAmount = $data['amount'];
+                            $notes = $data['notes'] ?? '';
+                            $transactionDate = $data['transaction_date'];
+
+                            // Outgoing Refund
+                            if ($refundAmount > 0) {
+                                FinanceTransaction::create([
+                                    'finance_account_id' => $data['finance_account_id'],
+                                    'type' => FinanceTransaction::TYPE_DEPOSIT_OUT,
+                                    'amount' => $refundAmount,
+                                    'description' => 'Deposit Refund: ' . $record->rental_code,
+                                    'category' => 'Security Deposit Refund',
+                                    'reference_type' => Rental::class,
+                                    'reference_id' => $record->id,
+                                    'date' => $transactionDate,
+                                ]);
+                            }
+
+                            // Record Deduction as Income if any
+                            if ($deduction > 0) {
+                                FinanceTransaction::create([
+                                    'finance_account_id' => $data['finance_account_id'],
+                                    'type' => FinanceTransaction::TYPE_INCOME,
+                                    'amount' => $deduction,
+                                    'description' => 'Deposit Deduction: ' . $record->rental_code,
+                                    'category' => 'Security Deposit Deduction',
+                                    'reference_type' => Rental::class,
+                                    'reference_id' => $record->id,
+                                    'date' => $transactionDate,
+                                ]);
+                            }
+
+                            $record->update([
+                                'security_deposit_status' => 'refunded',
+                                'security_deposit_amount' => 0, // Reset held amount
+                            ]);
+                            Notification::make()->title('Deposit Refunded')->success()->send();
+                        }),
+
+                    // Add Late Fee
+                    Action::make('add_late_fee')
+                        ->label('Add Late Fee')
+                        ->icon('heroicon-o-clock')
+                        ->color('danger')
+                        ->form([
+                            TextInput::make('late_fee')
+                                ->label('Late Fee Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->default(fn (Rental $record) => $record->late_fee)
+                                ->required(),
+                        ])
+                        ->action(function (Rental $record, array $data) {
+                            $record->update(['late_fee' => $data['late_fee']]);
+                            $record->recalculateTotal();
+
+                            if ($record->invoice_id) {
+                                $invoice = \App\Models\Invoice::find($record->invoice_id);
+                                if ($invoice) {
+                                    $previousStatus = $invoice->status;
+                                    $invoice->recalculate();
+
+                                    if ($previousStatus === \App\Models\Invoice::STATUS_PAID && $invoice->status !== \App\Models\Invoice::STATUS_PAID) {
+                                        Notification::make()
+                                            ->title('Invoice Reopened')
+                                            ->body('Late fee added. Invoice status reverted to Partial due to new outstanding balance.')
+                                            ->warning()
+                                            ->send();
+                                    } else {
+                                        Notification::make()
+                                            ->title('Late Fee Added')
+                                            ->body('Rental and Invoice totals have been updated.')
+                                            ->success()
+                                            ->send();
+                                    }
+                                }
+                            } else {
+                                Notification::make()->title('Late Fee Updated')->success()->send();
+                            }
+                        }),
+                ])
+                ->label('Finance')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('success'),
 
                 // PDF Actions Group
                 ActionGroup::make([
@@ -124,7 +504,8 @@ class RentalsTable
                             );
                         }),
 
-                    // Make Quotation
+                    // Make Quotation - REMOVED as per request (auto-quotation)
+                    /*
                     Action::make('make_quotation')
                         ->label('Make Quotation')
                         ->icon('heroicon-o-document-plus')
@@ -170,6 +551,7 @@ class RentalsTable
                             // Using a small buffer (e.g. 1 minute) to avoid immediate re-show
                             return $record->updated_at->gt($quotation->created_at->addMinutes(1));
                         }),
+                    */
 
                     // Download Quotation
                     Action::make('download_quotation')
@@ -177,7 +559,7 @@ class RentalsTable
                         ->icon('heroicon-o-document-text')
                         ->color('gray')
                         ->action(function (Rental $record) {
-                            $quotation = Quotation::with(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->quotation_id);
+                            $quotation = Quotation::with(['user', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit'])->find($record->quotation_id);
                             
                             if (!$quotation) {
                                 Notification::make()
@@ -194,32 +576,7 @@ class RentalsTable
                                 'Quotation-' . $quotation->number . '.pdf'
                             );
                         })
-                        ->visible(function (Rental $record) {
-                            // If invoice exists, do not show Download Quotation (level up)
-                            if ($record->invoice_id) {
-                                return false;
-                            }
-
-                            // Visible if quotation exists AND (rental NOT modified OR Make Quotation is hidden)
-                            // Actually, just "Visible if quotation exists" is simpler, but user said "buttons change".
-                            // If "Make Quotation" is visible, "Download" should probably be hidden?
-                            // User said: "kalau rental sudah terdeteksi ada di quotation, tidak bisa buat quotation lagi... semua tombol ganti jadi 'download quotation'"
-                            // AND "kecuali rental ada edit... quotation bisa dibuat lagi".
-                            // So if "Make" is visible, "Download" should be hidden.
-                            
-                            if (!$record->quotation_id) {
-                                return false;
-                            }
-
-                            $quotation = Quotation::find($record->quotation_id);
-                            if (!$quotation) {
-                                return false;
-                            }
-
-                            // If rental modified after quotation, show "Make", hide "Download"?
-                            // Or show both? User said "ganti jadi", implies swap.
-                            return !$record->updated_at->gt($quotation->created_at->addMinutes(1));
-                        }),
+                        ->visible(fn (Rental $record) => $record->quotation_id),
 
                     // Download Invoice
                     Action::make('download_invoice')
@@ -274,7 +631,7 @@ class RentalsTable
                             ->send();
                     })
                     ->visible(fn (Rental $record) => in_array($record->getRealTimeStatus(), [
-                        Rental::STATUS_PENDING,
+                        Rental::STATUS_QUOTATION,
                         Rental::STATUS_CONFIRMED,
                         Rental::STATUS_LATE_PICKUP,
                     ])),

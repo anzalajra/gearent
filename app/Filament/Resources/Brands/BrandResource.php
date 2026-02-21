@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Brands;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Filament\Resources\Brands\Pages\CreateBrand;
 use App\Filament\Resources\Brands\Pages\EditBrand;
 use App\Filament\Resources\Brands\Pages\ListBrands;
@@ -18,7 +19,7 @@ class BrandResource extends Resource
 {
     protected static ?string $model = Brand::class;
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static ?string $cluster = SettingsCluster::class;
 
     protected static ?string $recordTitleAttribute = 'name';
 

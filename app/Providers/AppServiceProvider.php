@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Models\Rental;
 use App\Models\Setting;
+use App\Models\FinanceTransaction;
+use App\Models\JournalEntryItem;
+use App\Observers\FinanceTransactionObserver;
+use App\Observers\JournalEntryItemObserver;
 use App\Observers\RentalObserver;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -21,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Rental::observe(RentalObserver::class);
+        FinanceTransaction::observe(FinanceTransactionObserver::class);
+        JournalEntryItem::observe(JournalEntryItemObserver::class);
     
         Gate::policy(Cart::class, CartPolicy::class);
 

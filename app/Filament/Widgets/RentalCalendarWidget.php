@@ -122,7 +122,7 @@ class RentalCalendarWidget extends FullCalendarWidget implements HasActions
 
         return $rentals->map(function (Rental $rental) {
             $color = match ($rental->status) {
-                'pending' => '#f97316', // Orange
+                'quotation' => '#f97316', // Orange
                 'confirmed' => '#3b82f6', // Blue
                 'active' => '#22c55e', // Green
                 'completed' => '#a855f7', // Purple

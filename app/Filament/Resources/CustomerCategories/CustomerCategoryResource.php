@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CustomerCategories;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Filament\Resources\CustomerCategories\Pages\CreateCustomerCategory;
 use App\Filament\Resources\CustomerCategories\Pages\EditCustomerCategory;
 use App\Filament\Resources\CustomerCategories\Pages\ListCustomerCategories;
@@ -19,9 +20,11 @@ class CustomerCategoryResource extends Resource
 {
     protected static ?string $model = CustomerCategory::class;
 
+    protected static ?string $cluster = SettingsCluster::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Setting';
+    protected static string|UnitEnum|null $navigationGroup = 'Customer Categories';
 
     protected static ?int $navigationSort = 4;
 

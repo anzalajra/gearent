@@ -12,14 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Update ProductUnit status enum
-        DB::statement("ALTER TABLE product_units MODIFY COLUMN status ENUM('available', 'scheduled', 'rented', 'maintenance', 'retired') NOT NULL DEFAULT 'available'");
-        
-        // Update Rental status enum
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return') NOT NULL DEFAULT 'pending'");
-
-        // Update Delivery status enum
-        DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'pending', 'completed', 'cancelled') NOT NULL DEFAULT 'draft'");
+        if (DB::getDriverName() !== 'sqlite') {
+            // Update ProductUnit status enum
+            DB::statement("ALTER TABLE product_units MODIFY COLUMN status ENUM('available', 'scheduled', 'rented', 'maintenance', 'retired') NOT NULL DEFAULT 'available'");
+            
+            // Update Rental status enum
+            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return') NOT NULL DEFAULT 'pending'");
+    
+            // Update Delivery status enum
+            DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'pending', 'completed', 'cancelled') NOT NULL DEFAULT 'draft'");
+        }
     }
 
     /**
@@ -27,8 +29,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE product_units MODIFY COLUMN status ENUM('available', 'rented', 'maintenance', 'retired') NOT NULL DEFAULT 'available'");
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'active', 'completed', 'cancelled') NOT NULL DEFAULT 'pending'");
-        DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'completed') NOT NULL DEFAULT 'draft'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE product_units MODIFY COLUMN status ENUM('available', 'rented', 'maintenance', 'retired') NOT NULL DEFAULT 'available'");
+            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'active', 'completed', 'cancelled') NOT NULL DEFAULT 'pending'");
+            DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'completed') NOT NULL DEFAULT 'draft'");
+        }
     }
 };

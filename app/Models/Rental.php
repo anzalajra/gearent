@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Services\TaxService;
+
 class Rental extends Model
 {
     protected $fillable = [
@@ -23,9 +25,22 @@ class Rental extends Model
         'discount',
         'discount_type',
         'total',
+        'late_fee',
         'deposit',
         'deposit_type',
+        'security_deposit_amount',
+        'security_deposit_status',
+        'down_payment_amount',
+        'down_payment_status',
         'notes',
+        'tax_base',
+        'ppn_rate',
+        'tax_name',
+        'ppn_amount',
+        'pph_rate',
+        'pph_amount',
+        'price_includes_tax',
+        'is_taxable',
     ];
 
     protected $casts = [
@@ -35,10 +50,20 @@ class Rental extends Model
         'subtotal' => 'decimal:2',
         'discount' => 'decimal:2',
         'total' => 'decimal:2',
+        'late_fee' => 'decimal:2',
         'deposit' => 'decimal:2',
+        'security_deposit_amount' => 'decimal:2',
+        'down_payment_amount' => 'decimal:2',
+        'tax_base' => 'decimal:2',
+        'ppn_rate' => 'decimal:2',
+        'ppn_amount' => 'decimal:2',
+        'pph_rate' => 'decimal:2',
+        'pph_amount' => 'decimal:2',
+        'price_includes_tax' => 'boolean',
+        'is_taxable' => 'boolean',
     ];
 
-    public const STATUS_PENDING = 'pending';
+    public const STATUS_QUOTATION = 'quotation';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_COMPLETED = 'completed';
@@ -138,6 +163,11 @@ class Rental extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    public function journalEntry(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(JournalEntry::class, 'reference');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(RentalItem::class);
@@ -151,7 +181,7 @@ class Rental extends Model
     public static function getStatusOptions(): array
     {
         return [
-            self::STATUS_PENDING => 'Pending',
+            self::STATUS_QUOTATION => 'Quotation',
             self::STATUS_CONFIRMED => 'Confirmed',
             self::STATUS_ACTIVE => 'Active',
             self::STATUS_COMPLETED => 'Completed',
@@ -165,7 +195,7 @@ class Rental extends Model
     public static function getStatusColor(string $status): string
     {
         return match ($status) {
-            self::STATUS_PENDING => 'warning',
+            self::STATUS_QUOTATION => 'warning',
             self::STATUS_CONFIRMED => 'info',
             self::STATUS_ACTIVE => 'success',
             self::STATUS_COMPLETED => 'purple',
@@ -182,7 +212,7 @@ class Rental extends Model
     public function canBeEdited(): bool
     {
         return in_array($this->status, [
-            self::STATUS_PENDING,
+            self::STATUS_QUOTATION,
             self::STATUS_CONFIRMED,
             self::STATUS_LATE_PICKUP,
             self::STATUS_ACTIVE,
@@ -202,7 +232,7 @@ class Rental extends Model
 
         $now = now();
 
-        if ($this->status === self::STATUS_PENDING && $this->start_date < $now) {
+        if ($this->status === self::STATUS_QUOTATION && $this->start_date < $now) {
             return self::STATUS_LATE_PICKUP;
         }
 
@@ -234,7 +264,7 @@ class Rental extends Model
         $now = now();
         $newStatus = $this->status;
 
-        if ($this->status === self::STATUS_PENDING && $this->start_date < $now) {
+        if ($this->status === self::STATUS_QUOTATION && $this->start_date < $now) {
             $newStatus = self::STATUS_LATE_PICKUP;
         }
 
@@ -314,7 +344,7 @@ class Rental extends Model
 
             // Check if any of the conflicting units are already rented in an overlapping period
             $conflictingRentals = self::where('id', '!=', $this->id)
-                ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
+                ->whereIn('status', [self::STATUS_QUOTATION, self::STATUS_CONFIRMED, self::STATUS_ACTIVE, self::STATUS_LATE_PICKUP, self::STATUS_LATE_RETURN])
                 ->where(function ($query) {
                     $query->whereBetween('start_date', [$this->start_date, $this->end_date])
                         ->orWhereBetween('end_date', [$this->start_date, $this->end_date])
@@ -491,7 +521,7 @@ class Rental extends Model
      */
     public function canBeDeleted(): bool
     {
-        return $this->status === self::STATUS_PENDING;
+        return $this->status === self::STATUS_QUOTATION;
     }
 
     public function applyDiscount(Discount $discount): void
@@ -521,8 +551,10 @@ class Rental extends Model
 
     public function recalculateTotal(): void
     {
+        // 1. Calculate Subtotal (Items)
         $this->subtotal = $this->items()->sum('subtotal');
         
+        // 2. Calculate Discount
         $discountAmount = 0;
         if ($this->discountRelation) {
             $discountAmount = $this->discountRelation->calculateDiscount($this->subtotal);
@@ -534,8 +566,61 @@ class Rental extends Model
             }
         }
         
-        $this->total = max(0, $this->subtotal - $discountAmount);
-        // Deposit is not overwritten automatically anymore.
+        // 3. Calculate Tax Base (DPP)
+        // DPP = (Subtotal - Discount) + Late Fee
+        $netSubtotal = max(0, $this->subtotal - $discountAmount);
+        $lateFee = $this->late_fee ?? 0;
+        $taxableAmount = $netSubtotal + $lateFee;
+        
+        // 4. Calculate Tax (Using TaxService for International Support)
+        // Retrieve Customer
+        $customer = $this->user ?? User::find($this->user_id);
+        
+        $taxResult = TaxService::calculateTax(
+            $taxableAmount, 
+            $this->is_taxable, 
+            $this->price_includes_tax,
+            $customer
+        );
+
+        $this->tax_base = $taxResult['tax_base'];
+        $this->ppn_amount = $taxResult['tax_amount'];
+        $this->ppn_rate = $taxResult['tax_rate'];
+        $this->tax_name = $taxResult['tax_name'];
+        
+        // PPh Calculation (if applicable) - kept separate as it is withholding tax
+        $pphAmount = 0;
+        $taxEnabled = filter_var(\App\Models\Setting::get('tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
+
+        if ($taxEnabled && $this->is_taxable && $this->pph_rate > 0) {
+            $pphAmount = $this->tax_base * ($this->pph_rate / 100);
+        }
+        $this->pph_amount = $pphAmount;
+        
+        // 5. Calculate Final Total
+        // Total = TaxableAmount (if inclusive) OR (TaxableAmount + Tax) (if exclusive)
+        // PLUS Deposit (Non-taxable)
+        
+        $totalBill = 0;
+        if ($this->is_taxable && !$this->price_includes_tax) {
+            $totalBill = $taxableAmount + $this->ppn_amount;
+        } else {
+            $totalBill = $taxableAmount;
+        }
+        
+        // Add Deposit
+        // Deposit calculation based on Net Subtotal (Rental Value)
+        $depositValue = 0;
+        if ($this->deposit_type === 'percent') {
+             $depositValue = $netSubtotal * ($this->deposit / 100);
+        } else {
+             $depositValue = $this->deposit;
+        }
+        
+        $this->security_deposit_amount = $depositValue;
+        
+        $this->total = $totalBill + $depositValue;
+        
         $this->save();
     }
 
@@ -549,8 +634,12 @@ class Rental extends Model
 
     public function getDepositAmountAttribute(): float
     {
+        // Deposit based on Subtotal - Discount (Net Rental Value)
+        $discountAmount = $this->discount_amount;
+        $netSubtotal = max(0, $this->subtotal - $discountAmount);
+
         if ($this->deposit_type === 'percent') {
-            return $this->total * ($this->deposit / 100);
+            return $netSubtotal * ($this->deposit / 100);
         }
         return (float) $this->deposit;
     }
@@ -605,29 +694,50 @@ class Rental extends Model
     }
 
 
+    /**
+     * Calculate late fee based on overdue days
+     */
+    public function calculateOverdueFee(): float
+    {
+        if ($this->end_date->isFuture()) {
+            return 0;
+        }
+
+        $overdueDays = $this->end_date->diffInDays(now(), false);
+        
+        if ($overdueDays <= 0) {
+            return 0;
+        }
+
+        // Calculate total daily rate of all items
+        $totalDailyRate = $this->items->sum(function ($item) {
+            return $item->daily_rate * ($item->quantity ?? 1);
+        });
+
+        return round($totalDailyRate * $overdueDays, 2);
+    }
+
     public function validateReturn(): void
     {
-        // Check if there are any pending/draft IN deliveries
-        // If there are pending deliveries, it means not all items are returned/checked yet.
-        $hasPendingDeliveries = $this->deliveries()
-            ->where('type', Delivery::TYPE_IN)
-            ->whereIn('status', [Delivery::STATUS_DRAFT, Delivery::STATUS_PENDING])
-            ->exists();
-            
-        if ($hasPendingDeliveries) {
-            return;
+        // Check if all items (main units and kits) in Delivery IN are checked
+        $deliveryIn = $this->deliveries->where('type', Delivery::TYPE_IN)->first();
+        
+        if (!$deliveryIn || !$deliveryIn->allItemsChecked()) {
+            throw new \Exception('All items must be checked in the Delivery Note before validating return.');
         }
 
-        // Ensure at least one IN delivery exists
-        $hasInDelivery = $this->deliveries()
-            ->where('type', Delivery::TYPE_IN)
-            ->exists();
-            
-        if (!$hasInDelivery) {
-            return;
-        }
+        $this->returned_date = now();
 
-        $this->update(['status' => self::STATUS_COMPLETED]);
+        // Calculate Late Fee
+        $lateFee = $this->calculateOverdueFee();
+        $this->late_fee = $lateFee;
+        
+        // Update Total (Subtotal - Discount + Late Fee)
+        // Note: Deposit is separate
+        $this->total = $this->subtotal - $this->discount + $lateFee;
+
+        $this->status = self::STATUS_COMPLETED;
+        $this->save();
 
         // Update product unit statuses based on return condition
         // We iterate all IN deliveries to find the condition for each item
@@ -747,8 +857,8 @@ class Rental extends Model
     public function cancelRental(string $reason): void
     {
         // Validate that rental can be cancelled
-        if (!in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
-            throw new \Exception('Cannot cancel this rental. Only pending, confirmed or late pickup rentals can be cancelled.');
+        if (!in_array($this->status, [self::STATUS_QUOTATION, self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
+            throw new \Exception('Cannot cancel this rental. Only quotation, confirmed or late pickup rentals can be cancelled.');
         }
 
         // Release all product units back to available/scheduled
@@ -779,7 +889,7 @@ class Rental extends Model
     public function canBeCancelled(): bool
     {
         return in_array($this->status, [
-            self::STATUS_PENDING,
+            self::STATUS_QUOTATION,
             self::STATUS_CONFIRMED,
             self::STATUS_LATE_PICKUP,
         ]);
