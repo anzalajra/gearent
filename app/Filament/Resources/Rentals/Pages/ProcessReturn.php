@@ -463,8 +463,9 @@ class ProcessReturn extends Page implements HasTable
                 ];
             })
             ->action(function (array $data) {
-                // Apply manual late fee if provided
-                if (isset($data['manual_late_fee'])) {
+                if ($this->allItemsChecked()) {
+                    // Apply manual late fee if provided
+                    if (isset($data['manual_late_fee'])) {
                     $this->rental->late_fee = $data['manual_late_fee'];
                     $this->rental->recalculateTotal();
                     $this->rental->save();
