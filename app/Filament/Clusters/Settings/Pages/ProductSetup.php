@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Clusters\Settings\Pages;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\Brand;
 use App\Models\Category;
 use BackedEnum;
@@ -26,13 +27,13 @@ class ProductSetup extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
+    protected static ?string $cluster = SettingsCluster::class;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Setting';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
     protected static ?string $navigationLabel = 'Product Setup';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 6;
 
     protected string $view = 'filament.pages.product-setup';
 

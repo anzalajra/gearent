@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
@@ -19,14 +20,15 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    protected static ?string $cluster = SettingsCluster::class;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
-    protected static ?string $recordTitleAttribute = 'name';
+    protected static string|UnitEnum|null $navigationGroup = 'Admin & Roles';
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
+    protected static ?string $navigationLabel = 'Admins & Staff';
+
+    protected static ?string $recordTitleAttribute = 'name';
 
     public static function form(Schema $schema): Schema
     {

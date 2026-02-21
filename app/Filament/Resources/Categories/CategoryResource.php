@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Categories;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Filament\Resources\Categories\Pages\CreateCategory;
 use App\Filament\Resources\Categories\Pages\EditCategory;
 use App\Filament\Resources\Categories\Pages\ListCategories;
@@ -18,7 +19,7 @@ class CategoryResource extends Resource
 {
     protected static ?string $model = Category::class;
 
-    protected static bool $shouldRegisterNavigation = false;
+    protected static ?string $cluster = SettingsCluster::class;
 
     protected static ?string $recordTitleAttribute = 'name';
 

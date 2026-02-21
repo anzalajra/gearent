@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Clusters\Settings\Pages;
 
+use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\Setting;
 use BackedEnum;
 use Filament\Forms\Components\ColorPicker;
@@ -34,13 +35,13 @@ class DocumentLayoutSettings extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $cluster = SettingsCluster::class;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Setting';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     protected static ?string $navigationLabel = 'Document Layout';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 7;
 
     protected string $view = 'filament.pages.document-layout-settings';
 

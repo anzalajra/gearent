@@ -1,27 +1,31 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Clusters\Settings\Pages;
 
-use Filament\Pages\Page;
+use App\Filament\Clusters\Settings\SettingsCluster;
 use BackedEnum;
-use UnitEnum;
 use Filament\Actions\Action;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Artisan;
-use Filament\Notifications\Notification;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Livewire\Component;
+use UnitEnum;
 
 class SystemCheckup extends Page
 {
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cpu-chip';
-    protected static string|UnitEnum|null $navigationGroup = 'System';
-    protected static ?string $title = 'System Checkup & Fix';
+    protected static ?string $cluster = SettingsCluster::class;
 
-    protected string $view = 'filament.pages.system-checkup';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cpu-chip';
+
+    protected static ?string $navigationLabel = 'System Checkup & Fix';
+
+    protected static ?int $navigationSort = 11;
+
+    protected string $view = 'filament.clusters.settings.pages.system-checkup';
 
     // Progress tracking properties
     public bool $isProcessing = false;
@@ -169,7 +173,7 @@ class SystemCheckup extends Page
         }
     }
 
-    protected function getActions(): array
+    protected function getHeaderActions(): array
     {
         return [
             Action::make('refresh')
@@ -520,17 +524,17 @@ class SystemCheckup extends Page
                         $this->progressPercent = 90;
                         
                         $this->isProcessing = false;
-                    $this->currentOperation = '';
-                    $this->progressMessage = '';
-                    $this->progressPercent = 0;
+                        $this->currentOperation = '';
+                        $this->progressMessage = '';
+                        $this->progressPercent = 0;
 
-                    $this->logOperation('Log Cleanup', 'success', "Cleared {$sizeInMB} MB of log data");
+                        $this->logOperation('Log Cleanup', 'success', "Cleared {$sizeInMB} MB of log data");
 
-                    Notification::make()
-                        ->title('Logs truncated successfully')
-                        ->body("Cleared {$sizeInMB} MB of log data.")
-                        ->success()
-                        ->send();
+                        Notification::make()
+                            ->title('Logs truncated successfully')
+                            ->body("Cleared {$sizeInMB} MB of log data.")
+                            ->success()
+                            ->send();
                     } else {
                         $this->isProcessing = false;
                         $this->currentOperation = '';
@@ -599,18 +603,18 @@ class SystemCheckup extends Page
                     
                     // Count remaining failed jobs
                     $remainingCount = DB::table('failed_jobs')->count();
-                    $retriedCount = $failedCount - $remainingCount;
+                    $processedCount = $failedCount - $remainingCount;
                     
                     $this->isProcessing = false;
                     $this->currentOperation = '';
                     $this->progressMessage = '';
                     $this->progressPercent = 0;
-
-                    $this->logOperation('Retry Failed Jobs', 'success', "Retried {$retriedCount} jobs, {$remainingCount} still failed");
-
+                    
+                    $this->logOperation('Retry Failed Jobs', 'success', "Retried {$processedCount} jobs");
+                    
                     Notification::make()
-                        ->title('Failed jobs queued for retry')
-                        ->body("Successfully retried {$retriedCount} jobs. {$remainingCount} jobs still failed.")
+                        ->title('Job retry process completed')
+                        ->body("Retried {$processedCount} jobs. {$remainingCount} jobs remaining.")
                         ->success()
                         ->send();
                         
@@ -621,7 +625,7 @@ class SystemCheckup extends Page
                     $this->progressPercent = 0;
                     
                     Notification::make()
-                        ->title('Failed to retry jobs')
+                        ->title('Job retry failed')
                         ->body($e->getMessage())
                         ->danger()
                         ->send();
