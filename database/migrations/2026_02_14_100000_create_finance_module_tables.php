@@ -29,7 +29,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('finance_account_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete(); // Who recorded this transaction
-            $table->enum('type', ['income', 'expense', 'transfer']);
+            $table->enum('type', ['income', 'expense', 'transfer', 'deposit_in', 'deposit_out']);
             $table->decimal('amount', 15, 2);
             $table->date('date');
             $table->string('category')->nullable(); // Rental Payment, Maintenance, Salary, etc.

@@ -17,6 +17,7 @@ class JournalEntry extends Model
         'description',
         'reference_type',
         'reference_id',
+        'user_id',
     ];
 
     protected $casts = [

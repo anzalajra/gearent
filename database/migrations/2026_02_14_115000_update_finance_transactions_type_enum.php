@@ -12,8 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Add 'deposit_in' and 'deposit_out' to the enum
-        DB::statement("ALTER TABLE finance_transactions MODIFY COLUMN type ENUM('income', 'expense', 'transfer', 'deposit_in', 'deposit_out') NOT NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            // Add 'deposit_in' and 'deposit_out' to the enum
+            DB::statement("ALTER TABLE finance_transactions MODIFY COLUMN type ENUM('income', 'expense', 'transfer', 'deposit_in', 'deposit_out') NOT NULL");
+        }
     }
 
     /**

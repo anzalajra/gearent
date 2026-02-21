@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -16,7 +17,9 @@ return new class extends Migration
         });
 
         // Update status column to include new values
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'late_pickup', 'active', 'late_return', 'completed', 'cancelled') DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'late_pickup', 'active', 'late_return', 'completed', 'cancelled') DEFAULT 'pending'");
+        }
     }
 
     public function down(): void
