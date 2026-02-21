@@ -65,6 +65,12 @@ class ProductsTable
                             ->icon('heroicon-m-rectangle-stack')
                             ->color('primary')
                             ->size('xs'),
+
+                        TextColumn::make('is_visible_on_frontend')
+                            ->formatStateUsing(fn(bool $state) => $state ? 'Web Visible' : 'Admin Only')
+                            ->color(fn(bool $state) => $state ? 'success' : 'warning')
+                            ->icon(fn(bool $state) => $state ? 'heroicon-m-globe-alt' : 'heroicon-m-lock-closed')
+                            ->size('xs'),
                     ])
                     ->grow()
                     ->space(1)

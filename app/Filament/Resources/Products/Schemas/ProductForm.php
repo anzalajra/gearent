@@ -7,10 +7,11 @@ use App\Models\Category;
 use App\Models\CustomerCategory;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
@@ -23,53 +24,92 @@ class ProductForm
     {
         return $schema
             ->components([
-                Select::make('category_id')
-                    ->label('Category')
-                    ->options(Category::where('is_active', true)->pluck('name', 'id'))
-                    ->required()
-                    ->searchable(),
+                // Toggles (Visible only on Create)
+                Section::make()
+                    ->schema([
+                        Toggle::make('is_active')
+                            ->default(true),
 
-                Select::make('brand_id')
-                    ->label('Brand')
-                    ->options(Brand::where('is_active', true)->pluck('name', 'id'))
-                    ->required()
-                    ->searchable(),
+                        Toggle::make('is_visible_on_frontend')
+                            ->label('Website')
+                            ->default(true)
+                            ->helperText('If disabled, this product will only be available for admin rental.'),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->hiddenOn('edit'),
 
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255)
-                    ->live(onBlur: true)
-                    ->afterStateUpdated(function (?string $state, callable $set) {
-                        $set('slug', Str::slug($state ?? ''));
-                    }),
+                // Top Section: Image and Basic Details
+                Section::make()
+                    ->schema([
+                        FileUpload::make('image')
+                            ->image()
+                            ->directory('products')
+                            ->columnSpan(1),
 
-                TextInput::make('slug')
-                    ->required()
-                    ->maxLength(255)
-                    ->unique(ignoreRecord: true),
+                        Group::make()
+                            ->schema([
+                                TextInput::make('name')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function (?string $state, callable $set) {
+                                        $set('slug', Str::slug($state ?? ''));
+                                    }),
 
-                Textarea::make('description')
-                    ->rows(3)
+                                TextInput::make('slug')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->unique(ignoreRecord: true),
+
+                                Select::make('brand_id')
+                                    ->label('Brand')
+                                    ->options(Brand::where('is_active', true)->pluck('name', 'id'))
+                                    ->required()
+                                    ->searchable(),
+
+                                Select::make('category_id')
+                                    ->label('Category')
+                                    ->options(Category::where('is_active', true)->pluck('name', 'id'))
+                                    ->required()
+                                    ->searchable(),
+                            ])
+                            ->columns(2)
+                            ->columnSpan(1),
+                    ])
+                    ->columns(1)
                     ->columnSpanFull(),
 
-                TextInput::make('daily_rate')
-                    ->label('Daily Rate (Rp)')
-                    ->required()
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0),
-
-                TextInput::make('buffer_time')
-                    ->label('Buffer Time')
-                    ->helperText('Minimum hours required between rentals for units of this product. The system will use the maximum of this value and the global buffer setting.')
-                    ->numeric()
-                    ->suffix('Hours')
-                    ->default(0)
-                    ->minValue(0),
-
-                Section::make('Product Variations')
-                    ->description('Create variations for this product (e.g. 5M, 10M). If defined, these can be assigned to units.')
+                // Description
+                Section::make()
                     ->schema([
+                        RichEditor::make('description')
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull(),
+
+                // Pricing and Variations
+                Section::make()
+                    ->schema([
+                        Group::make()
+                            ->schema([
+                                TextInput::make('daily_rate')
+                                    ->label('Daily Rate (Rp)')
+                                    ->required()
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->default(0),
+
+                                TextInput::make('buffer_time')
+                                    ->label('Buffer Time')
+                                    ->helperText('Minimum hours required between rentals for units of this product. The system will use the maximum of this value and the global buffer setting.')
+                                    ->numeric()
+                                    ->suffix('Hours')
+                                    ->default(0)
+                                    ->minValue(0),
+                            ])
+                            ->columnSpan(1),
+
                         Repeater::make('variations')
                             ->relationship('variations')
                             ->schema([
@@ -91,26 +131,23 @@ class ProductForm
                                 'default' => 1,
                                 'sm' => 2,
                             ])
-                            ->defaultItems(0),
+                            ->defaultItems(0)
+                            ->columnSpan(1),
                     ])
-                    ->collapsed()
-                    ->collapsible(),
-
-
-
-                FileUpload::make('image')
-                    ->image()
-                    ->directory('products'),
-
-                Toggle::make('is_active')
-                    ->default(true),
-
-                CheckboxList::make('excludedCustomerCategories')
-                    ->label('Hide from Customer Categories')
-                    ->relationship('excludedCustomerCategories', 'name')
-                    ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
                     ->columns(2)
-                    ->helperText('Selected categories will NOT be able to see this product.'),
+                    ->columnSpanFull(),
+
+                // Visibility Exclusions
+                Section::make()
+                    ->schema([
+                        CheckboxList::make('excludedCustomerCategories')
+                            ->label('Hide from Customer Categories')
+                            ->relationship('excludedCustomerCategories', 'name')
+                            ->options(CustomerCategory::where('is_active', true)->pluck('name', 'id'))
+                            ->columns(2)
+                            ->helperText('Selected categories will NOT be able to see this product.'),
+                    ])
+                    ->columnSpanFull(),
             ]);
     }
 }

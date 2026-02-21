@@ -15,7 +15,14 @@ class HomeController extends Controller
             ->where('is_active', true)
             ->visibleForCustomer(Auth::guard('customer')->user())
             ->whereHas('units', function ($query) {
-                $query->where('status', 'available');
+                $query->where('status', 'available')
+                      ->where(function ($q) {
+                          $q->whereNull('warehouse_id')
+                            ->orWhereHas('warehouse', function ($wq) {
+                                $wq->where('is_active', true)
+                                   ->where('is_available_for_rental', true);
+                            });
+                      });
             })
             ->take(8)
             ->get();

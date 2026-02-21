@@ -24,6 +24,12 @@ class ProductUnitsTable
                     ->weight('bold')
                     ->description(fn ($record) => $record->product->category->name ?? '-'),
 
+                TextColumn::make('warehouse.name')
+                    ->label('Warehouse')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('serial_number')
                     ->searchable()
                     ->sortable()

@@ -21,6 +21,17 @@ class ProductUnitForm
                     ->required()
                     ->searchable(),
 
+                Select::make('warehouse_id')
+                    ->relationship('warehouse', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->placeholder('Select Warehouse')
+                    ->createOptionForm([
+                        TextInput::make('name')
+                            ->required(),
+                        TextInput::make('location'),
+                    ]),
+
                 TextInput::make('serial_number')
                     ->required()
                     ->maxLength(255)

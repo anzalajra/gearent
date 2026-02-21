@@ -1,21 +1,23 @@
 <?php
 
-namespace App\Filament\Resources\Products\Pages;
+namespace App\Filament\Resources\Warehouses\Pages;
 
-use App\Filament\Resources\Products\ProductResource;
-use App\Models\Rental;
+use App\Filament\Resources\Warehouses\WarehouseResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
-class EditProduct extends EditRecord
+class EditWarehouse extends EditRecord
 {
-    protected static string $resource = ProductResource::class;
+    protected static string $resource = WarehouseResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
-
+            $this->getSaveFormAction()
+                ->formId('form'),
+            $this->getCancelFormAction(),
+            
             Action::make('toggle_active')
                 ->label('Active')
                 ->view('filament.actions.header-toggle', [
@@ -27,26 +29,16 @@ class EditProduct extends EditRecord
                     $this->redirect($this->getResource()::getUrl('edit', ['record' => $this->getRecord()]));
                 }),
 
-            Action::make('toggle_website')
-                ->label('Website')
+            Action::make('toggle_rental')
+                ->label('Rental Available')
                 ->view('filament.actions.header-toggle', [
-                    'isOn' => $this->getRecord()->is_visible_on_frontend,
-                    'label' => 'Website',
+                    'isOn' => $this->getRecord()->is_available_for_rental,
+                    'label' => 'Rental Available',
                 ])
                 ->action(function () {
-                    $this->getRecord()->update(['is_visible_on_frontend' => !$this->getRecord()->is_visible_on_frontend]);
+                    $this->getRecord()->update(['is_available_for_rental' => !$this->getRecord()->is_available_for_rental]);
                     $this->redirect($this->getResource()::getUrl('edit', ['record' => $this->getRecord()]));
                 }),
-
-            Action::make('scheduled_rental')
-                ->label('Schedule')
-                ->icon('heroicon-o-calendar-days')
-                ->url(fn ($record) => ProductResource::getUrl('schedule', ['record' => $record])),
-
-            $this->getSaveFormAction()
-                ->formId('form')
-                ->icon('heroicon-o-cloud-arrow-down'),
-            $this->getCancelFormAction(),
 
             DeleteAction::make(),
         ];

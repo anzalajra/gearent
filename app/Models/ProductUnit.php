@@ -11,6 +11,7 @@ class ProductUnit extends Model
     protected $fillable = [
         'product_id',
         'product_variation_id',
+        'warehouse_id',
         'serial_number',
         'condition',
         'status',
@@ -41,6 +42,11 @@ class ProductUnit extends Model
     public function variation(): BelongsTo
     {
         return $this->belongsTo(ProductVariation::class, 'product_variation_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function kits(): HasMany
@@ -74,21 +80,10 @@ class ProductUnit extends Model
         ];
     }
 
-    public static function getStatusColor(string $status): string
-    {
-        return match ($status) {
-            self::STATUS_AVAILABLE => 'success',
-            self::STATUS_SCHEDULED => 'primary',
-            self::STATUS_RENTED => 'warning',
-            self::STATUS_MAINTENANCE => 'info',
-            self::STATUS_RETIRED => 'danger',
-            default => 'gray',
-        };
-    }
-
     public static function getConditionOptions(): array
     {
         return [
+            'new' => 'New',
             'excellent' => 'Excellent',
             'good' => 'Good',
             'fair' => 'Fair',
@@ -99,34 +94,65 @@ class ProductUnit extends Model
     }
 
     /**
-     * Check if unit is available for a given date range
+     * Check if unit is available for specific dates
+     * Includes checking kit components availability
      */
     public function isAvailable($startDate, $endDate, $excludeRentalId = null): bool
     {
-        if (in_array($this->status, [self::STATUS_MAINTENANCE, self::STATUS_RETIRED])) {
+        // 1. Basic status check
+        if ($this->status === self::STATUS_RETIRED) {
             return false;
         }
 
-        // 1. Check if THIS unit is directly rented
-        if ($this->checkRentalOverlap($startDate, $endDate, $excludeRentalId)) {
+        if (in_array($this->condition, ['broken', 'lost'])) {
             return false;
         }
 
-        // 2. Check if this unit is a COMPONENT of a Bundle that is rented
-        $isComponentRented = \App\Models\UnitKit::where('linked_unit_id', $this->id)
-            ->whereHas('unit', function ($q) use ($startDate, $endDate, $excludeRentalId) {
-                // Check if the PARENT unit is rented
-                 $q->whereHas('rentalItems', function ($ri) use ($startDate, $endDate, $excludeRentalId) {
-                     $ri->where('rental_id', '!=', $excludeRentalId)
-                        ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                            $query->whereIn('status', [
-                                    Rental::STATUS_PENDING,
-                                    Rental::STATUS_CONFIRMED,
-                                    Rental::STATUS_ACTIVE,
-                                    Rental::STATUS_LATE_PICKUP,
-                                    Rental::STATUS_LATE_RETURN
-                                ])
-                                ->where(function ($q) use ($startDate, $endDate) {
+        // Check Warehouse Availability
+        if ($this->warehouse && (!$this->warehouse->is_active || !$this->warehouse->is_available_for_rental)) {
+            return false;
+        }
+
+        // 2. Check direct rentals overlap
+        $isRented = $this->rentalItems()
+            ->where('rental_id', '!=', $excludeRentalId)
+            ->whereHas('rental', function ($query) use ($startDate, $endDate) {
+                $query->whereIn('status', [
+                        Rental::STATUS_PENDING,
+                        Rental::STATUS_CONFIRMED,
+                        Rental::STATUS_ACTIVE,
+                        Rental::STATUS_LATE_PICKUP,
+                        Rental::STATUS_LATE_RETURN
+                    ])
+                    ->where(function ($q) use ($startDate, $endDate) {
+                         $q->whereBetween('start_date', [$startDate, $endDate])
+                           ->orWhereBetween('end_date', [$startDate, $endDate])
+                           ->orWhere(function ($sub) use ($startDate, $endDate) {
+                               $sub->where('start_date', '<', $startDate)
+                                   ->where('end_date', '>', $endDate);
+                           });
+                    });
+            })
+            ->exists();
+
+        if ($isRented) {
+            return false;
+        }
+
+        // 3. Check if this unit is a COMPONENT of a Bundle that is rented (Parent is rented)
+        $isComponentRented = $this->linkedInKits()
+            ->whereHas('unit', function ($qParentUnit) use ($startDate, $endDate, $excludeRentalId) {
+                 $qParentUnit->whereHas('rentalItems', function ($ri) use ($startDate, $endDate, $excludeRentalId) {
+                      $ri->where('rental_id', '!=', $excludeRentalId)
+                         ->whereHas('rental', function ($query) use ($startDate, $endDate) {
+                             $query->whereIn('status', [
+                                     Rental::STATUS_PENDING,
+                                     Rental::STATUS_CONFIRMED,
+                                     Rental::STATUS_ACTIVE,
+                                     Rental::STATUS_LATE_PICKUP,
+                                     Rental::STATUS_LATE_RETURN
+                                 ])
+                                 ->where(function ($q) use ($startDate, $endDate) {
                                      $q->whereBetween('start_date', [$startDate, $endDate])
                                        ->orWhereBetween('end_date', [$startDate, $endDate])
                                        ->orWhere(function ($sub) use ($startDate, $endDate) {
@@ -204,33 +230,6 @@ class ProductUnit extends Model
         }
 
         return true;
-    }
-
-    /**
-     * Check for rental overlap
-     */
-    public function checkRentalOverlap($startDate, $endDate, $excludeRentalId = null): bool
-    {
-        return $this->rentalItems()
-            ->where('rental_id', '!=', $excludeRentalId)
-            ->whereHas('rental', function ($query) use ($startDate, $endDate) {
-                $query->whereIn('status', [
-                        Rental::STATUS_PENDING,
-                        Rental::STATUS_CONFIRMED,
-                        Rental::STATUS_ACTIVE,
-                        Rental::STATUS_LATE_PICKUP,
-                        Rental::STATUS_LATE_RETURN
-                    ])
-                    ->where(function ($q) use ($startDate, $endDate) {
-                         $q->whereBetween('start_date', [$startDate, $endDate])
-                           ->orWhereBetween('end_date', [$startDate, $endDate])
-                           ->orWhere(function ($sub) use ($startDate, $endDate) {
-                               $sub->where('start_date', '<', $startDate)
-                                   ->where('end_date', '>', $endDate);
-                           });
-                    });
-            })
-            ->exists();
     }
 
     /**

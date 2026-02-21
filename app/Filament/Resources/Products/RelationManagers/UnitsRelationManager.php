@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductUnit;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -128,6 +129,22 @@ class UnitsRelationManager extends RelationManager
                             ->options(ProductUnit::getConditionOptions())
                             ->required()
                             ->default('excellent'),
+
+                        Select::make('warehouse_id')
+                            ->relationship('warehouse', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Warehouse')
+                            ->placeholder('Select Warehouse')
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->required(),
+                                TextInput::make('location'),
+                                \Filament\Forms\Components\Toggle::make('is_active')
+                                    ->default(true),
+                                \Filament\Forms\Components\Toggle::make('is_available_for_rental')
+                                    ->default(true),
+                            ]),
 
                         Select::make('status')
                             ->options(ProductUnit::getStatusOptions())
@@ -285,6 +302,14 @@ class UnitsRelationManager extends RelationManager
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('warehouse.name')
+                    ->label('Warehouse')
+                    ->sortable()
+                    ->searchable()
+                    ->badge()
+                    ->color('gray')
+                    ->toggleable(),
+
                 TextColumn::make('variation.name')
                     ->label('Variation')
                     ->sortable()
@@ -341,7 +366,7 @@ class UnitsRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()->label('+ New Unit'),
             ])
             ->recordActions([
                 EditAction::make(),
@@ -432,9 +457,29 @@ class UnitsRelationManager extends RelationManager
                     }),
                 DeleteAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    BulkAction::make('assign_warehouse')
+                        ->label('Assign Warehouse')
+                        ->icon('heroicon-o-building-storefront')
+                        ->form([
+                            Select::make('warehouse_id')
+                                ->label('Warehouse')
+                                ->options(\App\Models\Warehouse::pluck('name', 'id'))
+                                ->required(),
+                        ])
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data) {
+                            foreach ($records as $record) {
+                                $record->update(['warehouse_id' => $data['warehouse_id']]);
+                            }
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->title('Warehouses Updated')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }

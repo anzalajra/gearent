@@ -31,6 +31,13 @@ class CatalogController extends Controller
 
                 $query->whereHas('units', function ($unitQuery) use ($startDate, $endDate) {
                     $unitQuery->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+                        ->where(function ($q) {
+                             $q->whereNull('warehouse_id')
+                               ->orWhereHas('warehouse', function ($wq) {
+                                   $wq->where('is_active', true)
+                                      ->where('is_available_for_rental', true);
+                               });
+                        })
                         ->whereDoesntHave('rentalItems', function ($rentalQuery) use ($startDate, $endDate) {
                             $rentalQuery->whereHas('rental', function ($rQuery) use ($startDate, $endDate) {
                                 $rQuery->whereIn('status', [
@@ -95,6 +102,13 @@ class CatalogController extends Controller
         // Show total units that are not retired or in maintenance
         $availableUnits = $product->units()
             ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+            ->where(function ($q) {
+                $q->whereNull('warehouse_id')
+                  ->orWhereHas('warehouse', function ($wq) {
+                      $wq->where('is_active', true)
+                         ->where('is_available_for_rental', true);
+                  });
+            })
             ->get();
 
         $availabilityData = $product->getAvailabilityData();
