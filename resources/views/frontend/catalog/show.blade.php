@@ -433,25 +433,18 @@
                 return false;
             };
 
-            const fullBookedDates = Object.keys(availabilityData).filter(date => availabilityData[date].status === 'full');
-            const disableRules = [
-                ...fullBookedDates
-            ];
+            const disableRules = [...bookedDates];
 
             const pickupTimeInput = document.getElementById('pickup_time');
             const returnTimeInput = document.getElementById('return_time');
             
-            // Helper to get partial info
-            const getPartialInfo = (date) => {
+            // Helper to check if a date is partial
+            const isPartialDate = (date) => {
                  const year = date.getFullYear();
                  const month = String(date.getMonth() + 1).padStart(2, '0');
                  const dayStr = String(date.getDate()).padStart(2, '0');
                  const dateStr = `${year}-${month}-${dayStr}`;
-                 
-                 if (availabilityData[dateStr] && availabilityData[dateStr].status === 'partial') {
-                     return availabilityData[dateStr];
-                 }
-                 return null;
+                 return partialDates.includes(dateStr);
             };
 
             
@@ -520,7 +513,7 @@
                         dayElem.classList.add('closed-day');
                     }
                     
-                    const dateStr = fp.formatDate(dObj, "Y-m-d");
+                    const dateStr = fp.formatDate(dayElem.dateObj, "Y-m-d");
                     if (partialDates.includes(dateStr)) {
                         dayElem.classList.add('partial-day');
                     }
@@ -540,19 +533,12 @@
                         }
                         
                         const startDate = selectedDates[0];
-                        const partial = getPartialInfo(startDate);
                         
-                        if (partial) {
-                            const minTime = partial.start_time.substring(0, 5); // ensure HH:mm
-                            pickupTimeInput.min = minTime;
-                            
-                            // Auto-adjust if current time is before allowed start time
-                            if (pickupTimeInput.value < minTime) {
-                                pickupTimeInput.value = minTime;
-                            }
-                        } else {
-                            pickupTimeInput.removeAttribute('min');
+                        if (isPartialDate(startDate)) {
+                            // Partial dates have some bookings but are still available
+                            // No specific time restriction from the data, just note it's partial
                         }
+                        pickupTimeInput.removeAttribute('min');
                     }
 
                     if (selectedDates.length === 2) {
