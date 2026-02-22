@@ -191,7 +191,20 @@
             const endDateInput = document.getElementById('end_date');
             
             const operationalDays = @json($operationalDays);
-            const holidays = @json($holidays).map(h => h.date);
+            const holidaysRaw = @json($holidays);
+            const holidays = [];
+            holidaysRaw.forEach(h => {
+                if (h.start_date && h.end_date) {
+                    let current = new Date(h.start_date + 'T00:00:00');
+                    const end = new Date(h.end_date + 'T00:00:00');
+                    while (current <= end) {
+                        holidays.push(current.toISOString().split('T')[0]);
+                        current.setDate(current.getDate() + 1);
+                    }
+                } else if (h.date) {
+                    holidays.push(h.date);
+                }
+            });
 
             const isClosed = function(date) {
                 // 1. Check operational days

@@ -110,13 +110,13 @@ class RentalSettings extends Page implements HasForms
                                 CheckboxList::make('operational_days')
                                     ->label('Operational Days')
                                     ->options([
-                                        'Monday' => 'Monday',
-                                        'Tuesday' => 'Tuesday',
-                                        'Wednesday' => 'Wednesday',
-                                        'Thursday' => 'Thursday',
-                                        'Friday' => 'Friday',
-                                        'Saturday' => 'Saturday',
-                                        'Sunday' => 'Sunday',
+                                        '1' => 'Monday',
+                                        '2' => 'Tuesday',
+                                        '3' => 'Wednesday',
+                                        '4' => 'Thursday',
+                                        '5' => 'Friday',
+                                        '6' => 'Saturday',
+                                        '0' => 'Sunday',
                                     ])
                                     ->columns(3)
                                     ->required(),
@@ -125,7 +125,15 @@ class RentalSettings extends Page implements HasForms
                                     ->label('Holidays')
                                     ->schema([
                                         TextInput::make('name')->required(),
-                                        DatePicker::make('date')->required(),
+                                        Grid::make(2)->schema([
+                                            DatePicker::make('start_date')
+                                                ->label('Start Date')
+                                                ->required(),
+                                            DatePicker::make('end_date')
+                                                ->label('End Date')
+                                                ->required()
+                                                ->afterOrEqual('start_date'),
+                                        ]),
                                     ])
                                     ->collapsible(),
                             ])->columnSpanFull(),

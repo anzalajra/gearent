@@ -52,17 +52,21 @@ class SystemCheckup extends Page
     protected function getViewData(): array
     {
         return [
-            'dbStatus' => $this->checkDatabase(),
-            'storageStatus' => $this->checkStorage(),
-            'cacheStatus' => $this->checkCache(),
-            'symlinkStatus' => $this->checkSymlink(),
-            'logStatus' => $this->checkLogs(),
-            'queueStatus' => $this->checkFailedJobs(),
-            'phpVersion' => phpversion(),
-            'laravelVersion' => app()->version(),
-            'storageUsage' => $this->checkStorageUsage(),
-            'databaseUsage' => $this->checkDatabaseSize(),
-            'operationHistory' => array_reverse(array_slice($this->operationHistory, -5)), // Show last 5 operations
+            'systemInfo' => [
+                'PHP Version' => phpversion(),
+                'Laravel Version' => app()->version(),
+                'Storage Usage' => $this->checkStorageUsage(),
+                'Database Size' => $this->checkDatabaseSize(),
+            ],
+            'checks' => [
+                'database' => $this->checkDatabase(),
+                'storage' => $this->checkStorage(),
+                'cache' => $this->checkCache(),
+                'storage_link' => $this->checkSymlink(),
+                'logs' => $this->checkLogs(),
+                'queue' => $this->checkFailedJobs(),
+            ],
+            'operationHistory' => array_reverse(array_slice($this->operationHistory, -5)),
         ];
     }
 
