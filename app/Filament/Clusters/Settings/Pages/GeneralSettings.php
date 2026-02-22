@@ -144,7 +144,7 @@ class GeneralSettings extends Page implements HasForms
         $data = $this->form->getState();
         
         // Handle finance mode change
-        $currentMode = Setting::getValue('finance_mode', 'simple');
+        $currentMode = Setting::get('finance_mode', 'simple');
         $newMode = $data['finance_mode'] ?? 'simple';
         
         foreach ($data as $key => $value) {
