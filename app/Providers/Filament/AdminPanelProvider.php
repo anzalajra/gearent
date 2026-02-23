@@ -91,7 +91,9 @@ class AdminPanelProvider extends PanelProvider
                 'purple' => Color::Purple,
             ])
             ->renderHook(
-                'panels::global-search.after',
+                $navigationLayout === 'top'
+                    ? 'panels::global-search.after'
+                    : 'panels::sidebar.footer',
                 fn () => view('filament.hooks.qr-scanner')
             )
             ->renderHook(
@@ -130,6 +132,10 @@ class AdminPanelProvider extends PanelProvider
 
         if ($navigationLayout === 'top') {
             $panel->topNavigation();
+        } else {
+            // Sidebar mode: hide the topbar entirely
+            // Search, notifications, and user menu automatically move to sidebar
+            $panel->topbar(false);
         }
 
         return $panel

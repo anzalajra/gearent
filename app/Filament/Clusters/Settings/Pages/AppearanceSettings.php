@@ -111,5 +111,8 @@ class AppearanceSettings extends Page implements HasForms
             ->title('Settings saved successfully')
             ->success()
             ->send();
+
+        // Redirect to force full page reload so panel re-boots with new settings
+        $this->redirect(static::getUrl());
     }
 }

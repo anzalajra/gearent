@@ -7,6 +7,16 @@ use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(function (Setting $setting) {
+            Cache::forget("setting.{$setting->key}");
+        });
+        static::deleted(function (Setting $setting) {
+            Cache::forget("setting.{$setting->key}");
+        });
+    }
+
     protected $fillable = [
         'group',
         'key',
