@@ -152,7 +152,7 @@ class ProductUnit extends Model
             ->where('rental_id', '!=', $excludeRentalId)
             ->whereHas('rental', function ($query) use ($startDate, $endDate) {
                 $query->whereIn('status', [
-                        Rental::STATUS_PENDING,
+                        Rental::STATUS_QUOTATION,
                         Rental::STATUS_CONFIRMED,
                         Rental::STATUS_ACTIVE,
                         Rental::STATUS_LATE_PICKUP,
@@ -180,7 +180,7 @@ class ProductUnit extends Model
                       $ri->where('rental_id', '!=', $excludeRentalId)
                          ->whereHas('rental', function ($query) use ($startDate, $endDate) {
                              $query->whereIn('status', [
-                                     Rental::STATUS_PENDING,
+                                     Rental::STATUS_QUOTATION,
                                      Rental::STATUS_CONFIRMED,
                                      Rental::STATUS_ACTIVE,
                                      Rental::STATUS_LATE_PICKUP,
@@ -214,7 +214,7 @@ class ProductUnit extends Model
                          $ri->where('rental_id', '!=', $excludeRentalId)
                             ->whereHas('rental', function ($query) use ($startDate, $endDate) {
                                 $query->whereIn('status', [
-                                        Rental::STATUS_PENDING,
+                                        Rental::STATUS_QUOTATION,
                                         Rental::STATUS_CONFIRMED,
                                         Rental::STATUS_ACTIVE,
                                         Rental::STATUS_LATE_PICKUP,
@@ -237,7 +237,7 @@ class ProductUnit extends Model
                                     $ri->where('rental_id', '!=', $excludeRentalId)
                                        ->whereHas('rental', function ($query) use ($startDate, $endDate) {
                                            $query->whereIn('status', [
-                                                   Rental::STATUS_PENDING,
+                                                   Rental::STATUS_QUOTATION,
                                                    Rental::STATUS_CONFIRMED,
                                                    Rental::STATUS_ACTIVE,
                                                    Rental::STATUS_LATE_PICKUP,
@@ -410,7 +410,7 @@ class ProductUnit extends Model
                      $isComponentScheduled = \App\Models\RentalItemKit::whereIn('unit_kit_id', $unitKitIds)
                          ->whereHas('rentalItem', function ($ri) {
                              $ri->whereHas('rental', function ($r) {
-                                 $r->whereIn('status', [Rental::STATUS_PENDING, Rental::STATUS_CONFIRMED, Rental::STATUS_LATE_PICKUP]);
+                                 $r->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_CONFIRMED, Rental::STATUS_LATE_PICKUP]);
                              });
                          })
                          ->exists();
