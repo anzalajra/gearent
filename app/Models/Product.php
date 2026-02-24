@@ -126,6 +126,15 @@ class Product extends Model
         return $this->hasMany(ProductVariation::class);
     }
 
+    /**
+     * Check if the product has any variations
+     */
+    public function hasVariations(): bool
+    {
+        return $this->variations()->exists();
+    }
+
+
     public function components(): HasMany
     {
         return $this->hasMany(ProductComponent::class, 'parent_product_id');
