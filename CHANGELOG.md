@@ -15,6 +15,16 @@
 
 
 
+
+## [v1.5.0] - 2026-02-24
+- (New) Advanced Finance System. New "Finance" page to manage entries, account, deposit, payable, and reporting
+- (New) Switch between simple and advance finance system
+- (Bug Fix) Frontend Calendar blade failed to get rental data
+- (Bug Fix) Return process syntax error
+- (Bug Fix) Quotation status not available on rental.php
+- (Bug Fix) hasVariation method at Product.php
+- (Tweak) Better view betweeb sidebar and topbar menu. Add Dynamic island profile for sidebar menu
+
 ## [v1.4.0] - 2026-02-21
 - (New) Warehouse management for product unit. Plot a product warehouse location for stock management
 - (New) Product "Website" availabelity. Switch for a product to be available for customer frontend order
