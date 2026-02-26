@@ -10,15 +10,12 @@ use Filament\Schemas\Components\Actions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Schema;
 use Carbon\Carbon;
-use Illuminate\Support\HtmlString;
 
 class RentalForm
 {
@@ -96,7 +93,6 @@ class RentalForm
         return $schema
             ->components([
                 Hidden::make('id')->dehydrated(false),
-                Hidden::make('ppn_rate')->default(0),
                 TextInput::make('rental_code')
                     ->label('Rental Code')
                     ->default('AUTO')
@@ -128,17 +124,8 @@ class RentalForm
                     ->seconds(false)
                     ->live()
                     ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
-                    ->afterStateUpdated(fn ($state, callable $get, callable $set) => self::calculateDuration($get, $set)),
-
-                Select::make('status')
-                    ->options(Rental::getStatusOptions())
-                    ->required()
-                    ->default('quotation')
-                    ->disabled(fn ($record) => $record && (!$record->canBeEdited() || in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))),
-
-                Placeholder::make('duration_display')
-                    ->label('Rental Duration')
-                    ->content(function (callable $get) {
+                    ->afterStateUpdated(fn ($state, callable $get, callable $set) => self::calculateDuration($get, $set))
+                    ->helperText(function (callable $get) {
                         $startDate = $get('start_date');
                         $endDate = $get('end_date');
                         if ($startDate && $endDate) {
@@ -147,13 +134,18 @@ class RentalForm
                             $totalHours = (int) $start->diffInHours($end);
                             $days = (int) floor($totalHours / 24);
                             $hours = $totalHours % 24;
-                            if ($days > 0 && $hours > 0) return "📅 {$days} hari {$hours} jam";
-                            elseif ($days > 0) return "📅 {$days} hari";
-                            else return "📅 {$hours} jam";
+                            if ($days > 0 && $hours > 0) return "📅 Durasi: {$days} hari {$hours} jam";
+                            elseif ($days > 0) return "📅 Durasi: {$days} hari";
+                            else return "📅 Durasi: {$hours} jam";
                         }
-                        return '-';
-                    })
-                    ->columnSpanFull(),
+                        return null;
+                    }),
+
+                Select::make('status')
+                    ->options(Rental::getStatusOptions())
+                    ->required()
+                    ->default('quotation')
+                    ->disabled(fn ($record) => $record && (!$record->canBeEdited() || in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))),
 
                 // ── Grouped Rental Items Repeater ──
                 Repeater::make('grouped_items')
@@ -333,65 +325,79 @@ class RentalForm
                         }),
                 ]),
 
-                // ── Global Calculations ──
-                Placeholder::make('totals_section')
-                    ->label('')
-                    ->content(new HtmlString('<div class="border-t pt-4"></div>'))
+                // ── Total Section ──
+                \Filament\Schemas\Components\Section::make('Total')
+                    ->schema([
+                        Hidden::make('is_taxable')
+                            ->default(fn () => filter_var(\App\Models\Setting::get('is_taxable', true), FILTER_VALIDATE_BOOLEAN))
+                            ->dehydrated(),
+                        Hidden::make('price_includes_tax')
+                            ->default(fn () => filter_var(\App\Models\Setting::get('price_includes_tax', false), FILTER_VALIDATE_BOOLEAN))
+                            ->dehydrated(),
+
+                        TextInput::make('subtotal')
+                            ->label('Untaxed Amount (Subtotal)')
+                            ->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
+
+                        Hidden::make('discount_type')->default('fixed'),
+                        TextInput::make('discount')
+                            ->label('Discount')->numeric()->default(0)->live(onBlur: true)
+                            ->prefix(fn (callable $get) => $get('discount_type') === 'percent' ? '%' : 'Rp')
+                            ->suffixAction(
+                                Action::make('toggle_discount_type')
+                                    ->icon(fn (callable $get) => $get('discount_type') === 'percent' ? 'heroicon-m-currency-dollar' : 'heroicon-m-receipt-percent')
+                                    ->tooltip(fn (callable $get) => $get('discount_type') === 'percent' ? 'Ganti ke Fixed (Rp)' : 'Ganti ke Persen (%)')
+                                    ->color('gray')
+                                    ->action(function (callable $get, callable $set) {
+                                        $set('discount_type', $get('discount_type') === 'percent' ? 'fixed' : 'percent');
+                                        self::calculateTotals($get, $set);
+                                    })
+                            )
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
+
+                        TextInput::make('tax_base')
+                            ->label('Dasar Pengenaan Pajak (DPP)')
+                            ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
+                            ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
+                        TextInput::make('ppn_amount')
+                            ->label('PPN (11%)')
+                            ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
+                            ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
+
+                        TextInput::make('total')
+                            ->label('Total')->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
+                    ])
                     ->columnSpanFull(),
 
-                Hidden::make('is_taxable')
-                    ->default(fn () => filter_var(\App\Models\Setting::get('is_taxable', true), FILTER_VALIDATE_BOOLEAN))
-                    ->dehydrated(),
-                Hidden::make('price_includes_tax')
-                    ->default(fn () => filter_var(\App\Models\Setting::get('price_includes_tax', false), FILTER_VALIDATE_BOOLEAN))
-                    ->dehydrated(),
+                // ── Deposit & Down Payment ──
+                \Filament\Schemas\Components\Section::make('Deposit & Down Payment')
+                    ->schema([
+                        Hidden::make('deposit_type')->default('fixed'),
+                        TextInput::make('deposit')
+                            ->label('Security Deposit')->helperText('Required deposit amount/rate')
+                            ->numeric()->default(0)->live(onBlur: true)
+                            ->prefix(fn (callable $get) => $get('deposit_type') === 'percent' ? '%' : 'Rp')
+                            ->suffixAction(
+                                Action::make('toggle_deposit_type')
+                                    ->icon(fn (callable $get) => $get('deposit_type') === 'percent' ? 'heroicon-m-currency-dollar' : 'heroicon-m-receipt-percent')
+                                    ->tooltip(fn (callable $get) => $get('deposit_type') === 'percent' ? 'Ganti ke Fixed (Rp)' : 'Ganti ke Persen (%)')
+                                    ->color('gray')
+                                    ->action(function (callable $get, callable $set) {
+                                        $set('deposit_type', $get('deposit_type') === 'percent' ? 'fixed' : 'percent');
+                                        self::calculateTotals($get, $set);
+                                    })
+                            )
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
-                TextInput::make('subtotal')
-                    ->label('Untaxed Amount (Subtotal)')
-                    ->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
+                        TextInput::make('down_payment_amount')
+                            ->label('Down Payment (DP)')->numeric()->prefix('Rp')->default(0),
+                    ])
+                    ->columnSpanFull(),
 
-                ToggleButtons::make('discount_type')
-                    ->label('Discount Type')
-                    ->options(['fixed' => 'Fixed', 'percent' => '%'])
-                    ->default('fixed')->inline()->grouped()->live()
-                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-
-                TextInput::make('discount')
-                    ->label('Discount')->numeric()->default(0)->live(onBlur: true)
-                    ->prefix(fn (callable $get) => $get('discount_type') === 'percent' ? '%' : 'Rp')
-                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-
-                TextInput::make('tax_base')
-                    ->label('Dasar Pengenaan Pajak (DPP)')
-                    ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
-                    ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
-                TextInput::make('ppn_amount')
-                    ->label('PPN (11%)')
-                    ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
-                    ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
-
-                TextInput::make('total')
-                    ->label('Total')->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
-
-                ToggleButtons::make('deposit_type')
-                    ->label('Deposit Type')
-                    ->options(['fixed' => 'Fixed', 'percent' => '%'])
-                    ->default('fixed')->inline()->grouped()->live()
-                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-                TextInput::make('deposit')
-                    ->label('Security Deposit')->helperText('Required deposit amount/rate')
-                    ->numeric()->default(0)->live(onBlur: true)
-                    ->prefix(fn (callable $get) => $get('deposit_type') === 'percent' ? '%' : 'Rp')
-                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-
-                TextInput::make('late_fee')
-                    ->label('Late Fee')->numeric()->prefix('Rp')->default(0)->live(onBlur: true)
-                    ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-
-                TextInput::make('down_payment_amount')
-                    ->label('Down Payment (DP)')->numeric()->prefix('Rp')->default(0),
-                Select::make('down_payment_status')
-                    ->label('DP Status')->options(['pending' => 'Pending', 'paid' => 'Paid'])->default('pending'),
+                // Hidden fields — managed by other system code
+                Hidden::make('late_fee')->default(0)->dehydrated(),
+                Hidden::make('down_payment_status')->default('pending')->dehydrated(),
+                Hidden::make('ppn_rate')->default(0),
 
                 Textarea::make('notes')->label('Notes')->rows(3)->columnSpanFull(),
             ]);
