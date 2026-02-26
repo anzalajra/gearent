@@ -60,7 +60,14 @@
    SIDEBAR MODE: Layout & Scroll Fix
    ============================================ */
 
-/* When no topbar: layout fills viewport, sidebar + content side by side */
+/* When no topbar: lock page to viewport, prevent body scroll */
+html:has(.fi-body:not(.fi-body-has-topbar)),
+html:has(.fi-body:not(.fi-body-has-topbar)) body {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+}
+
 .fi-body:not(.fi-body-has-topbar) .fi-layout {
     height: 100dvh !important;
     overflow: hidden !important;

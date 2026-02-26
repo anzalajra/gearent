@@ -97,7 +97,7 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.hooks.qr-scanner')
             )
             ->renderHook(
-                'panels::footer',
+                'panels::content.end',
                 fn () => view('filament.hooks.footer')
             )
             ->viteTheme('resources/css/filament/admin/theme.css')
