@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Rentals\Schemas;
 use App\Models\User;
 use App\Models\ProductUnit;
 use App\Models\Rental;
+use App\Models\RentalItem;
 use Filament\Schemas\Components\Actions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
@@ -21,6 +22,75 @@ use Illuminate\Support\HtmlString;
 
 class RentalForm
 {
+    // ── Cached data to avoid repeated queries during a single request ──
+    private static ?array $cachedProductOptions = null;
+    private static ?array $cachedProductList = null;
+    private static ?array $cachedProductVariationMap = null;
+
+    /**
+     * Get product options (composite ID => label) — cached per request
+     */
+    private static function getProductOptionsWithVariations(): array
+    {
+        if (self::$cachedProductOptions !== null) {
+            return self::$cachedProductOptions;
+        }
+
+        $products = \App\Models\Product::with('variations')
+            ->where('is_active', true)
+            ->select('id', 'name')
+            ->get();
+
+        $options = [];
+        foreach ($products as $product) {
+            if ($product->variations->isNotEmpty()) {
+                foreach ($product->variations as $variation) {
+                    $options["{$product->id}:{$variation->id}"] = "{$product->name} ({$variation->name})";
+                }
+            } else {
+                $options[$product->id] = $product->name;
+            }
+        }
+
+        self::$cachedProductOptions = $options;
+        return $options;
+    }
+
+    /**
+     * Get simple product list (id => name) — cached per request
+     */
+    private static function getProductList(): array
+    {
+        if (self::$cachedProductList !== null) {
+            return self::$cachedProductList;
+        }
+
+        self::$cachedProductList = \App\Models\Product::where('is_active', true)
+            ->pluck('name', 'id')
+            ->toArray();
+
+        return self::$cachedProductList;
+    }
+
+    /**
+     * Get product variation map (product_id => [variation_id => name]) — cached
+     */
+    private static function getProductVariationMap(): array
+    {
+        if (self::$cachedProductVariationMap !== null) {
+            return self::$cachedProductVariationMap;
+        }
+
+        $variations = \App\Models\ProductVariation::select('id', 'product_id', 'name')->get();
+        $map = [];
+        foreach ($variations as $v) {
+            $map[$v->product_id][$v->id] = $v->name;
+        }
+
+        self::$cachedProductVariationMap = $map;
+        return $map;
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -41,28 +111,25 @@ class RentalForm
                     ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN])),
 
                 DateTimePicker::make('start_date')
-                ->label('Start Date & Time')
-                ->required()
-                ->native(false)
-                ->default(now())
-                ->seconds(false)
-                ->live()
-                ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
-                ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                    self::calculateDuration($get, $set);
-                }),
+                    ->label('Start Date & Time')
+                    ->required()
+                    ->native(false)
+                    ->default(now())
+                    ->seconds(false)
+                    ->live()
+                    ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
+                    ->afterStateUpdated(fn ($state, callable $get, callable $set) => self::calculateDuration($get, $set)),
 
                 DateTimePicker::make('end_date')
-                ->label('End Date & Time')
-                ->required()
-                ->native(false)
-                ->default(now()->addDays(1))
-                ->seconds(false)
-                ->live()
-                ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
-                ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                    self::calculateDuration($get, $set);
-                }),
+                    ->label('End Date & Time')
+                    ->required()
+                    ->native(false)
+                    ->default(now()->addDays(1))
+                    ->seconds(false)
+                    ->live()
+                    ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
+                    ->afterStateUpdated(fn ($state, callable $get, callable $set) => self::calculateDuration($get, $set)),
+
                 Select::make('status')
                     ->options(Rental::getStatusOptions())
                     ->required()
@@ -74,190 +141,101 @@ class RentalForm
                     ->content(function (callable $get) {
                         $startDate = $get('start_date');
                         $endDate = $get('end_date');
-
                         if ($startDate && $endDate) {
                             $start = Carbon::parse($startDate);
                             $end = Carbon::parse($endDate);
-                            
                             $totalHours = (int) $start->diffInHours($end);
                             $days = (int) floor($totalHours / 24);
                             $hours = $totalHours % 24;
-
-                            if ($days > 0 && $hours > 0) {
-                                return "📅 {$days} hari {$hours} jam";
-                            } elseif ($days > 0) {
-                                return "📅 {$days} hari";
-                            } else {
-                                return "📅 {$hours} jam";
-                            }
+                            if ($days > 0 && $hours > 0) return "📅 {$days} hari {$hours} jam";
+                            elseif ($days > 0) return "📅 {$days} hari";
+                            else return "📅 {$hours} jam";
                         }
-
                         return '-';
                     })
                     ->columnSpanFull(),
 
-                Repeater::make('items')
+                // ── Grouped Rental Items Repeater ──
+                Repeater::make('grouped_items')
                     ->label('Rental Items')
-                    ->relationship()
                     ->columns(12)
                     ->addable(false)
+                    ->reorderable(false)
                     ->disabled(fn ($record) => $record && in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
                     ->schema([
                         Select::make('product_id')
                             ->label('Product')
-                            ->options(function () {
-                                $products = \App\Models\Product::with('variations')->where('is_active', true)->get();
-                                $options = [];
-                                foreach ($products as $product) {
-                                    if ($product->variations->isNotEmpty()) {
-                                        foreach ($product->variations as $variation) {
-                                            $key = "{$product->id}:{$variation->id}";
-                                            $label = "{$product->name} ({$variation->name})";
-                                            $options[$key] = $label;
-                                        }
-                                    } else {
-                                        $options[$product->id] = $product->name;
-                                    }
-                                }
-                                return $options;
-                            })
+                            ->options(fn () => self::getProductOptionsWithVariations())
                             ->searchable()
                             ->preload()
-                            ->live()
-                            ->columnSpan(4)
-                            ->dehydrated(false) 
-                            ->afterStateUpdated(function (callable $set) {
-                                $set('product_unit_id', null);
-                            })
-                            ->afterStateHydrated(function ($component, $state, $record) {
-                                if ($record && $record->productUnit) {
-                                    if ($record->productUnit->product_variation_id) {
-                                        $component->state("{$record->productUnit->product_id}:{$record->productUnit->product_variation_id}");
-                                    } else {
-                                        $component->state($record->productUnit->product_id);
-                                    }
-                                }
-                            }),
+                            ->dehydrated(true)
+                            ->columnSpan(4),
 
-                        Select::make('product_unit_id')
-                            ->label('Unit')
-                            ->options(function (callable $get) {
-                                $startDate = $get('../../start_date');
-                                $endDate = $get('../../end_date');
-                                $currentRentalId = $get('../../id');
-                                $productCompositeId = $get('product_id');
-                                
-                                $productId = $productCompositeId;
-                                $variationId = null;
-                                
-                                if ($productCompositeId && str_contains($productCompositeId, ':')) {
-                                    [$productId, $variationId] = explode(':', $productCompositeId);
-                                }
-
-                                return self::getAvailableUnits($startDate, $endDate, $currentRentalId, $productId, $variationId);
+                        TextInput::make('quantity')
+                            ->label('Qty')
+                            ->numeric()
+                            ->default(1)
+                            ->minValue(1)
+                            ->columnSpan(2)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, $old, callable $get, callable $set) {
+                                self::handleQuantityChange((int) $state, (int) $old, $get, $set);
                             })
-                            ->required()
-                            ->searchable()
-                            ->live()
-                            ->columnSpan(3)
-                            ->afterStateUpdated(function ($state, $old, callable $get, callable $set, \Filament\Forms\Components\Select $component) {
-                                if ($state && $state !== $old) {
-                                    $unit = ProductUnit::with(['product', 'variation', 'kits.linkedUnit.product'])->find($state);
-                                    if ($unit) {
-                                        // Use variation price if available, otherwise product price
-                                        $dailyRate = $unit->variation?->daily_rate ?? $unit->product->daily_rate;
-                                        $set('daily_rate', $dailyRate);
-                                        
-                                        // Auto-set days from dates
+                            ->suffixAction(
+                                Action::make('manage_row_units')
+                                    ->icon('heroicon-m-queue-list')
+                                    ->color('gray')
+                                    ->tooltip('Kelola Unit')
+                                    ->modalHeading('Kelola Unit')
+                                    ->modalWidth('md')
+                                    ->form(function (callable $get): array {
+                                        $quantity = (int) ($get('quantity') ?? 1);
+                                        $compositeId = $get('product_id');
                                         $startDate = $get('../../start_date');
                                         $endDate = $get('../../end_date');
-                                        
-                                        if ($startDate && $endDate) {
-                                            $start = Carbon::parse($startDate);
-                                            $end = Carbon::parse($endDate);
-                                            $days = max(1, (int) ceil($start->diffInHours($end) / 24));
-                                            $set('days', $days);
-                                        } else {
-                                            $set('days', 1);
-                                        }
-                                        
-                                        self::calculateLineTotal($get, $set);
+                                        $currentRentalId = $get('../../id');
 
-                                        // Refresh status
-                                        $unit->refreshStatus();
-
-                                        // SHADOW ITEMS LOGIC (Unit Bundling)
-                                        $path = $component->getStatePath(); 
-                                        $pathParts = explode('.', $path);
-                                        // items.UUID.product_unit_id -> UUID is second to last
-                                        $currentItemUuid = $pathParts[count($pathParts) - 2];
-                                        
-                                        $allItems = $get('../../items') ?? [];
-                                        
-                                        // 1. Remove old shadow items
-                                        foreach ($allItems as $key => $item) {
-                                             if (isset($item['parent_item_key']) && $item['parent_item_key'] === $currentItemUuid) {
-                                                 unset($allItems[$key]);
-                                             }
+                                        $productId = $compositeId;
+                                        $variationId = null;
+                                        if ($compositeId && str_contains((string) $compositeId, ':')) {
+                                            [$productId, $variationId] = explode(':', $compositeId);
                                         }
-                                        
-                                        // 2. Add new shadow items
-                                        if ($unit->kits->isNotEmpty()) {
-                                            foreach ($unit->kits as $kit) {
-                                                if ($kit->linked_unit_id && $kit->linkedUnit) {
-                                                    $linkedUnit = $kit->linkedUnit;
-                                                    
-                                                    $childPid = $linkedUnit->product_id;
-                                                    if ($linkedUnit->product_variation_id) {
-                                                         $childPid .= ":{$linkedUnit->product_variation_id}";
-                                                    }
-                                                    
-                                                    $childUuid = (string) \Illuminate\Support\Str::uuid();
-                                                    $childItem = [
-                                                        'product_id' => $childPid,
-                                                        'product_unit_id' => $linkedUnit->id,
-                                                        'daily_rate' => 0, // Included in bundle
-                                                        'days' => $days ?? 1,
-                                                        'discount' => 0,
-                                                        'subtotal' => 0,
-                                                        'parent_item_key' => $currentItemUuid,
-                                                    ];
-                                                    $allItems[$childUuid] = $childItem;
-                                                }
+
+                                        $options = self::getAvailableUnits($startDate, $endDate, $currentRentalId, $productId, $variationId);
+
+                                        $fields = [];
+                                        for ($i = 0; $i < $quantity; $i++) {
+                                            $fields[] = Select::make("unit_{$i}")
+                                                ->label("Unit #" . ($i + 1))
+                                                ->options($options)
+                                                ->searchable()
+                                                ->required();
+                                        }
+                                        return $fields;
+                                    })
+                                    ->fillForm(function (callable $get): array {
+                                        $unitIds = json_decode($get('unit_ids') ?? '[]', true);
+                                        $fill = [];
+                                        foreach ($unitIds as $i => $uid) {
+                                            $fill["unit_{$i}"] = $uid;
+                                        }
+                                        return $fill;
+                                    })
+                                    ->action(function (array $data, callable $get, callable $set) {
+                                        $unitIds = [];
+                                        foreach ($data as $key => $val) {
+                                            if (str_starts_with($key, 'unit_') && $val) {
+                                                $unitIds[] = (int) $val;
                                             }
                                         }
-                                        
-                                        $set('../../items', $allItems);
-                                    }
-                                }
+                                        $set('unit_ids', json_encode(array_values(array_unique($unitIds))));
 
-                                // Handle cleanup if cleared ($state is null)
-                                if (!$state && $old) {
-                                     $path = $component->getStatePath(); 
-                                     $pathParts = explode('.', $path);
-                                     $currentItemUuid = $pathParts[count($pathParts) - 2];
-                                     $allItems = $get('../../items') ?? [];
-                                     foreach ($allItems as $key => $item) {
-                                          if (isset($item['parent_item_key']) && $item['parent_item_key'] === $currentItemUuid) {
-                                              unset($allItems[$key]);
-                                          }
-                                     }
-                                     $set('../../items', $allItems);
-                                }
-
-                                if ($old) {
-                                    $oldUnit = ProductUnit::find($old);
-                                    if ($oldUnit) {
-                                        $oldUnit->refreshStatus();
-                                    }
-                                }
-                            })
-                            ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                            ->distinct()
-                            ->validationMessages([
-                                'distinct' => 'This unit is already selected in another item.',
-                            ])
-                            ->disabled(fn (callable $get) => $get('parent_item_key') !== null),
+                                        \Filament\Notifications\Notification::make()
+                                            ->title('Unit diperbarui')
+                                            ->success()
+                                            ->send();
+                                    })
+                            ),
 
                         TextInput::make('daily_rate')
                             ->label('Price')
@@ -267,27 +245,18 @@ class RentalForm
                             ->default(0)
                             ->columnSpan(2)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateLineTotal($get, $set)),
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateGroupedLineTotal($get, $set)),
 
-                        Hidden::make('days')
-                            ->default(1),
+                        Hidden::make('days')->default(1),
+                        Hidden::make('unit_ids')->default('[]'),
 
-                        Hidden::make('parent_item_key')
-                            ->dehydrated(false)
-                            ->afterStateHydrated(function ($component, $state, $record) {
-                                // For existing records, populate the key from parent_item_id
-                                if ($record && $record->parent_item_id) {
-                                     $component->state($record->parent_item_id);
-                                }
-                            }),
-                            
                         TextInput::make('discount')
                             ->label('Disc %')
                             ->numeric()
                             ->default(0)
                             ->columnSpan(1)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateLineTotal($get, $set)),
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateGroupedLineTotal($get, $set)),
 
                         TextInput::make('subtotal')
                             ->label('Subtotal')
@@ -296,259 +265,376 @@ class RentalForm
                             ->readOnly()
                             ->dehydrated(true)
                             ->default(0)
-                            ->columnSpan(2),
+                            ->columnSpan(3),
                     ])
                     ->columnSpanFull()
                     ->defaultItems(0)
                     ->live()
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
+                // ── Add Product Action ──
                 Actions::make([
                     Action::make('add_item')
                         ->label('Add Product')
                         ->icon('heroicon-m-plus')
                         ->button()
                         ->visible(fn ($record) => !$record || !in_array($record->status, [Rental::STATUS_ACTIVE, Rental::STATUS_LATE_RETURN]))
-                        ->form([
-                            Select::make('product_id')
-                                ->label('Product')
-                                ->options(\App\Models\Product::where('is_active', true)->pluck('name', 'id'))
-                                ->searchable()
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(fn (callable $set) => $set('product_variation_id', null)),
-                            
-                            Select::make('product_variation_id')
-                                ->label('Variation')
-                                ->options(function (callable $get) {
-                                    $productId = $get('product_id');
-                                    if (!$productId) return [];
-                                    return \App\Models\ProductVariation::where('product_id', $productId)->pluck('name', 'id');
-                                })
-                                ->visible(fn (callable $get) => $get('product_id') && \App\Models\Product::find($get('product_id'))?->hasVariations())
-                                ->required(fn (callable $get) => $get('product_id') && \App\Models\Product::find($get('product_id'))?->hasVariations())
-                                ->live(),
-                        ])
-                        ->action(function (array $data, callable $get, callable $set) {
-                            $items = $get('items') ?? [];
-                            
-                            $pId = $data['product_id'];
-                            $vId = $data['product_variation_id'] ?? null;
-                            
-                            // Construct composite ID for the repeater
-                            $compositeId = $vId ? "{$pId}:{$vId}" : $pId;
-                            
-                            // Initialize new item with defaults
-                            $newItem = [
-                                'product_id' => $compositeId,
-                                'product_unit_id' => null,
-                                'daily_rate' => 0,
-                                'days' => 1,
-                                'discount' => 0,
-                                'subtotal' => 0,
+                        ->form(function () {
+                            // Pre-load variation map once
+                            $variationMap = self::getProductVariationMap();
+
+                            return [
+                                Select::make('product_id')
+                                    ->label('Product')
+                                    ->options(fn () => self::getProductList())
+                                    ->searchable()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn (callable $set) => $set('product_variation_id', null)),
+
+                                Select::make('product_variation_id')
+                                    ->label('Variation')
+                                    ->options(function (callable $get) use ($variationMap) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return [];
+                                        return $variationMap[$productId] ?? [];
+                                    })
+                                    ->visible(function (callable $get) use ($variationMap) {
+                                        $productId = $get('product_id');
+                                        return $productId && !empty($variationMap[$productId] ?? []);
+                                    })
+                                    ->required(function (callable $get) use ($variationMap) {
+                                        $productId = $get('product_id');
+                                        return $productId && !empty($variationMap[$productId] ?? []);
+                                    })
+                                    ->live(),
+
+                                TextInput::make('quantity')
+                                    ->label('Quantity')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->required()
+                                    ->visible(fn (callable $get) => (bool) $get('product_id'))
+                                    ->helperText(function (callable $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return '';
+                                        $query = ProductUnit::where('product_id', $productId)
+                                            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED]);
+                                        if ($get('product_variation_id')) {
+                                            $query->where('product_variation_id', $get('product_variation_id'));
+                                        }
+                                        return "Total unit tersedia: {$query->count()}";
+                                    }),
                             ];
-
-                            // Calculate days from global dates
-                            $startDate = $get('start_date');
-                            $endDate = $get('end_date');
-                            if ($startDate && $endDate) {
-                                $start = Carbon::parse($startDate);
-                                $end = Carbon::parse($endDate);
-                                $newItem['days'] = max(1, (int) ceil($start->diffInHours($end) / 24));
-                            }
-
-                            // Try to pre-fill daily rate if possible
-                            if ($vId) {
-                                $variation = \App\Models\ProductVariation::find($vId);
-                                if ($variation && $variation->daily_rate > 0) {
-                                    $newItem['daily_rate'] = $variation->daily_rate;
-                                }
-                            } elseif ($pId) {
-                                $product = \App\Models\Product::find($pId);
-                                if ($product && $product->daily_rate > 0) {
-                                    $newItem['daily_rate'] = $product->daily_rate;
-                                }
-                            }
-
-                            // Calculate subtotal
-                            $gross = $newItem['daily_rate'] * $newItem['days'];
-                            $newItem['subtotal'] = $gross;
-
-                            // Append with UUID key
-                            $uuid = (string) \Illuminate\Support\Str::uuid();
-                            $items[$uuid] = $newItem;
-                            
-                            $set('items', $items);
-                            
-                            self::calculateTotals($get, $set);
+                        })
+                        ->action(function (array $data, callable $get, callable $set) {
+                            self::handleAddProduct($data, $get, $set);
                         }),
                 ]),
 
-                // Global Calculations
+                // ── Global Calculations ──
                 Placeholder::make('totals_section')
                     ->label('')
                     ->content(new HtmlString('<div class="border-t pt-4"></div>'))
                     ->columnSpanFull(),
-                
+
                 Hidden::make('is_taxable')
                     ->default(fn () => filter_var(\App\Models\Setting::get('is_taxable', true), FILTER_VALIDATE_BOOLEAN))
                     ->dehydrated(),
-
                 Hidden::make('price_includes_tax')
                     ->default(fn () => filter_var(\App\Models\Setting::get('price_includes_tax', false), FILTER_VALIDATE_BOOLEAN))
                     ->dehydrated(),
-                
+
                 TextInput::make('subtotal')
                     ->label('Untaxed Amount (Subtotal)')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0)
-                    ->disabled()
-                    ->dehydrated(true)
-                    ->columnSpan(2),
+                    ->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
 
                 ToggleButtons::make('discount_type')
                     ->label('Discount Type')
-                    ->options([
-                        'fixed' => 'Fixed',
-                        'percent' => '%',
-                    ])
-                    ->default('fixed')
-                    ->inline()
-                    ->grouped()
-                    ->live()
+                    ->options(['fixed' => 'Fixed', 'percent' => '%'])
+                    ->default('fixed')->inline()->grouped()->live()
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
                 TextInput::make('discount')
-                    ->label('Discount')
-                    ->numeric()
-                    ->default(0)
-                    ->live(onBlur: true)
+                    ->label('Discount')->numeric()->default(0)->live(onBlur: true)
                     ->prefix(fn (callable $get) => $get('discount_type') === 'percent' ? '%' : 'Rp')
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
                 TextInput::make('tax_base')
                     ->label('Dasar Pengenaan Pajak (DPP)')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0)
-                    ->readOnly()
-                    ->dehydrated()
-                    ->visible(fn (callable $get) => $get('is_taxable'))
-                    ->columnSpan(1),
-
+                    ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
+                    ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
                 TextInput::make('ppn_amount')
                     ->label('PPN (11%)')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0)
-                    ->readOnly()
-                    ->dehydrated()
-                    ->visible(fn (callable $get) => $get('is_taxable'))
-                    ->columnSpan(1),
+                    ->numeric()->prefix('Rp')->default(0)->readOnly()->dehydrated()
+                    ->visible(fn (callable $get) => $get('is_taxable'))->columnSpan(1),
 
                 TextInput::make('total')
-                    ->label('Total')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0)
-                    ->disabled()
-                    ->dehydrated(true)
-                    ->columnSpan(2),
+                    ->label('Total')->numeric()->prefix('Rp')->default(0)->disabled()->dehydrated(true)->columnSpan(2),
 
                 ToggleButtons::make('deposit_type')
                     ->label('Deposit Type')
-                    ->options([
-                        'fixed' => 'Fixed',
-                        'percent' => '%',
-                    ])
-                    ->default('fixed')
-                    ->inline()
-                    ->grouped()
-                    ->live()
+                    ->options(['fixed' => 'Fixed', 'percent' => '%'])
+                    ->default('fixed')->inline()->grouped()->live()
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
-
                 TextInput::make('deposit')
-                    ->label('Security Deposit')
-                    ->helperText('Required deposit amount/rate')
-                    ->numeric()
-                    ->default(0)
-                    ->live(onBlur: true)
+                    ->label('Security Deposit')->helperText('Required deposit amount/rate')
+                    ->numeric()->default(0)->live(onBlur: true)
                     ->prefix(fn (callable $get) => $get('deposit_type') === 'percent' ? '%' : 'Rp')
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
                 TextInput::make('late_fee')
-                    ->label('Late Fee')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0)
-                    ->live(onBlur: true)
+                    ->label('Late Fee')->numeric()->prefix('Rp')->default(0)->live(onBlur: true)
                     ->afterStateUpdated(fn (callable $get, callable $set) => self::calculateTotals($get, $set)),
 
                 TextInput::make('down_payment_amount')
-                    ->label('Down Payment (DP)')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->default(0),
-
+                    ->label('Down Payment (DP)')->numeric()->prefix('Rp')->default(0),
                 Select::make('down_payment_status')
-                    ->label('DP Status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'paid' => 'Paid',
-                    ])
-                    ->default('pending'),
+                    ->label('DP Status')->options(['pending' => 'Pending', 'paid' => 'Paid'])->default('pending'),
 
-                Textarea::make('notes')
-                    ->label('Notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
+                Textarea::make('notes')->label('Notes')->rows(3)->columnSpanFull(),
             ]);
     }
 
+    // ═══════════════════════════════════════════════
+    //  ADD PRODUCT (from modal)
+    // ═══════════════════════════════════════════════
+    public static function handleAddProduct(array $data, callable $get, callable $set): void
+    {
+        $items = $get('grouped_items') ?? [];
+        $pId = $data['product_id'];
+        $vId = $data['product_variation_id'] ?? null;
+        $quantity = (int) ($data['quantity'] ?? 1);
+        $compositeId = $vId ? "{$pId}:{$vId}" : (string) $pId;
+
+        // Calculate days
+        $startDate = $get('start_date');
+        $endDate = $get('end_date');
+        $days = 1;
+        if ($startDate && $endDate) {
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+            $days = max(1, (int) ceil($start->diffInHours($end) / 24));
+        }
+
+        // Get daily rate — single query
+        $dailyRate = 0;
+        if ($vId) {
+            $dailyRate = \App\Models\ProductVariation::where('id', $vId)->value('daily_rate') ?? 0;
+        } else {
+            $dailyRate = \App\Models\Product::where('id', $pId)->value('daily_rate') ?? 0;
+        }
+
+        // Collect all already-used unit IDs
+        $allUsedUnitIds = [];
+        foreach ($items as $item) {
+            $allUsedUnitIds = array_merge($allUsedUnitIds, json_decode($item['unit_ids'] ?? '[]', true));
+        }
+
+        // Find available units (optimized - single query)
+        $currentRentalId = $get('id');
+        $available = self::getAvailableUnitsOptimized($startDate, $endDate, $currentRentalId, $pId, $vId, $allUsedUnitIds);
+
+        if ($available->count() < $quantity) {
+            \Filament\Notifications\Notification::make()
+                ->title('Unit Tidak Cukup')
+                ->body("Hanya tersedia {$available->count()} unit untuk tanggal yang dipilih.")
+                ->danger()->send();
+            return;
+        }
+
+        $unitsToAdd = $available->take($quantity);
+        $unitIds = $unitsToAdd->pluck('id')->values()->toArray();
+
+        // Check if same product+variation already exists → merge
+        $existingKey = null;
+        foreach ($items as $key => $item) {
+            if (($item['product_id'] ?? null) == $compositeId) {
+                $existingKey = $key;
+                break;
+            }
+        }
+
+        if ($existingKey !== null) {
+            $existing = $items[$existingKey];
+            $existingUnitIds = json_decode($existing['unit_ids'] ?? '[]', true);
+            $merged = array_merge($existingUnitIds, $unitIds);
+            $newQty = count($merged);
+
+            $items[$existingKey]['quantity'] = $newQty;
+            $items[$existingKey]['unit_ids'] = json_encode($merged);
+
+            $disc = (float) ($existing['discount'] ?? 0);
+            $gross = $dailyRate * $days * $newQty;
+            $items[$existingKey]['subtotal'] = max(0, $gross - ($gross * $disc / 100));
+        } else {
+            $gross = $dailyRate * $days * $quantity;
+            $uuid = (string) \Illuminate\Support\Str::uuid();
+            $items[$uuid] = [
+                'product_id' => $compositeId,
+                'quantity' => $quantity,
+                'unit_ids' => json_encode($unitIds),
+                'daily_rate' => $dailyRate,
+                'days' => $days,
+                'discount' => 0,
+                'subtotal' => $gross,
+            ];
+        }
+
+        $set('grouped_items', $items);
+        self::calculateTotals($get, $set);
+
+        $unitNames = $unitsToAdd->map(fn ($u) => $u->serial_number)->join(', ');
+        \Filament\Notifications\Notification::make()
+            ->title("{$quantity} unit ditambahkan")
+            ->body("Unit: {$unitNames}")
+            ->success()->send();
+    }
+
+    // ═══════════════════════════════════════════════
+    //  QUANTITY CHANGE HANDLER
+    // ═══════════════════════════════════════════════
+    public static function handleQuantityChange(int $newQty, int $oldQty, callable $get, callable $set): void
+    {
+        if ($newQty === $oldQty || $newQty < 1) return;
+
+        $unitIds = json_decode($get('unit_ids') ?? '[]', true);
+        $compositeId = $get('product_id');
+        $productId = $compositeId;
+        $variationId = null;
+        if ($compositeId && str_contains((string) $compositeId, ':')) {
+            [$productId, $variationId] = explode(':', $compositeId);
+        }
+
+        if ($newQty > $oldQty) {
+            $needed = $newQty - $oldQty;
+            $startDate = $get('../../start_date');
+            $endDate = $get('../../end_date');
+            $currentRentalId = $get('../../id');
+
+            // Collect all used unit IDs
+            $allItems = $get('../../grouped_items') ?? [];
+            $allUsedUnitIds = [];
+            foreach ($allItems as $item) {
+                $allUsedUnitIds = array_merge($allUsedUnitIds, json_decode($item['unit_ids'] ?? '[]', true));
+            }
+
+            $available = self::getAvailableUnitsOptimized($startDate, $endDate, $currentRentalId, $productId, $variationId, $allUsedUnitIds);
+
+            if ($available->count() < $needed) {
+                \Filament\Notifications\Notification::make()
+                    ->title('Unit Tidak Cukup')
+                    ->body("Hanya tersedia {$available->count()} unit tambahan.")
+                    ->danger()->send();
+                $set('quantity', $oldQty);
+                return;
+            }
+
+            $newUnits = $available->take($needed);
+            $unitIds = array_merge($unitIds, $newUnits->pluck('id')->toArray());
+        } else {
+            $unitIds = array_slice($unitIds, 0, $newQty);
+        }
+
+        $set('unit_ids', json_encode($unitIds));
+        self::calculateGroupedLineTotal($get, $set);
+    }
+
+    // ═══════════════════════════════════════════════
+    //  AVAILABLE UNITS — OPTIMIZED (DB-level filtering)
+    // ═══════════════════════════════════════════════
+
     /**
-     * Get available units for the given date range
+     * Get IDs of units that are booked during the given date range.
+     * Single query instead of N+1 isAvailable() calls.
+     */
+    private static function getBookedUnitIds($startDate, $endDate, $excludeRentalId = null): array
+    {
+        if (!$startDate || !$endDate) return [];
+
+        $activeStatuses = [
+            Rental::STATUS_QUOTATION,
+            Rental::STATUS_CONFIRMED,
+            Rental::STATUS_ACTIVE,
+            Rental::STATUS_LATE_PICKUP,
+            Rental::STATUS_LATE_RETURN,
+        ];
+
+        // 1. Units directly rented in overlapping period
+        $directlyBooked = RentalItem::query()
+            ->when($excludeRentalId, fn ($q) => $q->where('rental_id', '!=', $excludeRentalId))
+            ->whereHas('rental', function ($query) use ($startDate, $endDate, $activeStatuses) {
+                $query->whereIn('status', $activeStatuses)
+                    ->where('start_date', '<', $endDate)
+                    ->where('end_date', '>', $startDate);
+            })
+            ->pluck('product_unit_id')
+            ->toArray();
+
+        // 2. Units that are components of booked bundles (parent is rented → child unavailable)
+        $componentBooked = \App\Models\UnitKit::whereNotNull('linked_unit_id')
+            ->whereIn('unit_id', function ($query) use ($directlyBooked) {
+                // Parent units that are booked
+                $query->select('unit_id')
+                    ->from('unit_kits')
+                    ->whereIn('unit_id', $directlyBooked);
+            })
+            ->pluck('linked_unit_id')
+            ->toArray();
+
+        // 3. Bundle units whose components are booked
+        $bundleBooked = \App\Models\UnitKit::whereNotNull('linked_unit_id')
+            ->whereIn('linked_unit_id', $directlyBooked)
+            ->pluck('unit_id')
+            ->toArray();
+
+        return array_values(array_unique(array_merge($directlyBooked, $componentBooked, $bundleBooked)));
+    }
+
+    /**
+     * Get available units filtered at DB level — much faster than per-unit isAvailable()
+     */
+    public static function getAvailableUnitsOptimized($startDate, $endDate, $currentRentalId = null, $productId = null, $variationId = null, array $excludeUnitIds = [])
+    {
+        $bookedIds = self::getBookedUnitIds($startDate, $endDate, $currentRentalId);
+        $allExcluded = array_merge($bookedIds, $excludeUnitIds);
+
+        return ProductUnit::query()
+            ->select('id', 'serial_number', 'product_id', 'product_variation_id', 'status')
+            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
+            ->whereNotIn('condition', ['broken', 'lost'])
+            ->when($productId, fn ($q) => $q->where('product_id', $productId))
+            ->when($variationId, fn ($q) => $q->where('product_variation_id', $variationId))
+            ->when(!empty($allExcluded), fn ($q) => $q->whereNotIn('id', $allExcluded))
+            ->get();
+    }
+
+    /**
+     * Get available units as Select options array
      */
     public static function getAvailableUnits($startDate, $endDate, $currentRentalId = null, $productId = null, $variationId = null): array
     {
-        $query = ProductUnit::with(['product', 'variation'])
-            ->whereNotIn('status', [ProductUnit::STATUS_MAINTENANCE, ProductUnit::STATUS_RETIRED])
-            ->when($productId, fn($q) => $q->where('product_id', $productId))
-            ->when($variationId, fn($q) => $q->where('product_variation_id', $variationId));
+        $units = self::getAvailableUnitsOptimized($startDate, $endDate, $currentRentalId, $productId, $variationId);
 
-        if (!$startDate || !$endDate) {
-            return $query->get()
-                ->mapWithKeys(function ($unit) {
-                    $statusLabel = $unit->status !== 'available' ? " [{$unit->status}]" : '';
-                    return [$unit->id => $unit->serial_number . $statusLabel];
-                })
-                ->toArray();
-        }
-
-        // Use the centralized isAvailable method to ensure all kit/bundle constraints are checked
-        return $query->get()
-            ->filter(function ($unit) use ($startDate, $endDate, $currentRentalId) {
-                return $unit->isAvailable($startDate, $endDate, $currentRentalId);
-            })
-            ->mapWithKeys(function ($unit) {
-                return [$unit->id => $unit->serial_number];
-            })
+        return $units->mapWithKeys(fn ($unit) => [$unit->id => $unit->serial_number])
             ->toArray();
     }
 
-    public static function calculateLineTotal(callable $get, callable $set): void
+    // ═══════════════════════════════════════════════
+    //  CALCULATIONS
+    // ═══════════════════════════════════════════════
+    public static function calculateGroupedLineTotal(callable $get, callable $set): void
     {
         $dailyRate = (float) ($get('daily_rate') ?? 0);
         $days = (int) ($get('days') ?? 1);
+        $quantity = (int) ($get('quantity') ?? 1);
         $discountPercent = (float) ($get('discount') ?? 0);
-        
-        $gross = $dailyRate * $days;
-        $discountAmount = $gross * ($discountPercent / 100);
-        $subtotal = max(0, $gross - $discountAmount);
-        
+
+        $gross = $dailyRate * $days * $quantity;
+        $subtotal = max(0, $gross - ($gross * $discountPercent / 100));
         $set('subtotal', $subtotal);
 
-        // Update global totals
         self::calculateTotals($get, $set);
     }
 
@@ -556,53 +642,42 @@ class RentalForm
     {
         $startDate = $get('start_date');
         $endDate = $get('end_date');
+        if (!$startDate || !$endDate) return;
 
-        if ($startDate && $endDate) {
-            $start = Carbon::parse($startDate);
-            $end = Carbon::parse($endDate);
-            
-            $days = max(1, (int) ceil($start->diffInHours($end) / 24));
+        $start = Carbon::parse($startDate);
+        $end = Carbon::parse($endDate);
+        $days = max(1, (int) ceil($start->diffInHours($end) / 24));
 
-            $items = $get('items') ?? [];
-            foreach ($items as $key => $item) {
-                $set("items.{$key}.days", $days);
-                
-                // Recalculate line subtotal
-                $dailyRate = (float) ($item['daily_rate'] ?? 0);
-                $discountPercent = (float) ($item['discount'] ?? 0);
-                $gross = $dailyRate * $days;
-                $discountAmount = $gross * ($discountPercent / 100);
-                $subtotal = max(0, $gross - $discountAmount);
-                
-                $set("items.{$key}.subtotal", $subtotal);
-            }
-            
-            // Recalculate global totals
-            self::calculateTotals($get, $set);
+        $items = $get('grouped_items') ?? [];
+        foreach ($items as $key => $item) {
+            $set("grouped_items.{$key}.days", $days);
+            $dailyRate = (float) ($item['daily_rate'] ?? 0);
+            $quantity = (int) ($item['quantity'] ?? 1);
+            $disc = (float) ($item['discount'] ?? 0);
+            $gross = $dailyRate * $days * $quantity;
+            $set("grouped_items.{$key}.subtotal", max(0, $gross - ($gross * $disc / 100)));
         }
+        self::calculateTotals($get, $set);
     }
 
     public static function calculateTotals(callable $get, callable $set): void
     {
-        $items = $get('items');
+        $items = $get('grouped_items');
+        $isInside = false;
         if ($items === null) {
-            $items = $get('../../items');
+            $items = $get('../../grouped_items');
             $isInside = true;
-        } else {
-            $isInside = false;
         }
-        
         $items = $items ?? [];
-        $grossSubtotal = 0;
 
+        $grossSubtotal = 0;
         foreach ($items as $item) {
             $grossSubtotal += (float) ($item['subtotal'] ?? 0);
         }
 
-        // Helper to get value based on context
-        $getValue = fn($field) => $isInside ? $get("../../{$field}") : $get($field);
-        
-        // Get Settings & Inputs
+        $getValue = fn ($field) => $isInside ? $get("../../{$field}") : $get($field);
+        $setVal = fn ($f, $v) => $isInside ? $set("../../{$f}", $v) : $set($f, $v);
+
         $isTaxable = (bool) $getValue('is_taxable');
         $priceIncludesTax = (bool) $getValue('price_includes_tax');
         $discountType = $getValue('discount_type') ?? 'fixed';
@@ -611,77 +686,127 @@ class RentalForm
         $depositValue = (float) ($getValue('deposit') ?? 0);
         $lateFee = (float) ($getValue('late_fee') ?? 0);
 
-        // Set Subtotal (Gross)
-        if ($isInside) {
-            $set('../../subtotal', $grossSubtotal);
-        } else {
-            $set('subtotal', $grossSubtotal);
-        }
+        $setVal('subtotal', $grossSubtotal);
 
-        // Calculate Discount Amount
-        $discountAmount = 0;
-        if ($discountType === 'percent') {
-            $discountAmount = $grossSubtotal * ($discountValue / 100);
-        } else {
-            $discountAmount = $discountValue;
-        }
-
-        // Calculate Net Subtotal (After Discount)
+        $discountAmount = $discountType === 'percent'
+            ? $grossSubtotal * ($discountValue / 100)
+            : $discountValue;
         $netSubtotal = max(0, $grossSubtotal - $discountAmount);
 
-        // Get Tax Settings
         $taxEnabled = filter_var(\App\Models\Setting::get('tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
         $isPkp = filter_var(\App\Models\Setting::get('is_pkp', false), FILTER_VALIDATE_BOOLEAN);
         $ppnRate = (float) \App\Models\Setting::get('ppn_rate', 11);
 
-        // Calculate Tax Base (DPP)
-        // Taxable Amount includes Late Fee
         $taxableAmount = $netSubtotal + $lateFee;
-        
         $taxBase = $taxableAmount;
         $ppnAmount = 0;
 
         if ($taxEnabled && $isPkp && $isTaxable) {
             if ($priceIncludesTax) {
-                // If inclusive, TaxableAmount = DPP + PPN
-                // PPN = DPP * (rate/100)
-                // TaxableAmount = DPP * (1 + rate/100)
                 $taxBase = $taxableAmount / (1 + ($ppnRate / 100));
             }
-            
             $ppnAmount = $taxBase * ($ppnRate / 100);
         } else {
             $ppnRate = 0;
         }
 
-        // Calculate Payable Amount (Rental + Late Fee + Tax)
-        // If inclusive: taxableAmount is the total for those items
-        // If exclusive: taxBase + ppnAmount (which effectively is taxableAmount + ppnAmount if exclusive)
-        // Note: if exclusive, taxBase = taxableAmount.
         $payableAmount = $priceIncludesTax ? $taxableAmount : ($taxBase + $ppnAmount);
-
-        // Calculate Deposit (Excluded from Tax)
-        $depositAmount = 0;
-        if ($depositType === 'percent') {
-            $depositAmount = $grossSubtotal * ($depositValue / 100);
-        } else {
-            $depositAmount = $depositValue;
-        }
-
-        // Total = Payable + Deposit
+        $depositAmount = $depositType === 'percent' ? $grossSubtotal * ($depositValue / 100) : $depositValue;
         $total = $payableAmount + $depositAmount;
 
-        // Set Values
-        if ($isInside) {
-            $set('../../tax_base', round($taxBase, 2));
-            $set('../../ppn_amount', round($ppnAmount, 2));
-            $set('../../ppn_rate', $ppnRate);
-            $set('../../total', round($total, 2));
-        } else {
-            $set('tax_base', round($taxBase, 2));
-            $set('ppn_amount', round($ppnAmount, 2));
-            $set('ppn_rate', $ppnRate);
-            $set('total', round($total, 2));
+        $setVal('tax_base', round($taxBase, 2));
+        $setVal('ppn_amount', round($ppnAmount, 2));
+        $setVal('ppn_rate', $ppnRate);
+        $setVal('total', round($total, 2));
+    }
+
+    // ═══════════════════════════════════════════════
+    //  SYNC RENTAL ITEMS (DB) — called from pages
+    // ═══════════════════════════════════════════════
+    public static function syncRentalItems(Rental $rental, array $groupedItems): void
+    {
+        $existingItems = $rental->items()->whereNull('parent_item_id')->with('productUnit')->get();
+        $processedIds = [];
+
+        foreach ($groupedItems as $group) {
+            $unitIds = json_decode($group['unit_ids'] ?? '[]', true);
+            $days = (int) ($group['days'] ?? 1);
+            $dailyRate = (float) ($group['daily_rate'] ?? 0);
+            $discount = (float) ($group['discount'] ?? 0);
+
+            $gross = $dailyRate * $days;
+            $perUnitSubtotal = max(0, $gross - ($gross * $discount / 100));
+
+            foreach ($unitIds as $unitId) {
+                $existing = $existingItems->where('product_unit_id', $unitId)->first();
+
+                if ($existing) {
+                    $existing->update([
+                        'daily_rate' => $dailyRate,
+                        'days' => $days,
+                        'discount' => $discount,
+                        'subtotal' => $perUnitSubtotal,
+                    ]);
+                    $processedIds[] = $existing->id;
+                } else {
+                    $newItem = $rental->items()->create([
+                        'product_unit_id' => $unitId,
+                        'daily_rate' => $dailyRate,
+                        'days' => $days,
+                        'discount' => $discount,
+                        'subtotal' => $perUnitSubtotal,
+                    ]);
+                    $processedIds[] = $newItem->id;
+                }
+            }
         }
+
+        // Delete items no longer present
+        $toDelete = $existingItems->pluck('id')->diff($processedIds)->toArray();
+        if (!empty($toDelete)) {
+            $rental->items()->whereIn('parent_item_id', $toDelete)->delete();
+            $rental->items()->whereIn('id', $toDelete)->delete();
+        }
+    }
+
+    // ═══════════════════════════════════════════════
+    //  GROUP ITEMS FOR FORM (hydration helper)
+    // ═══════════════════════════════════════════════
+    public static function groupItemsForForm($items): array
+    {
+        $grouped = [];
+
+        foreach ($items as $item) {
+            if ($item->parent_item_id) continue;
+
+            $unit = $item->productUnit;
+            if (!$unit) continue;
+
+            $compositeId = $unit->product_variation_id
+                ? "{$unit->product_id}:{$unit->product_variation_id}"
+                : (string) $unit->product_id;
+
+            if (!isset($grouped[$compositeId])) {
+                $grouped[$compositeId] = [
+                    'product_id' => $compositeId,
+                    'quantity' => 0,
+                    'unit_ids' => [],
+                    'daily_rate' => $item->daily_rate,
+                    'days' => $item->days,
+                    'discount' => $item->discount ?? 0,
+                    'subtotal' => 0,
+                ];
+            }
+
+            $grouped[$compositeId]['quantity']++;
+            $grouped[$compositeId]['unit_ids'][] = $unit->id;
+            $grouped[$compositeId]['subtotal'] += (float) $item->subtotal;
+        }
+
+        foreach ($grouped as &$g) {
+            $g['unit_ids'] = json_encode($g['unit_ids']);
+        }
+
+        return array_values($grouped);
     }
 }

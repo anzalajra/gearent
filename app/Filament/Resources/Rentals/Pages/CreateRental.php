@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Filament\Resources\Rentals\Schemas\RentalForm;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Notifications\Notification;
@@ -11,61 +12,23 @@ class CreateRental extends CreateRecord
 {
     protected static string $resource = RentalResource::class;
 
-    protected function getFormActions(): array
+    protected array $groupedItemsData = [];
+
+    protected function mutateFormDataBeforeCreate(array $data): array
     {
-        return [
-            Action::make('calculate')
-                ->label('Calculate Total')
-                ->icon('heroicon-m-calculator')
-                ->color('info')
-                ->action(function () {
-                    $items = $this->data['items'] ?? [];
-                    $subtotal = 0;
-
-                    foreach ($items as $key => $item) {
-                        $dailyRate = (float) ($item['daily_rate'] ?? 0);
-                        $days = (int) ($item['days'] ?? 1);
-                        $itemSubtotal = $dailyRate * $days;
-                        
-                        $this->data['items'][$key]['subtotal'] = $itemSubtotal;
-                        $subtotal += $itemSubtotal;
-                    }
-
-                    $discount = (float) ($this->data['discount'] ?? 0);
-                    $subtotalAfterDiscount = max(0, $subtotal - $discount);
-                    
-                    // Tax Calculation
-                    $taxAmount = 0;
-                    $taxRate = 0;
-                    if (\App\Models\Setting::get('tax_enabled', false)) {
-                        $taxRate = (float) \App\Models\Setting::get('tax_rate', 11);
-                        $taxAmount = $subtotalAfterDiscount * ($taxRate / 100);
-                    }
-
-                    $total = $subtotalAfterDiscount + $taxAmount;
-
-                    $this->data['subtotal'] = $subtotal;
-                    $this->data['ppn_rate'] = $taxRate;
-                    $this->data['ppn_amount'] = $taxAmount;
-                    $this->data['total'] = $total;
-
-                    Notification::make()
-                        ->title('Calculated!')
-                        ->body("Subtotal: Rp " . number_format($subtotal, 0, ',', '.') . " | Tax: Rp " . number_format($taxAmount, 0, ',', '.') . " | Total: Rp " . number_format($total, 0, ',', '.'))
-                        ->success()
-                        ->send();
-                }),
-            
-            $this->getCreateFormAction(),
-            $this->getCreateAnotherFormAction(),
-            $this->getCancelFormAction(),
-        ];
+        // Extract grouped_items before saving (not a DB column)
+        $this->groupedItemsData = $data['grouped_items'] ?? [];
+        unset($data['grouped_items']);
+        return $data;
     }
 
     protected function afterCreate(): void
     {
+        // Sync rental items from grouped data
+        RentalForm::syncRentalItems($this->record, $this->groupedItemsData);
+
+        // Recalculate totals from actual DB items
         $this->record->refresh();
-        
         $subtotal = $this->record->items()->sum('subtotal');
         $total = $subtotal - ($this->record->discount ?? 0);
 
@@ -73,5 +36,14 @@ class CreateRental extends CreateRecord
             'subtotal' => $subtotal,
             'total' => $total,
         ]);
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            $this->getCreateFormAction(),
+            $this->getCreateAnotherFormAction(),
+            $this->getCancelFormAction(),
+        ];
     }
 }

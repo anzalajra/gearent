@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Rentals\Pages;
 
 use App\Filament\Resources\Rentals\RentalResource;
+use App\Filament\Resources\Rentals\Schemas\RentalForm;
 use App\Models\Rental;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -11,6 +12,8 @@ use Filament\Resources\Pages\EditRecord;
 class EditRental extends EditRecord
 {
     protected static string $resource = RentalResource::class;
+
+    protected array $groupedItemsData = [];
 
     public function mount(int|string $record): void
     {
@@ -26,6 +29,29 @@ class EditRental extends EditRecord
 
             $this->redirect(RentalResource::getUrl('index'));
         }
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        // Load rental items and group them for the form
+        $rental = Rental::with('items.productUnit')->findOrFail($data['id']);
+        $data['grouped_items'] = RentalForm::groupItemsForForm($rental->items);
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Extract grouped_items before saving (not a DB column)
+        $this->groupedItemsData = $data['grouped_items'] ?? [];
+        unset($data['grouped_items']);
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        // Sync rental items from grouped data
+        RentalForm::syncRentalItems($this->record, $this->groupedItemsData);
+        $this->record->refresh();
     }
 
     protected function getHeaderActions(): array
