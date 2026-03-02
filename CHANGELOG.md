@@ -16,6 +16,15 @@
 
 
 
+
+## [v1.5.1] - 2026-03-02
+- (Bug Fix) App footer location no longer in the middle of page
+- (Bug Fix) Notification for new booking applied only for admin
+- (Bug Fix) Duplicate method between user and customer
+- (Bug Fix) Duplicate NIK Table
+- (Tweak) Rental table structur now have better methood
+- (Tweak) Rental form layout is more friendly
+
 ## [v1.5.0] - 2026-02-24
 - (New) Advanced Finance System. New "Finance" page to manage entries, account, deposit, payable, and reporting
 - (New) Switch between simple and advance finance system
