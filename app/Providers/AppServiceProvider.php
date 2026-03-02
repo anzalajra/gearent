@@ -66,9 +66,10 @@ class AppServiceProvider extends ServiceProvider
                 if (Setting::get('notification_email_enabled')) {
                     $mailConfig = [];
                     
+                    if ($mailer = Setting::get('mail_mailer')) $mailConfig['mail.default'] = $mailer;
                     if ($host = Setting::get('mail_host')) $mailConfig['mail.mailers.smtp.host'] = $host;
                     if ($port = Setting::get('mail_port')) $mailConfig['mail.mailers.smtp.port'] = $port;
-                    if ($encryption = Setting::get('mail_encryption')) $mailConfig['mail.mailers.smtp.encryption'] = $encryption;
+                    if ($encryption = Setting::get('mail_encryption')) $mailConfig['mail.mailers.smtp.encryption'] = $encryption ?: null;
                     if ($username = Setting::get('mail_username')) $mailConfig['mail.mailers.smtp.username'] = $username;
                     if ($password = Setting::get('mail_password')) $mailConfig['mail.mailers.smtp.password'] = $password;
                     if ($fromAddress = Setting::get('mail_from_address')) $mailConfig['mail.from.address'] = $fromAddress;

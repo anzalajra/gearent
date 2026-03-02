@@ -85,6 +85,20 @@ class Rental extends Model
             }
         });
 
+        static::updated(function ($rental) {
+            // Notify when rental is completed
+            if ($rental->isDirty('status') && $rental->status === self::STATUS_COMPLETED) {
+                // Notify admins
+                $admins = \App\Models\User::role(['super_admin', 'admin', 'staff'])->get();
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\RentalCompletedNotification($rental));
+
+                // Notify customer
+                if ($rental->user) {
+                    $rental->user->notify(new \App\Notifications\RentalCompletedNotification($rental));
+                }
+            }
+        });
+
         static::saved(function ($rental) {
             $rental->refreshUnitStatuses();
         });

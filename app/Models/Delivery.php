@@ -39,6 +39,16 @@ class Delivery extends Model
                 $delivery->delivery_number = self::generateDeliveryNumber($delivery->type);
             }
         });
+
+        static::created(function ($delivery) {
+            // Notify admins about new delivery
+            $admins = User::role(['super_admin', 'admin', 'staff'])->get();
+            if ($delivery->type === self::TYPE_OUT) {
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\DeliveryOutNotification($delivery));
+            } else {
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\DeliveryInNotification($delivery));
+            }
+        });
     }
 
     public static function generateDeliveryNumber(string $type): string

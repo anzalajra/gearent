@@ -73,6 +73,14 @@ class User extends Authenticatable implements FilamentUser
 
     protected static function booted()
     {
+        static::created(function ($user) {
+            // Notify admins about new customer registration (users without roles)
+            if (!$user->hasAnyRole(['super_admin', 'admin', 'staff'])) {
+                $admins = User::role(['super_admin', 'admin', 'staff'])->get();
+                \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewCustomerNotification($user));
+            }
+        });
+
         static::updated(function ($user) {
             if ($user->isDirty('is_verified') && $user->is_verified) {
                 $user->notify(new \App\Notifications\DocumentVerifiedNotification());

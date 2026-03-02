@@ -53,57 +53,95 @@ class NotificationSettings extends Page implements HasForms
                             ->default(true)
                             ->live(),
                         Toggle::make('whatsapp_enabled')
-                            ->label('Enable WhatsApp Notifications')
-                            ->default(false)
-                            ->live(),
+                            ->label('Enable Send via WhatsApp')
+                            ->helperText('Tampilkan tombol kirim via WhatsApp di detail rental, invoice, dll')
+                            ->default(false),
                     ])->columns(3),
+
+                Section::make('Notification Types')
+                    ->description('Select which events trigger email notifications to admin/staff.')
+                    ->visible(fn ($get) => $get('notification_email_enabled'))
+                    ->schema([
+                        Toggle::make('notify_new_customer')
+                            ->label('New Customer Registration')
+                            ->helperText('When a new customer registers')
+                            ->default(true),
+                        Toggle::make('notify_verification_request')
+                            ->label('Customer Verification Request')
+                            ->helperText('When customer uploads documents for verification')
+                            ->default(true),
+                        Toggle::make('notify_new_rental')
+                            ->label('New Rental Order (Quotation)')
+                            ->helperText('When a new rental/quotation is created')
+                            ->default(true),
+                        Toggle::make('notify_new_invoice')
+                            ->label('New Invoice')
+                            ->helperText('When a new invoice is generated')
+                            ->default(true),
+                        Toggle::make('notify_delivery_out')
+                            ->label('Delivery Out (Surat Jalan Keluar)')
+                            ->helperText('When items are delivered to customer')
+                            ->default(true),
+                        Toggle::make('notify_delivery_in')
+                            ->label('Delivery In (Surat Jalan Masuk)')
+                            ->helperText('When items are returned from customer')
+                            ->default(true),
+                        Toggle::make('notify_rental_completed')
+                            ->label('Rental Completed')
+                            ->helperText('When a rental is marked as completed')
+                            ->default(true),
+                    ])->columns(2),
 
                 Section::make('Email Settings')
                     ->description('Configure SMTP settings for email notifications.')
                     ->visible(fn ($get) => $get('notification_email_enabled'))
                     ->schema([
-                        TextInput::make('mail_mailer')
+                        \Filament\Forms\Components\Select::make('mail_mailer')
                             ->label('Mailer')
+                            ->options([
+                                'smtp' => 'SMTP',
+                                'sendmail' => 'Sendmail',
+                                'mailgun' => 'Mailgun',
+                                'ses' => 'Amazon SES',
+                                'postmark' => 'Postmark',
+                                'log' => 'Log (Testing)',
+                            ])
                             ->default('smtp')
-                            ->disabled(),
+                            ->helperText('Driver untuk pengiriman email'),
                         TextInput::make('mail_host')
                             ->label('Host')
-                            ->placeholder('smtp.mailtrap.io'),
+                            ->placeholder('smtp.gmail.com'),
                         TextInput::make('mail_port')
                             ->label('Port')
-                            ->placeholder('2525')
+                            ->placeholder('587')
                             ->numeric(),
                         TextInput::make('mail_username')
-                            ->label('Username'),
+                            ->label('Username')
+                            ->placeholder('your-email@gmail.com'),
                         TextInput::make('mail_password')
                             ->label('Password')
                             ->password()
-                            ->revealable(),
-                        TextInput::make('mail_encryption')
+                            ->revealable()
+                            ->helperText('Untuk Gmail, gunakan App Password'),
+                        \Filament\Forms\Components\Select::make('mail_encryption')
                             ->label('Encryption')
-                            ->placeholder('tls'),
+                            ->options([
+                                'tls' => 'TLS',
+                                'ssl' => 'SSL',
+                                '' => 'None',
+                            ])
+                            ->default('tls'),
                         TextInput::make('mail_from_address')
                             ->label('From Address')
-                            ->placeholder('hello@example.com')
+                            ->placeholder('noreply@example.com')
                             ->email(),
                         TextInput::make('mail_from_name')
                             ->label('From Name')
                             ->placeholder('Gearent'),
                     ])->columns(2),
 
-                Section::make('WhatsApp Settings')
-                    ->visible(fn ($get) => $get('whatsapp_enabled'))
-                    ->schema([
-                        \Filament\Forms\Components\Placeholder::make('whatsapp_status')
-                            ->label('Status')
-                            ->content('Click-to-Chat Integration Active'),
-                        TextInput::make('whatsapp_number')
-                            ->label('Business WhatsApp Number')
-                            ->helperText('Your business WhatsApp number (displayed to customers)'),
-                    ]),
-
                 Section::make('WhatsApp Templates')
-                    ->description('Customize the messages sent via WhatsApp Click-to-Chat.')
+                    ->description('Template pesan untuk tombol Send via WhatsApp. Gunakan placeholder sesuai konteks.')
                     ->visible(fn ($get) => $get('whatsapp_enabled'))
                     ->schema([
                         Textarea::make('whatsapp_template_rental_detail')
@@ -143,10 +181,7 @@ class NotificationSettings extends Page implements HasForms
         $data = $this->form->getState();
         
         foreach ($data as $key => $value) {
-            Setting::updateOrCreate(
-                ['key' => $key],
-                ['value' => $value]
-            );
+            Setting::set($key, $value);
         }
 
         Notification::make()

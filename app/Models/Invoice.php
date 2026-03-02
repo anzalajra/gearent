@@ -77,6 +77,12 @@ class Invoice extends Model
                 $invoice->number = self::generateNumber();
             }
         });
+
+        static::created(function ($invoice) {
+            // Notify admins about new invoice
+            $admins = User::role(['super_admin', 'admin', 'staff'])->get();
+            \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\InvoiceCreatedNotification($invoice));
+        });
     }
 
     public static function generateNumber(): string
