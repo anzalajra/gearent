@@ -89,9 +89,15 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::Green,
                 'warning' => Color::Orange,
                 'purple' => Color::Purple,
-            ])
+            ]);
+            
+        // Detect mobile early for render hooks
+        $isMobile = $this->isMobileDevice();
+        $useTopNav = ($navigationLayout === 'top' || $isMobile);
+        
+        $panel
             ->renderHook(
-                $navigationLayout === 'top'
+                $useTopNav
                     ? 'panels::global-search.after'
                     : 'panels::sidebar.footer',
                 fn () => view('filament.hooks.qr-scanner')
@@ -134,7 +140,9 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ]);
 
-        if ($navigationLayout === 'top') {
+        // On mobile, always use top navigation for better UX
+        // On desktop, use the user's preferred setting
+        if ($useTopNav) {
             $panel->topNavigation();
         } else {
             // Sidebar mode: hide the topbar entirely
@@ -204,5 +212,35 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Sidebar collapsible (opsional - bisa dihapus jika tidak perlu)
             ->sidebarCollapsibleOnDesktop();
+    }
+    
+    /**
+     * Detect if the current request is from a mobile device
+     */
+    protected function isMobileDevice(): bool
+    {
+        $userAgent = request()->header('User-Agent', '');
+        
+        // Common mobile device patterns
+        $mobilePatterns = [
+            '/Mobile/i',
+            '/Android/i',
+            '/iPhone/i',
+            '/iPad/i',
+            '/iPod/i',
+            '/webOS/i',
+            '/BlackBerry/i',
+            '/Opera Mini/i',
+            '/IEMobile/i',
+            '/Windows Phone/i',
+        ];
+        
+        foreach ($mobilePatterns as $pattern) {
+            if (preg_match($pattern, $userAgent)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }

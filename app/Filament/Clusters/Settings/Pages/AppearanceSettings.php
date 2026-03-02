@@ -90,7 +90,7 @@ class AppearanceSettings extends Page implements HasForms
                         'sidebar' => 'heroicon-o-bars-3-bottom-left',
                         'top' => 'heroicon-o-bars-3',
                     ])
-                    ->helperText('On mobile screens, sidebar will automatically switch to hamburger menu for better mobile experience.')
+                    ->helperText('Pilihan ini untuk tampilan desktop. Pada perangkat mobile, navigasi akan otomatis berubah ke Top Navigation.')
                     ->default('sidebar')
                     ->inline()
                     ->required(),
