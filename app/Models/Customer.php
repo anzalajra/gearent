@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * @deprecated Use App\Models\User instead. This model is deprecated since v1.3.0.
+ * All customer functionality has been migrated to the User model with user_id foreign keys.
+ * This class will be removed in a future version.
+ */
 class Customer extends Authenticatable
 {
     use HasFactory, Notifiable;

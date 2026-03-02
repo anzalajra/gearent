@@ -75,8 +75,8 @@ class Rental extends Model
     protected static function booted()
     {
         static::created(function ($rental) {
-            // Admin Notification
-            $admins = \App\Models\User::all();
+            // Admin Notification - only send to users with admin/super_admin roles
+            $admins = \App\Models\User::role(['super_admin', 'admin', 'staff'])->get();
             \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewBookingNotification($rental));
 
             // Customer Notification

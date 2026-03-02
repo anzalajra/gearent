@@ -34,7 +34,6 @@ class User extends Authenticatable implements FilamentUser
         'verified_by',
         'customer_category_id',
         'custom_fields',
-        'nik',
         'npwp',
         'tax_identity_name',
         'tax_address',
@@ -76,8 +75,7 @@ class User extends Authenticatable implements FilamentUser
     {
         static::updated(function ($user) {
             if ($user->isDirty('is_verified') && $user->is_verified) {
-                // Ensure the notification class exists and is imported if needed, or use full path
-                // $user->notify(new \App\Notifications\DocumentVerifiedNotification());
+                $user->notify(new \App\Notifications\DocumentVerifiedNotification());
             }
         });
     }

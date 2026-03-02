@@ -41,27 +41,7 @@ if (!$isInstalled) {
 
 } else {
     // If INSTALLED, load normal application routes
-
-    // Setup Routes (protected by middleware CheckInstallation in controller if needed, or just remove)
-    // But since we use logic here, we can keep them or rely on middleware.
-    // Keeping them here for safety if middleware fails, but better to hide them?
-    // Let's keep them but CheckInstallation middleware should handle redirection back to home.
-    Route::prefix('setup')->name('setup.')->group(function () {
-        Route::get('/', [SetupController::class, 'index'])->name('index');
-        // ... other setup routes if needed for re-setup or similar logic, 
-        // but typically we don't want them accessible.
-        // For now, let's just rely on the middleware for installed state redirection
-        // or just don't define them here to be extra safe.
-        // However, middleware CheckInstallation is still best practice.
-        // Let's just define them to avoid "Route not found" if someone hard refreshes during transition.
-        Route::get('/', [SetupController::class, 'index'])->name('index');
-        Route::get('/step1', [SetupController::class, 'step1'])->name('step1');
-        Route::post('/step2', [SetupController::class, 'step2'])->name('step2');
-        Route::get('/step3', [SetupController::class, 'step3'])->name('step3');
-        Route::get('/step4', [SetupController::class, 'step4'])->name('step4');
-        Route::get('/step5', [SetupController::class, 'step5'])->name('step5');
-        Route::post('/step6', [SetupController::class, 'step6'])->name('step6');
-    });
+    // Setup routes are only available when not installed (handled in the if block above)
 
     // Public Routes
     Route::get('/', [HomeController::class, 'index'])->name('home');

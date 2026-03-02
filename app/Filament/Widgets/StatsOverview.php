@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
+use App\Models\User;
 use App\Models\Rental;
 use App\Models\ProductUnit;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -27,8 +27,8 @@ class StatsOverview extends BaseWidget
         $pendingRentals = Rental::where('status', 'quotation')->count();
         $availableUnits = ProductUnit::where('status', 'available')->count();
         $rentedUnits = ProductUnit::where('status', 'rented')->count();
-        $totalCustomers = Customer::count();
-        $verifiedCustomers = Customer::where('is_verified', true)->count();
+        $totalCustomers = User::whereDoesntHave('roles')->count();
+        $verifiedCustomers = User::whereDoesntHave('roles')->where('is_verified', true)->count();
 
         return [
             Stat::make('Today\'s Rentals', $todayRentals)
@@ -56,7 +56,7 @@ class StatsOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-users')
                 ->color('primary'),
 
-            Stat::make('Pending Verification', Customer::where('is_verified', false)->count())
+            Stat::make('Pending Verification', User::whereDoesntHave('roles')->where('is_verified', false)->count())
                 ->description('Awaiting document review')
                 ->descriptionIcon('heroicon-m-document-check')
                 ->color('danger'),

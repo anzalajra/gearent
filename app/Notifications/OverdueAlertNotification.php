@@ -4,7 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Rental;
 use App\Models\Setting;
-use App\Models\Customer;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,8 +29,8 @@ class OverdueAlertNotification extends Notification
             $channels[] = 'database';
         }
         
-        // Email only for Customer, not Admin
-        if ($notifiable instanceof Customer && Setting::get('notification_email_enabled', true)) {
+        // Email only for Customer (users without admin roles), not Admin
+        if ($notifiable instanceof User && !$notifiable->hasAnyRole(['super_admin', 'admin', 'staff']) && Setting::get('notification_email_enabled', true)) {
             $channels[] = 'mail';
         }
         
@@ -51,7 +51,9 @@ class OverdueAlertNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        $url = $notifiable instanceof Customer 
+        // Check if user is a customer (no admin roles) or admin/staff
+        $isCustomer = $notifiable instanceof User && !$notifiable->hasAnyRole(['super_admin', 'admin', 'staff']);
+        $url = $isCustomer 
             ? "/rentals/{$this->rental->id}" 
             : "/admin/rentals/{$this->rental->id}";
 

@@ -29,14 +29,6 @@ class Cart extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * @deprecated Use user() instead
-     */
-    public function customer(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
     public function productUnit(): BelongsTo
     {
         return $this->belongsTo(ProductUnit::class);
