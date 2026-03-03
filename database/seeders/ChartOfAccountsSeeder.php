@@ -15,10 +15,21 @@ class ChartOfAccountsSeeder extends Seeder
     public function run(): void
     {
         // Disable foreign key checks to allow truncation
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'pgsql') {
+            DB::statement('SET session_replication_role = replica;');
+        } else {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        }
+        
         AccountMapping::truncate();
         Account::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
+        if ($driver === 'pgsql') {
+            DB::statement('SET session_replication_role = DEFAULT;');
+        } else {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        }
 
         $accounts = [
             // 1. ASET (ASSETS)

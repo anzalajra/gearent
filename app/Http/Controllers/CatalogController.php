@@ -43,7 +43,7 @@ class CatalogController extends Controller
                                     Rental::STATUS_LATE_RETURN
                                 ])->where(function ($overlap) use ($startDate, $endDate, $bufferHours) {
                                     $overlap->where('start_date', '<', $endDate->copy()->addHours($bufferHours))
-                                            ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$bufferHours, $startDate]);
+                                            ->where('end_date', '>', $startDate->copy()->subHours($bufferHours));
                                 });
                             });
                         });
@@ -140,7 +140,7 @@ class CatalogController extends Controller
                 $query->whereIn('status', [Rental::STATUS_QUOTATION, Rental::STATUS_CONFIRMED, Rental::STATUS_ACTIVE, Rental::STATUS_LATE_PICKUP, Rental::STATUS_LATE_RETURN])
                     ->where(function ($q) use ($startDate, $endDate, $bufferHours) {
                         $q->where('start_date', '<', $endDate->copy()->addHours($bufferHours))
-                          ->whereRaw("DATE_ADD(end_date, INTERVAL ? HOUR) > ?", [$bufferHours, $startDate]);
+                          ->where('end_date', '>', $startDate->copy()->subHours($bufferHours));
                     });
             })
             ->exists();

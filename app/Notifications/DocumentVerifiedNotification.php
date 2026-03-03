@@ -36,7 +36,7 @@ class DocumentVerifiedNotification extends Notification
                     ->greeting('Hello ' . $notifiable->name . ',')
                     ->line('Your documents have been verified and your account is now active.')
                     ->action('Start Renting', url('/'))
-                    ->line('Thank you for choosing Gearent!');
+                    ->line('Thank you for choosing Zewalo!');
     }
 
     public function toDatabase(object $notifiable): array

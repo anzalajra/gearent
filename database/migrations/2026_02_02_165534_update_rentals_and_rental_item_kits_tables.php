@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\DatabaseHelper;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +19,13 @@ return new class extends Migration
 
         // Fix condition_in enum to include lost and broken
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE rental_item_kits MODIFY COLUMN condition_in ENUM('excellent', 'good', 'fair', 'poor', 'lost', 'broken') NULL");
+            DatabaseHelper::modifyEnumColumn(
+                'rental_item_kits',
+                'condition_in',
+                ['excellent', 'good', 'fair', 'poor', 'lost', 'broken'],
+                null,
+                true
+            );
         }
     }
 
@@ -28,6 +35,14 @@ return new class extends Migration
             $table->dropColumn('cancel_reason');
         });
 
-        DB::statement("ALTER TABLE rental_item_kits MODIFY COLUMN condition_in ENUM('excellent', 'good', 'fair', 'poor') NULL");
+        if (DB::getDriverName() !== 'sqlite') {
+            DatabaseHelper::modifyEnumColumn(
+                'rental_item_kits',
+                'condition_in',
+                ['excellent', 'good', 'fair', 'poor'],
+                null,
+                true
+            );
+        }
     }
 };

@@ -76,7 +76,7 @@ class ViewRental extends Page
                             'pickup_date' => \Carbon\Carbon::parse($rental->start_date)->format('d M Y H:i'),
                             'return_date' => \Carbon\Carbon::parse($rental->end_date)->format('d M Y H:i'),
                             'link_pdf' => $pdfLink,
-                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                            'company_name' => \App\Models\Setting::get('site_name', 'Zewalo'),
                         ];
                         
                         $message = \App\Helpers\WhatsAppHelper::parseTemplate('whatsapp_template_rental_detail', $data);

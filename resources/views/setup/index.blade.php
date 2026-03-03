@@ -1,6 +1,6 @@
 <x-setup-layout>
     <div class="mb-4 text-sm text-gray-600">
-        Welcome to the Gearent installation wizard. We will check your server environment to ensure everything is ready.
+        Welcome to the Zewalo installation wizard. We will check your server environment to ensure everything is ready.
     </div>
 
     <div class="space-y-2">

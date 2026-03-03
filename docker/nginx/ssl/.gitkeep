@@ -1,0 +1,5 @@
+# Placeholder for SSL certificates
+# Place your SSL certificates here:
+# - ssl.crt (Certificate)
+# - ssl.key (Private Key)
+# - ssl-chain.crt (Certificate Chain, if needed)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\DatabaseHelper;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +14,13 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'pending', 'completed', 'cancelled') NOT NULL DEFAULT 'draft'");
+            DatabaseHelper::modifyEnumColumn(
+                'deliveries',
+                'status',
+                ['draft', 'pending', 'completed', 'cancelled'],
+                'draft',
+                false
+            );
         }
     }
 
@@ -22,6 +29,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE deliveries MODIFY COLUMN status ENUM('draft', 'completed') NOT NULL DEFAULT 'draft'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DatabaseHelper::modifyEnumColumn(
+                'deliveries',
+                'status',
+                ['draft', 'completed'],
+                'draft',
+                false
+            );
+        }
     }
 };

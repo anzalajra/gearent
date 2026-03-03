@@ -142,7 +142,7 @@ class NotificationSettings extends Page implements HasForms
                             ->email(),
                         TextInput::make('mail_from_name')
                             ->label('From Name')
-                            ->placeholder('Gearent'),
+                            ->placeholder('Zewalo'),
                         Actions::make([
                             Action::make('testEmail')
                                 ->label('Test Email')

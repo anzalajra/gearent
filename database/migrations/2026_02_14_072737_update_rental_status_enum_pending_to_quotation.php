@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\DatabaseHelper;
 
 return new class extends Migration
 {
@@ -14,7 +15,13 @@ return new class extends Migration
     {
         // 1. Modify enum to include both 'pending' and 'quotation'
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return') NOT NULL DEFAULT 'quotation'");
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['pending', 'quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return'],
+                'quotation',
+                false
+            );
         }
 
         // 2. Update existing records
@@ -22,7 +29,13 @@ return new class extends Migration
 
         // 3. Modify enum to remove 'pending'
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return') NOT NULL DEFAULT 'quotation'");
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return'],
+                'quotation',
+                false
+            );
         }
     }
 
@@ -31,13 +44,29 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // 1. Add 'pending' back
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            // 1. Add 'pending' back
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['pending', 'quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return'],
+                'pending',
+                false
+            );
+        }
 
         // 2. Revert data
         DB::table('rentals')->where('status', 'quotation')->update(['status' => 'pending']);
 
-        // 3. Remove 'quotation'
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return') NOT NULL DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            // 3. Remove 'quotation'
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return'],
+                'pending',
+                false
+            );
+        }
     }
 };

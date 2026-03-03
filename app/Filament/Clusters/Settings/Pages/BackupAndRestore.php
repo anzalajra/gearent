@@ -209,7 +209,12 @@ class BackupAndRestore extends Page implements HasTable
             }
 
             // Disable foreign keys
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            $driver = DB::connection()->getDriverName();
+            if ($driver === 'pgsql') {
+                DB::statement('SET session_replication_role = replica;');
+            } else {
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            }
 
             // Iterate through zip files
             for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -239,7 +244,11 @@ class BackupAndRestore extends Page implements HasTable
             }
 
             // Enable foreign keys
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            if ($driver === 'pgsql') {
+                DB::statement('SET session_replication_role = DEFAULT;');
+            } else {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
             
             $zip->close();
             
@@ -255,7 +264,12 @@ class BackupAndRestore extends Page implements HasTable
             return redirect()->to(request()->header('Referer'));
 
         } catch (\Exception $e) {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            $driver = DB::connection()->getDriverName();
+            if ($driver === 'pgsql') {
+                DB::statement('SET session_replication_role = DEFAULT;');
+            } else {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            }
             Notification::make()
                 ->title('Restore Failed')
                 ->body($e->getMessage())

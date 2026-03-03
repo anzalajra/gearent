@@ -1,0 +1,82 @@
+services:
+  # PHP-FPM Service - Development
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        user: www
+        uid: 1000
+    image: zewalo-app-dev
+    container_name: zewalo-app-dev
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - zewalo-network
+    depends_on:
+      - db
+      - redis
+
+  # Nginx Service
+  nginx:
+    image: nginx:alpine
+    container_name: zewalo-nginx-dev
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - zewalo-network
+    depends_on:
+      - app
+
+  # PostgreSQL Service
+  db:
+    image: postgres:16-alpine
+    container_name: zewalo-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-zewalo}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - zewalo-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - zewalo-network
+
+  # Redis Service
+  redis:
+    image: redis:alpine
+    container_name: zewalo-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - zewalo-network
+
+  # Node.js for Vite dev server
+  node:
+    image: node:20-alpine
+    container_name: zewalo-node-dev
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - zewalo-network
+
+networks:
+  zewalo-network:
+    driver: bridge
+
+volumes:
+  zewalo-db-data:

@@ -93,7 +93,14 @@ class SystemCheckup extends Page
     {
         try {
             $dbName = DB::connection()->getDatabaseName();
-            $result = DB::select("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.tables WHERE table_schema = ?", [$dbName]);
+            $driver = DB::connection()->getDriverName();
+            
+            if ($driver === 'pgsql') {
+                $result = DB::select("SELECT ROUND(pg_database_size(?) / 1024.0 / 1024.0, 2) AS size", [$dbName]);
+            } else {
+                // MySQL/MariaDB
+                $result = DB::select("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size FROM information_schema.tables WHERE table_schema = ?", [$dbName]);
+            }
             
             return ($result[0]->size ?? 0) . ' MB';
         } catch (\Exception $e) {

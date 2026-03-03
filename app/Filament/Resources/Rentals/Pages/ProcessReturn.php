@@ -343,7 +343,7 @@ class ProcessReturn extends Page implements HasTable
                             'rental_ref' => $rental->rental_code,
                             'return_date' => \Carbon\Carbon::parse($rental->end_date)->format('d M Y H:i'),
                             'link_pdf' => $pdfLink,
-                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                            'company_name' => \App\Models\Setting::get('site_name', 'Zewalo'),
                         ];
                         
                         $message = \App\Helpers\WhatsAppHelper::parseTemplate('whatsapp_template_rental_return', $data);

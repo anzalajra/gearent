@@ -260,7 +260,7 @@ class ProcessDelivery extends Page implements HasTable
                             'customer_name' => $customer->name,
                             'rental_ref' => $rental->rental_code,
                             'link_pdf' => $pdfLink,
-                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                            'company_name' => \App\Models\Setting::get('site_name', 'Zewalo'),
                         ];
                         
                         $message = \App\Helpers\WhatsAppHelper::parseTemplate($templateKey, $data);

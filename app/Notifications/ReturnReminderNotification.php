@@ -42,7 +42,7 @@ class ReturnReminderNotification extends Notification
                     ->line('Rental Code: ' . $this->rental->rental_code)
                     ->line('Return Date: ' . $this->rental->end_date->format('d M Y'))
                     ->action('View Booking', url('/rentals/' . $this->rental->id))
-                    ->line('Thank you for choosing Gearent!');
+                    ->line('Thank you for choosing Zewalo!');
     }
 
     public function toDatabase(object $notifiable): array

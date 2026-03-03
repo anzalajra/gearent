@@ -10,8 +10,8 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="{{ \App\Models\Setting::get('site_name', 'Gearent') }}">
-    <meta name="application-name" content="{{ \App\Models\Setting::get('site_name', 'Gearent') }}">
+    <meta name="apple-mobile-web-app-title" content="{{ \App\Models\Setting::get('site_name', 'Zewalo') }}">
+    <meta name="application-name" content="{{ \App\Models\Setting::get('site_name', 'Zewalo') }}">
     <meta name="msapplication-TileColor" content="#0ea5e9">
     <meta name="msapplication-tap-highlight" content="no">
     <meta name="format-detection" content="telephone=no">
@@ -20,7 +20,7 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
-    <title>{{ config('app.name', 'Gearent') }} - @yield('title', 'Rental Equipment')</title>
+    <title>{{ config('app.name', 'Zewalo') }} - @yield('title', 'Rental Equipment')</title>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
@@ -55,10 +55,10 @@
 
                     <a href="{{ url('/') }}" class="flex items-center gap-2 text-xl font-bold text-primary-600">
                         @if(\App\Models\Setting::get('site_logo'))
-                            <img src="{{ \Illuminate\Support\Facades\Storage::url(\App\Models\Setting::get('site_logo')) }}" alt="{{ \App\Models\Setting::get('site_name', 'Gearent') }}" class="h-10 w-auto">
+                            <img src="{{ \Illuminate\Support\Facades\Storage::url(\App\Models\Setting::get('site_logo')) }}" alt="{{ \App\Models\Setting::get('site_name', 'Zewalo') }}" class="h-10 w-auto">
                         @endif
                         @if(\App\Models\Setting::get('site_name_in_header', true))
-                            <span>{{ \App\Models\Setting::get('site_name', 'Gearent') }}</span>
+                            <span>{{ \App\Models\Setting::get('site_name', 'Zewalo') }}</span>
                         @endif
                     </a>
                     <div class="hidden sm:ml-10 sm:flex sm:space-x-8">
@@ -332,7 +332,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
-                    <h3 class="text-xl font-bold mb-4">{{ \App\Models\Setting::get('site_name', 'Gearent') }}</h3>
+                    <h3 class="text-xl font-bold mb-4">{{ \App\Models\Setting::get('site_name', 'Zewalo') }}</h3>
                     <p class="text-gray-400">{{ \App\Models\Setting::get('site_tagline', 'Your trusted equipment rental partner.') }}</p>
                     @if(\App\Models\Setting::get('site_address'))
                         <p class="text-gray-400 mt-4 text-sm font-light leading-relaxed whitespace-pre-line">{{ \App\Models\Setting::get('site_address') }}</p>
@@ -402,7 +402,7 @@
                     <h4 class="font-semibold mb-4">Contact</h4>
                     <ul class="space-y-2 text-gray-400">
                         <li>Phone: {{ \App\Models\Setting::get('site_phone', '021-1234567') }}</li>
-                        <li>Email: {{ \App\Models\Setting::get('site_email', 'info@gearent.com') }}</li>
+                        <li>Email: {{ \App\Models\Setting::get('site_email', 'info@zewalo.com') }}</li>
                     </ul>
                 </div>
                 <div>
@@ -417,7 +417,7 @@
                 @if(\App\Models\Setting::get('site_copyright'))
                     {{ \App\Models\Setting::get('site_copyright') }}
                 @else
-                    &copy; {{ date('Y') }} {{ \App\Models\Setting::get('site_name', 'Gearent') }}. All rights reserved.
+                    &copy; {{ date('Y') }} {{ \App\Models\Setting::get('site_name', 'Zewalo') }}. All rights reserved.
                 @endif
                 <div class="mt-2 text-xs text-gray-500">
                     v{{ config('app.version') }}

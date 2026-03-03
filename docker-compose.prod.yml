@@ -1,0 +1,157 @@
+services:
+  # PHP-FPM Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        user: www
+        uid: 1000
+    image: zewalo-app
+    container_name: zewalo-app
+    restart: always
+    working_dir: /var/www
+    volumes:
+      - app-storage:/var/www/storage
+      - app-cache:/var/www/bootstrap/cache
+    networks:
+      - zewalo-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Service with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: zewalo-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./public:/var/www/public:ro
+      - app-storage:/var/www/storage:ro
+      - ./docker/nginx/production.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
+    networks:
+      - zewalo-network
+    depends_on:
+      - app
+
+  # PostgreSQL Service
+  db:
+    image: postgres:16-alpine
+    container_name: zewalo-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - zewalo-db-data:/var/lib/postgresql/data
+    networks:
+      - zewalo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Service
+  redis:
+    image: redis:alpine
+    container_name: zewalo-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-""}
+    volumes:
+      - zewalo-redis-data:/data
+    networks:
+      - zewalo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Queue Worker
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zewalo-app
+    container_name: zewalo-queue
+    restart: always
+    working_dir: /var/www
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - app-storage:/var/www/storage
+    networks:
+      - zewalo-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zewalo-app
+    container_name: zewalo-scheduler
+    restart: always
+    working_dir: /var/www
+    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction & sleep 60; done"
+    volumes:
+      - app-storage:/var/www/storage
+    networks:
+      - zewalo-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Certbot for SSL (optional)
+  certbot:
+    image: certbot/certbot
+    container_name: zewalo-certbot
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    profiles:
+      - ssl
+
+networks:
+  zewalo-network:
+    driver: bridge
+
+volumes:
+  zewalo-db-data:
+  zewalo-redis-data:
+  app-storage:
+  app-cache:
+  certbot-webroot:
+  certbot-certs:

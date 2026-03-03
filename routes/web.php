@@ -73,7 +73,7 @@ if (!$isInstalled) {
         Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
         Route::get('/profile', [CustomerDashboardController::class, 'profile'])->name('profile');
         Route::put('/profile', [CustomerDashboardController::class, 'updateProfile'])->name('profile.update');
-        Route::put('/password', [CustomerDashboardController::class, 'updatePassword'])->name('password.update');
+        Route::put('/password', [CustomerDashboardController::class, 'updatePassword'])->name('password.change');
         Route::get('/rentals', [CustomerDashboardController::class, 'rentals'])->name('rentals');
         Route::get('/rentals/{id}', [CustomerDashboardController::class, 'rentalDetail'])->name('rental.detail');
 

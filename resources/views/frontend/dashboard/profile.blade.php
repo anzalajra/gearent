@@ -347,7 +347,7 @@
     <div x-show="activeTab === 'password'" class="bg-white rounded-lg shadow p-6">
         <h2 class="text-lg font-semibold mb-4">Ubah Password</h2>
         
-        <form action="{{ route('customer.password.update') }}" method="POST">
+        <form action="{{ route('customer.password.change') }}" method="POST">
             @csrf
             @method('PUT')
 

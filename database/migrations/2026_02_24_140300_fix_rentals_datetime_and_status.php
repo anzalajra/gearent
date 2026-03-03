@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use App\Helpers\DatabaseHelper;
 
 return new class extends Migration
 {
@@ -18,12 +19,25 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() !== 'sqlite') {
+            $driver = DB::getDriverName();
+            
             // Fix 1: Restore DATETIME for start_date and end_date so time is preserved
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN start_date DATETIME NULL");
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN end_date DATETIME NULL");
+            if ($driver === 'pgsql') {
+                DB::statement("ALTER TABLE rentals ALTER COLUMN start_date TYPE TIMESTAMP USING start_date::timestamp");
+                DB::statement("ALTER TABLE rentals ALTER COLUMN end_date TYPE TIMESTAMP USING end_date::timestamp");
+            } else {
+                DB::statement("ALTER TABLE rentals MODIFY COLUMN start_date DATETIME NULL");
+                DB::statement("ALTER TABLE rentals MODIFY COLUMN end_date DATETIME NULL");
+            }
 
             // Fix 2: Add 'partial_return' back to the status ENUM
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return') NOT NULL DEFAULT 'quotation'");
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return', 'partial_return'],
+                'quotation',
+                false
+            );
         }
     }
 
@@ -33,9 +47,22 @@ return new class extends Migration
     public function down(): void
     {
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN start_date DATE NULL");
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN end_date DATE NULL");
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return') NOT NULL DEFAULT 'quotation'");
+            $driver = DB::getDriverName();
+            
+            if ($driver === 'pgsql') {
+                DB::statement("ALTER TABLE rentals ALTER COLUMN start_date TYPE DATE USING start_date::date");
+                DB::statement("ALTER TABLE rentals ALTER COLUMN end_date TYPE DATE USING end_date::date");
+            } else {
+                DB::statement("ALTER TABLE rentals MODIFY COLUMN start_date DATE NULL");
+                DB::statement("ALTER TABLE rentals MODIFY COLUMN end_date DATE NULL");
+            }
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['quotation', 'confirmed', 'active', 'completed', 'cancelled', 'late_pickup', 'late_return'],
+                'quotation',
+                false
+            );
         }
     }
 };

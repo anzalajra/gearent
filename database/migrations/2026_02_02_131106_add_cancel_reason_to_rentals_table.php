@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\DatabaseHelper;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -18,7 +19,13 @@ return new class extends Migration
 
         // Update status column to include new values
         if (DB::getDriverName() !== 'sqlite') {
-            DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'late_pickup', 'active', 'late_return', 'completed', 'cancelled') DEFAULT 'pending'");
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['pending', 'late_pickup', 'active', 'late_return', 'completed', 'cancelled'],
+                'pending',
+                false
+            );
         }
     }
 
@@ -28,6 +35,14 @@ return new class extends Migration
             $table->dropColumn('cancel_reason');
         });
 
-        DB::statement("ALTER TABLE rentals MODIFY COLUMN status ENUM('pending', 'active', 'completed', 'cancelled') DEFAULT 'pending'");
+        if (DB::getDriverName() !== 'sqlite') {
+            DatabaseHelper::modifyEnumColumn(
+                'rentals',
+                'status',
+                ['pending', 'active', 'completed', 'cancelled'],
+                'pending',
+                false
+            );
+        }
     }
 };

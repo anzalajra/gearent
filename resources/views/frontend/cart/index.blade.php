@@ -318,14 +318,14 @@
                     endDateInput.value = `${selectedEnd} ${returnTime}:00`;
 
                     // Update localStorage so catalog pages stay in sync
-                    if (localStorage.getItem('gearent_pickup_time') !== pickupTime) {
-                        localStorage.setItem('gearent_pickup_time', pickupTime);
+                    if (localStorage.getItem('zewalo_pickup_time') !== pickupTime) {
+                        localStorage.setItem('zewalo_pickup_time', pickupTime);
                     }
-                    if (localStorage.getItem('gearent_return_time') !== returnTime) {
-                        localStorage.setItem('gearent_return_time', returnTime);
+                    if (localStorage.getItem('zewalo_return_time') !== returnTime) {
+                        localStorage.setItem('zewalo_return_time', returnTime);
                     }
-                    if (localStorage.getItem('gearent_rental_dates') !== `${selectedStart} to ${selectedEnd}`) {
-                        localStorage.setItem('gearent_rental_dates', `${selectedStart} to ${selectedEnd}`);
+                    if (localStorage.getItem('zewalo_rental_dates') !== `${selectedStart} to ${selectedEnd}`) {
+                        localStorage.setItem('zewalo_rental_dates', `${selectedStart} to ${selectedEnd}`);
                     }
                 }
             };

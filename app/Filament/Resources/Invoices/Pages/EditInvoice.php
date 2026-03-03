@@ -41,7 +41,7 @@ class EditInvoice extends EditRecord
                             'total_amount' => 'Rp ' . number_format($record->total, 0, ',', '.'),
                             'due_date' => $record->due_date ? $record->due_date->format('d M Y') : '-',
                             'link_pdf' => $pdfLink,
-                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                            'company_name' => \App\Models\Setting::get('site_name', 'Zewalo'),
                         ];
                         
                         $message = \App\Helpers\WhatsAppHelper::parseTemplate($templateKey, $data);

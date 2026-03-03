@@ -41,7 +41,7 @@ class EditQuotation extends EditRecord
                             'total_amount' => 'Rp ' . number_format($record->total, 0, ',', '.'),
                             'valid_until' => $record->valid_until ? $record->valid_until->format('d M Y') : '-',
                             'link_pdf' => $pdfLink,
-                            'company_name' => \App\Models\Setting::get('site_name', 'Gearent'),
+                            'company_name' => \App\Models\Setting::get('site_name', 'Zewalo'),
                         ];
                         
                         $message = \App\Helpers\WhatsAppHelper::parseTemplate($templateKey, $data);

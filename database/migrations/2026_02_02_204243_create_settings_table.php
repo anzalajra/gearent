@@ -24,9 +24,9 @@ return new class extends Migration
         // Seed default settings
         $settings = [
             // General
-            ['group' => 'general', 'key' => 'site_name', 'value' => 'Gearent', 'type' => 'text', 'label' => 'Site Name', 'sort_order' => 1],
+            ['group' => 'general', 'key' => 'site_name', 'value' => 'Zewalo', 'type' => 'text', 'label' => 'Site Name', 'sort_order' => 1],
             ['group' => 'general', 'key' => 'site_tagline', 'value' => 'Professional Equipment Rental', 'type' => 'text', 'label' => 'Tagline', 'sort_order' => 2],
-            ['group' => 'general', 'key' => 'site_email', 'value' => 'info@gearent.com', 'type' => 'email', 'label' => 'Email', 'sort_order' => 3],
+            ['group' => 'general', 'key' => 'site_email', 'value' => 'info@zewalo.com', 'type' => 'email', 'label' => 'Email', 'sort_order' => 3],
             ['group' => 'general', 'key' => 'site_phone', 'value' => '021-1234567', 'type' => 'text', 'label' => 'Phone', 'sort_order' => 4],
             ['group' => 'general', 'key' => 'site_address', 'value' => 'Jakarta, Indonesia', 'type' => 'textarea', 'label' => 'Address', 'sort_order' => 5],
             

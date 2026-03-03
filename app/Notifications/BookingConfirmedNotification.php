@@ -54,7 +54,7 @@ class BookingConfirmedNotification extends Notification
                     ->line('Start Date: ' . $this->rental->start_date->format('d M Y'))
                     ->line('End Date: ' . $this->rental->end_date->format('d M Y'))
                     ->action('View Booking', url('/rentals/' . $this->rental->id))
-                    ->line('Thank you for choosing Gearent!');
+                    ->line('Thank you for choosing Zewalo!');
     }
 
     /**

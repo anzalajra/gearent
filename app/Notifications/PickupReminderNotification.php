@@ -42,7 +42,7 @@ class PickupReminderNotification extends Notification
                     ->line('Rental Code: ' . $this->rental->rental_code)
                     ->line('Pickup Date: ' . $this->rental->start_date->format('d M Y'))
                     ->action('View Booking', url('/rentals/' . $this->rental->id))
-                    ->line('Thank you for choosing Gearent!');
+                    ->line('Thank you for choosing Zewalo!');
     }
 
     public function toDatabase(object $notifiable): array

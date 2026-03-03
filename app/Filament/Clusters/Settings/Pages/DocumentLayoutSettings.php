@@ -171,7 +171,7 @@ class DocumentLayoutSettings extends Page implements HasForms
                                     ->schema([
                                         TextInput::make('doc_company_name')
                                             ->label('Company Name')
-                                            ->placeholder('e.g. Gearent Inc.'),
+                                            ->placeholder('e.g. Zewalo Inc.'),
                                         TextInput::make('doc_company_phone')
                                             ->label('Phone')
                                             ->tel(),

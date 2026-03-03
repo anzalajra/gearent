@@ -468,9 +468,9 @@
             const urlReturnTime = "{{ request('return_time') }}";
 
             // Load saved values
-            const savedDates = localStorage.getItem('gearent_rental_dates');
-            const savedPickup = localStorage.getItem('gearent_pickup_time');
-            const savedReturn = localStorage.getItem('gearent_return_time');
+            const savedDates = localStorage.getItem('zewalo_rental_dates');
+            const savedPickup = localStorage.getItem('zewalo_pickup_time');
+            const savedReturn = localStorage.getItem('zewalo_return_time');
 
             if (urlPickupTime) pickupTimeInput.value = urlPickupTime;
             else if (savedPickup) pickupTimeInput.value = savedPickup;
@@ -490,11 +490,11 @@
                     document.getElementById('end_date').value = `${selectedEnd} ${returnTime}:00`;
 
                     // Save times to localStorage
-                    if (localStorage.getItem('gearent_pickup_time') !== pickupTime) {
-                        localStorage.setItem('gearent_pickup_time', pickupTime);
+                    if (localStorage.getItem('zewalo_pickup_time') !== pickupTime) {
+                        localStorage.setItem('zewalo_pickup_time', pickupTime);
                     }
-                    if (localStorage.getItem('gearent_return_time') !== returnTime) {
-                        localStorage.setItem('gearent_return_time', returnTime);
+                    if (localStorage.getItem('zewalo_return_time') !== returnTime) {
+                        localStorage.setItem('zewalo_return_time', returnTime);
                     }
                 }
             };
@@ -508,8 +508,8 @@
                 
                 // Update localStorage to match current selection
                 const dateStr = `${urlStartDate} to ${urlEndDate}`;
-                if (localStorage.getItem('gearent_rental_dates') !== dateStr) {
-                    localStorage.setItem('gearent_rental_dates', dateStr);
+                if (localStorage.getItem('zewalo_rental_dates') !== dateStr) {
+                    localStorage.setItem('zewalo_rental_dates', dateStr);
                 }
             } else if (savedDates) {
                 defaultDates = savedDates.split(' to ');
@@ -570,8 +570,8 @@
                         selectedEnd = instance.formatDate(selectedDates[1], "Y-m-d");
                         
                         // Save to localStorage if changed
-                        if (localStorage.getItem('gearent_rental_dates') !== dateStr) {
-                            localStorage.setItem('gearent_rental_dates', dateStr);
+                        if (localStorage.getItem('zewalo_rental_dates') !== dateStr) {
+                            localStorage.setItem('zewalo_rental_dates', dateStr);
                         }
                         
                         updateHiddenDates();
@@ -591,18 +591,18 @@
 
             // Listen for changes from other tabs/windows
             window.addEventListener('storage', function(e) {
-                if (e.key === 'gearent_rental_dates' && e.newValue) {
+                if (e.key === 'zewalo_rental_dates' && e.newValue) {
                     if (fp.input.value !== e.newValue) {
                         fp.setDate(e.newValue.split(' to '), true);
                     }
                 }
-                if (e.key === 'gearent_pickup_time' && e.newValue) {
+                if (e.key === 'zewalo_pickup_time' && e.newValue) {
                     if (pickupTimeInput.value !== e.newValue) {
                         pickupTimeInput.value = e.newValue;
                         updateHiddenDates();
                     }
                 }
-                if (e.key === 'gearent_return_time' && e.newValue) {
+                if (e.key === 'zewalo_return_time' && e.newValue) {
                     if (returnTimeInput.value !== e.newValue) {
                         returnTimeInput.value = e.newValue;
                         updateHiddenDates();

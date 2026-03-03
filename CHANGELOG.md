@@ -111,7 +111,7 @@
 - (New) Navigation menu configuration
 
 ## [v1.0.0] - 2026-02-08
-- First build of Gearent
+- First build of Zewalo
 - Rental feature with live unit stock detection
 - Calendar with table and kanban view
 - Customer registration group with document verification

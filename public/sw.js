@@ -1,5 +1,5 @@
-// Gearent PWA Service Worker
-const CACHE_VERSION = 'gearent-v1.5.1';
+// Zewalo PWA Service Worker
+const CACHE_VERSION = 'zewalo-v1.5.1';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const OFFLINE_URL = '/offline.html';
@@ -52,7 +52,7 @@ self.addEventListener('activate', (event) => {
                 return Promise.all(
                     cacheNames
                         .filter((cacheName) => {
-                            return cacheName.startsWith('gearent-') && 
+                            return cacheName.startsWith('zewalo-') && 
                                    cacheName !== STATIC_CACHE && 
                                    cacheName !== DYNAMIC_CACHE;
                         })
