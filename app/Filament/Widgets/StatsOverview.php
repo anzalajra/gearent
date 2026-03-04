@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\User;
 use App\Models\Rental;
 use App\Models\ProductUnit;
+use App\Services\Tenancy\RentalLimitService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -21,6 +22,17 @@ class StatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
+        $stats = [];
+
+        // Warning banner when Free plan quota is almost exhausted
+        $remainingQuota = RentalLimitService::remainingQuota();
+        if (RentalLimitService::shouldShowUpgradeWarning() && $remainingQuota !== null) {
+            $stats[] = Stat::make('Limit Paket Free', $remainingQuota . ' transaksi tersisa bulan ini')
+                ->description('Upgrade ke Basic atau Pro untuk menghilangkan batas transaksi.')
+                ->descriptionIcon('heroicon-m-exclamation-triangle')
+                ->color('warning');
+        }
+
         $todayRentals = Rental::whereDate('created_at', today())->count();
         $todayRevenue = Rental::whereDate('created_at', today())->sum('total');
         $activeRentals = Rental::whereIn('status', ['active', 'late_pickup', 'late_return'])->count();
@@ -30,7 +42,7 @@ class StatsOverview extends BaseWidget
         $totalCustomers = User::whereDoesntHave('roles')->count();
         $verifiedCustomers = User::whereDoesntHave('roles')->where('is_verified', true)->count();
 
-        return [
+        $stats = array_merge($stats, [
             Stat::make('Today\'s Rentals', $todayRentals)
                 ->description('New bookings today')
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
@@ -60,6 +72,8 @@ class StatsOverview extends BaseWidget
                 ->description('Awaiting document review')
                 ->descriptionIcon('heroicon-m-document-check')
                 ->color('danger'),
-        ];
+        ]);
+
+        return $stats;
     }
 }

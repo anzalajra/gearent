@@ -98,6 +98,54 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        /*
+        |--------------------------------------------------------------------------
+        | Central Database Connection (for stancl/tenancy)
+        |--------------------------------------------------------------------------
+        |
+        | This connection is used for the central/landlord database where
+        | tenants and domains are stored.
+        |
+        */
+        'central' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'zewalo'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Template Connection (for stancl/tenancy)
+        |--------------------------------------------------------------------------
+        |
+        | This connection is used as template for creating tenant database connections.
+        | The 'database' will be dynamically replaced with the tenant database name.
+        |
+        */
+        'tenant' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => null, // Will be set dynamically by tenancy
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

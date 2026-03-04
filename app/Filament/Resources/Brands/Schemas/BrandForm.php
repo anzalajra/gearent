@@ -29,7 +29,7 @@ class BrandForm
 
                 FileUpload::make('logo')
                     ->image()
-                    ->directory('brands'),
+                    ->tenantDirectory('brands'),
 
                 TextInput::make('website')
                     ->url()

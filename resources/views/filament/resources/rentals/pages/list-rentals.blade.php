@@ -1,4 +1,22 @@
 <x-filament-panels::page>
+    @php
+        $showQuotaWarning = \App\Services\Tenancy\RentalLimitService::shouldShowUpgradeWarning();
+        $remainingQuota = \App\Services\Tenancy\RentalLimitService::remainingQuota();
+    @endphp
+
+    @if($showQuotaWarning && !is_null($remainingQuota))
+        <div class="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div>
+                <p class="font-semibold">
+                    Sisa {{ $remainingQuota }} transaksi rental di paket Free bulan ini.
+                </p>
+                <p class="text-xs mt-1">
+                    Upgrade ke paket Basic atau Pro untuk menghilangkan batas transaksi dan membuka fitur penuh.
+                </p>
+            </div>
+        </div>
+    @endif
+
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center space-x-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
             <button 

@@ -66,8 +66,7 @@ class BillResource extends Resource
                             ->searchable()
                             ->preload(),
                         Forms\Components\FileUpload::make('proof_document')
-                            ->directory('bills')
-                            ->visibility('private'),
+                            ->tenantDirectory('finance/bills'),
                         Forms\Components\Textarea::make('description')
                             ->columnSpanFull(),
                     ])->columns(2),

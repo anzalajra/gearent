@@ -44,7 +44,7 @@ class ProductForm
                     ->schema([
                         FileUpload::make('image')
                             ->image()
-                            ->directory('products')
+                            ->tenantDirectory('products')
                             ->columnSpan(1),
 
                         Group::make()
@@ -138,7 +138,7 @@ class ProductForm
 
                 FileUpload::make('image')
                     ->image()
-                    ->directory('products'),
+                    ->tenantDirectory('products'),
 
                 Toggle::make('is_active')
                     ->default(true),

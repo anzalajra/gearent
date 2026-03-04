@@ -14,16 +14,18 @@
         "lara-zeus/sky": "^4.1",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "league/flysystem-aws-s3-v3": "^3.0",
         "octopyid/filament-palette": "*",
         "saade/filament-fullcalendar": "4.x-dev",
-        "simplesoftwareio/simple-qrcode": "*"
+        "simplesoftwareio/simple-qrcode": "*",
+        "stancl/tenancy": "^3.9"
     },
     "require-dev": {
+        "barryvdh/laravel-ide-helper": "*",
         "fakerphp/faker": "^1.23",
         "laravel/breeze": "^2.3",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
-        "laravel/sail": "^1.53",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
         "phpunit/phpunit": "^11.5.3"

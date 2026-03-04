@@ -23,6 +23,9 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
+use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
+use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
+use App\Http\Middleware\RedirectCentralDomainToPanel;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -126,6 +129,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Widgets\RentalChart::class,
             ])
             ->middleware([
+                RedirectCentralDomainToPanel::class,  // Redirect central domains FIRST
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
@@ -135,6 +139,8 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                InitializeTenancyByDomain::class,  // Initialize tenant context
+                PreventAccessFromCentralDomains::class,  // Block access from localhost
             ])
             ->authMiddleware([
                 Authenticate::class,

@@ -4,12 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\CustomerDocument;
 use App\Models\DocumentType;
+use App\Services\Storage\TenantStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class CustomerDocumentController extends Controller
 {
+    protected TenantStorageService $storage;
+
+    public function __construct(TenantStorageService $storage)
+    {
+        $this->storage = $storage;
+    }
+
     public function upload(Request $request)
     {
         $request->validate([
@@ -41,17 +49,21 @@ class CustomerDocumentController extends Controller
                 if ($existing->status === CustomerDocument::STATUS_APPROVED) {
                     continue;
                 }
-                Storage::disk('local')->delete($existing->file_path);
+                $this->storage->delete($existing->file_path);
                 $existing->delete();
             }
 
-            // Store new file in local (private) disk
-            $path = $file->store('customer-documents/' . $customer->id, 'local');
+            // Store new file in R2 with tenant prefix
+            $directory = 'customer-documents/' . $customer->id;
+            $path = $this->storage->store($file, $directory);
+            
+            // Store relative path (without tenant prefix) for database
+            $relativePath = $directory . '/' . basename($path);
 
             CustomerDocument::create([
                 'user_id' => $customer->id,
                 'document_type_id' => $typeId,
-                'file_path' => $path,
+                'file_path' => $relativePath,
                 'file_name' => $file->getClientOriginalName(),
                 'file_size' => $file->getSize(),
                 'status' => CustomerDocument::STATUS_PENDING,
@@ -80,7 +92,7 @@ class CustomerDocumentController extends Controller
             return back()->with('error', 'Cannot delete approved document.');
         }
 
-        Storage::disk('local')->delete($document->file_path);
+        $this->storage->delete($document->file_path);
         $document->delete();
 
         return back()->with('success', 'Document deleted.');
@@ -93,11 +105,13 @@ class CustomerDocumentController extends Controller
             abort(403);
         }
 
-        if (!Storage::disk('local')->exists($document->file_path)) {
+        if (!$this->storage->exists($document->file_path)) {
             abort(404);
         }
 
-        return response()->file(storage_path('app/private/' . $document->file_path));
+        // Generate temporary URL for viewing
+        $url = $this->storage->temporaryUrl($document->file_path, now()->addMinutes(5));
+        return redirect($url);
     }
 
     public function viewForAdmin(CustomerDocument $document)
@@ -107,10 +121,12 @@ class CustomerDocumentController extends Controller
             abort(403);
         }
 
-        if (!Storage::disk('local')->exists($document->file_path)) {
+        if (!$this->storage->exists($document->file_path)) {
             abort(404);
         }
 
-        return response()->file(storage_path('app/private/' . $document->file_path));
+        // Generate temporary URL for viewing
+        $url = $this->storage->temporaryUrl($document->file_path, now()->addMinutes(5));
+        return redirect($url);
     }
 }

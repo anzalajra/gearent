@@ -55,7 +55,7 @@ class FinanceTransactionForm
                         'Credit Card' => 'Credit Card',
                     ]),
                 FileUpload::make('proof_document')
-                    ->directory('finance-proofs')
+                    ->tenantDirectory('finance/transactions')
                     ->image()
                     ->imageEditor(),
                 Textarea::make('description')

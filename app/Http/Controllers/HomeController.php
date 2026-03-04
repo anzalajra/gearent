@@ -11,6 +11,12 @@ class HomeController extends Controller
 {
     public function index()
     {
+        // Show landing page on central domain
+        $centralDomains = config('tenancy.central_domains', []);
+        if (in_array(request()->getHost(), $centralDomains, true)) {
+            return view('landing.index');
+        }
+
         $featuredProducts = Product::with(['category', 'units'])
             ->where('is_active', true)
             ->visibleForCustomer(Auth::guard('customer')->user())

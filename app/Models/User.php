@@ -90,9 +90,19 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Only allow access if user has super_admin role
-        // The first user created via Setup Wizard is automatically assigned this role
-        return $this->hasRole('super_admin');
+        // Central panel - only for Zewalo superadmin (owner)
+        if ($panel->getId() === 'central') {
+            // Check if user has 'central_admin' or 'super_admin' role
+            // This role must exist in the CENTRAL database
+            return $this->hasAnyRole(['central_admin', 'super_admin']);
+        }
+        
+        // Admin panel - for tenant administrators
+        if ($panel->getId() === 'admin') {
+            return $this->hasAnyRole(['super_admin', 'admin', 'staff']);
+        }
+        
+        return false;
     }
 
     public function rentals(): HasMany

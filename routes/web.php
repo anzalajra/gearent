@@ -43,8 +43,20 @@ if (!$isInstalled) {
     // If INSTALLED, load normal application routes
     // Setup routes are only available when not installed (handled in the if block above)
 
+    // Tenant Registration (central domain only)
+    Route::get('/register-tenant', \App\Livewire\RegisterTenant::class)->name('register-tenant');
+
     // Public Routes
     Route::get('/', [HomeController::class, 'index'])->name('home');
+    
+    // Landing Pages (Central domain only)
+    Route::get('/pricing', function () {
+        $centralDomains = config('tenancy.central_domains', []);
+        if (in_array(request()->getHost(), $centralDomains, true)) {
+            return view('landing.pricing');
+        }
+        abort(404);
+    })->name('landing.pricing');
 
     // Catalog
     Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog.index');

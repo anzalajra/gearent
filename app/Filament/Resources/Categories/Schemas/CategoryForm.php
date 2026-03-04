@@ -34,7 +34,7 @@ class CategoryForm
 
                 FileUpload::make('image')
                     ->image()
-                    ->directory('categories'),
+                    ->tenantDirectory('categories'),
 
                 Toggle::make('is_active')
                     ->default(true),
