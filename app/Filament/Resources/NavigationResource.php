@@ -2,11 +2,17 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
+use App\Filament\Resources\NavigationResource\Pages\CreateNavigation;
+use App\Filament\Resources\NavigationResource\Pages\EditNavigation;
+use App\Filament\Resources\NavigationResource\Pages\ListNavigations;
+use App\Models\Setting;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
 use Filament\Infolists\Components\TextEntry;
@@ -17,18 +23,26 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use App\Filament\Resources\NavigationResource\Pages\CreateNavigation;
-use App\Filament\Resources\NavigationResource\Pages\EditNavigation;
-use App\Filament\Resources\NavigationResource\Pages\ListNavigations;
-use LaraZeus\Sky\SkyPlugin;
 use LaraZeus\Sky\Filament\Resources\SkyResource;
-use App\Models\Setting;
+use LaraZeus\Sky\SkyPlugin;
 
 class NavigationResource extends SkyResource
 {
-    protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-queue-list';
+    use ChecksTenantFeature;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
 
     protected static ?int $navigationSort = 99;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::PagePost);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::PagePost);
+    }
 
     public static function getNavigationBadge(): ?string
     {
@@ -130,6 +144,7 @@ class NavigationResource extends SkyResource
                         if ($record->handle === Setting::get('footer_navigation_handle')) {
                             $states[] = 'Footer';
                         }
+
                         return $states;
                     })
                     ->colors([

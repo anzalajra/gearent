@@ -2,6 +2,14 @@
 
 namespace App\Filament\Resources;
 
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -15,31 +23,35 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use LaraZeus\Sky\Filament\Resources\PageResource as ZeusPageResource;
-use LaraZeus\Sky\SkyPlugin;
-use Illuminate\Support\Str;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\EditAction;
-use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\ForceDeleteAction;
-use Filament\Actions\RestoreAction;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ForceDeleteBulkAction;
-use Filament\Actions\RestoreBulkAction;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
+use LaraZeus\Sky\Filament\Resources\PageResource as ZeusPageResource;
 use LaraZeus\Sky\Models\Post;
+use LaraZeus\Sky\SkyPlugin;
 
 class PageResource extends ZeusPageResource
 {
+    use \App\Filament\Concerns\ChecksTenantFeature;
+
     protected static ?string $slug = 'pages';
 
     protected static ?int $navigationSort = 2;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(\App\Enums\TenantFeature::PagePost);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(\App\Enums\TenantFeature::PagePost);
+    }
 
     public static function getNavigationBadge(): ?string
     {

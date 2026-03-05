@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
+use App\Enums\TenantFeature;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDomains;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Stancl\Tenancy\Database\Models\Tenant as BaseTenant;
 
 class Tenant extends BaseTenant implements TenantWithDatabase
 {
@@ -49,8 +50,6 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     /**
      * Custom columns that should be stored directly in the database
      * rather than in the 'data' JSON column.
-     *
-     * @return array
      */
     public static function getCustomColumns(): array
     {
@@ -91,6 +90,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         if ($this->status === 'active') {
             return $this->subscription_ends_at === null || $this->subscription_ends_at->isFuture();
         }
+
         return $this->onTrial();
     }
 
@@ -133,5 +133,27 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         $used = (int) $this->current_rental_transactions_month;
 
         return max(0, $limit - $used);
+    }
+
+    /**
+     * Check if a feature is enabled for this tenant.
+     *
+     * Priority: feature_overrides (bidirectional) > subscription plan features.
+     */
+    public function hasFeature(TenantFeature $feature): bool
+    {
+        $overrides = $this->feature_overrides ?? [];
+
+        if (is_array($overrides) && array_key_exists($feature->value, $overrides)) {
+            return (bool) $overrides[$feature->value];
+        }
+
+        $plan = $this->subscriptionPlan;
+
+        if ($plan && is_array($plan->features)) {
+            return in_array($feature->value, $plan->features);
+        }
+
+        return false;
     }
 }

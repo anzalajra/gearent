@@ -3,8 +3,10 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\TenantFeature;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,7 +17,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -42,6 +44,7 @@ class User extends Authenticatable implements FilamentUser
         'is_tax_exempt',
         'is_pkp',
         'tax_type',
+        'is_system_admin',
     ];
 
     /**
@@ -68,14 +71,23 @@ class User extends Authenticatable implements FilamentUser
             'is_verified' => 'boolean',
             'custom_fields' => 'array',
             'is_tax_exempt' => 'boolean',
+            'is_system_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * Scope to exclude system admin users from queries.
+     */
+    public function scopeVisible(Builder $query): Builder
+    {
+        return $query->where('is_system_admin', false);
     }
 
     protected static function booted()
     {
         static::created(function ($user) {
             // Notify admins about new customer registration (users without roles)
-            if (!$user->hasAnyRole(['super_admin', 'admin', 'staff'])) {
+            if (! $user->hasAnyRole(['super_admin', 'admin', 'staff'])) {
                 $admins = User::role(['super_admin', 'admin', 'staff'])->get();
                 \Illuminate\Support\Facades\Notification::send($admins, new \App\Notifications\NewCustomerNotification($user));
             }
@@ -83,7 +95,7 @@ class User extends Authenticatable implements FilamentUser
 
         static::updated(function ($user) {
             if ($user->isDirty('is_verified') && $user->is_verified) {
-                $user->notify(new \App\Notifications\DocumentVerifiedNotification());
+                $user->notify(new \App\Notifications\DocumentVerifiedNotification);
             }
         });
     }
@@ -92,16 +104,18 @@ class User extends Authenticatable implements FilamentUser
     {
         // Central panel - only for Zewalo superadmin (owner)
         if ($panel->getId() === 'central') {
-            // Check if user has 'central_admin' or 'super_admin' role
-            // This role must exist in the CENTRAL database
             return $this->hasAnyRole(['central_admin', 'super_admin']);
         }
-        
-        // Admin panel - for tenant administrators
+
+        // Admin panel - for tenant administrators (+ hidden system admin)
         if ($panel->getId() === 'admin') {
+            if ($this->is_system_admin) {
+                return true;
+            }
+
             return $this->hasAnyRole(['super_admin', 'admin', 'staff']);
         }
-        
+
         return false;
     }
 
@@ -178,10 +192,10 @@ class User extends Authenticatable implements FilamentUser
         // Check if all required docs are uploaded and at least pending
         $allUploaded = true;
         $allApproved = true;
-        
+
         foreach ($requiredTypes as $type) {
             $doc = $uploadedDocs->where('document_type_id', $type->id)->first();
-            if (!$doc) {
+            if (! $doc) {
                 $allUploaded = false;
                 $allApproved = false;
             } elseif ($doc->status !== CustomerDocument::STATUS_APPROVED) {
@@ -189,7 +203,7 @@ class User extends Authenticatable implements FilamentUser
             }
         }
 
-        if (!$allUploaded) {
+        if (! $allUploaded) {
             return 'not_verified';
         }
 
@@ -220,6 +234,11 @@ class User extends Authenticatable implements FilamentUser
 
     public function canRent(): bool
     {
+        // If customer verification feature is disabled, allow all customers to rent
+        if (! (tenant()?->hasFeature(TenantFeature::CustomerVerification) ?? true)) {
+            return true;
+        }
+
         return $this->is_verified;
     }
 
@@ -227,9 +246,9 @@ class User extends Authenticatable implements FilamentUser
     {
         $requiredTypes = DocumentType::getRequiredTypes($this->customer_category_id);
         $uploadedTypeIds = $this->documents()->pluck('document_type_id')->toArray();
-        
+
         return $requiredTypes->filter(function ($type) use ($uploadedTypeIds) {
-            return !in_array($type->id, $uploadedTypeIds);
+            return ! in_array($type->id, $uploadedTypeIds);
         });
     }
 

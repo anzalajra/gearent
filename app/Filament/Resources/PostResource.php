@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\PostResource\Pages\CreatePost;
+use App\Filament\Resources\PostResource\Pages\EditPost;
+use App\Filament\Resources\PostResource\Pages\ListPosts;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -36,19 +39,28 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use LaraZeus\Helen\Actions\ShortUrlAction;
 use LaraZeus\Helen\HelenServiceProvider;
-use App\Filament\Resources\PostResource\Pages\CreatePost;
-use App\Filament\Resources\PostResource\Pages\EditPost;
-use App\Filament\Resources\PostResource\Pages\ListPosts;
+use LaraZeus\Sky\Filament\Resources\SkyResource;
 use LaraZeus\Sky\Models\Post;
 use LaraZeus\Sky\SkyPlugin;
-use LaraZeus\Sky\Filament\Resources\SkyResource;
 
 // @mixin Builder<PostScope>
 class PostResource extends SkyResource
 {
-    protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-document-text';
+    use \App\Filament\Concerns\ChecksTenantFeature;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     protected static ?int $navigationSort = 1;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(\App\Enums\TenantFeature::PagePost);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(\App\Enums\TenantFeature::PagePost);
+    }
 
     public static function getNavigationBadge(): ?string
     {
@@ -294,7 +306,7 @@ class PostResource extends SkyResource
             // @phpstan-ignore-next-line
             $action[] = ShortUrlAction::make('get-link')
                 ->distUrl(fn (Post $record): string => route(
-                    SkyPlugin::get()->getRouteNamePrefix() . 'post',
+                    SkyPlugin::get()->getRouteNamePrefix().'post',
                     ['slug' => $record]
                 ));
         }

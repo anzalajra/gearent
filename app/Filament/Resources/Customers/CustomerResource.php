@@ -7,20 +7,20 @@ use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Filament\Resources\Customers\RelationManagers\DocumentsRelationManager;
-use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
+use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
-use UnitEnum;
 use Illuminate\Database\Eloquent\Builder;
+use UnitEnum;
 
 class CustomerResource extends Resource
 {
     protected static ?string $model = User::class;
-    
+
     protected static ?string $modelLabel = 'Customer';
 
     protected static ?string $pluralModelLabel = 'Customers';
@@ -34,11 +34,11 @@ class CustomerResource extends Resource
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
-    
+
     protected static string|UnitEnum|null $navigationGroup = 'Rentals';
-    
+
     protected static ?int $navigationSort = 4;
-    
+
     protected static ?string $navigationLabel = 'Customers';
 
     public static function getNavigationBadge(): ?string
@@ -48,7 +48,7 @@ class CustomerResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return static::getModel()::where('is_verified', false)->count() . ' need verification';
+        return static::getModel()::where('is_verified', false)->count().' need verification';
     }
 
     public static function form(Schema $schema): Schema
@@ -84,9 +84,7 @@ class CustomerResource extends Resource
         if ($name === 'edit') {
             return \App\Filament\Resources\Users\UserResource::getUrl('edit', $parameters, $isAbsolute, $panel, $tenant);
         }
-        
+
         return parent::getUrl($name, $parameters, $isAbsolute, $panel, $tenant, $shouldGuessMissingParameters);
     }
-    
-
 }

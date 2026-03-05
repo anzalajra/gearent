@@ -7,8 +7,6 @@ use App\Models\EmailLog;
 use App\Models\Setting;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -16,6 +14,8 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
@@ -56,7 +56,8 @@ class NotificationSettings extends Page implements HasForms
                         Toggle::make('notification_email_enabled')
                             ->label('Enable Email Notifications')
                             ->default(true)
-                            ->live(),
+                            ->live()
+                            ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::EmailNotification) ?? true),
                         Toggle::make('whatsapp_enabled')
                             ->label('Enable Send via WhatsApp')
                             ->helperText('Tampilkan tombol kirim via WhatsApp di detail rental, invoice, dll')
@@ -65,7 +66,7 @@ class NotificationSettings extends Page implements HasForms
 
                 Section::make('Notification Types')
                     ->description('Select which events trigger email notifications to admin/staff.')
-                    ->visible(fn ($get) => $get('notification_email_enabled'))
+                    ->visible(fn ($get) => $get('notification_email_enabled') && (tenant()?->hasFeature(\App\Enums\TenantFeature::EmailNotification) ?? true))
                     ->schema([
                         Toggle::make('notify_new_customer')
                             ->label('New Customer Registration')
@@ -99,7 +100,7 @@ class NotificationSettings extends Page implements HasForms
 
                 Section::make('Email Settings')
                     ->description('Configure SMTP settings for email notifications.')
-                    ->visible(fn ($get) => $get('notification_email_enabled'))
+                    ->visible(fn ($get) => $get('notification_email_enabled') && (tenant()?->hasFeature(\App\Enums\TenantFeature::EmailNotification) ?? true))
                     ->schema([
                         \Filament\Forms\Components\Select::make('mail_mailer')
                             ->label('Mailer')
@@ -201,7 +202,7 @@ class NotificationSettings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
-        
+
         foreach ($data as $key => $value) {
             Setting::set($key, $value);
         }
@@ -218,10 +219,10 @@ class NotificationSettings extends Page implements HasForms
             // Apply email settings from database dynamically
             $this->applyMailConfig();
 
-            $subject = 'Test Email - ' . config('app.name');
-            $body = "This is a test email from " . config('app.name') . ".\n\n";
+            $subject = 'Test Email - '.config('app.name');
+            $body = 'This is a test email from '.config('app.name').".\n\n";
             $body .= "If you received this email, your email configuration is working correctly.\n\n";
-            $body .= "Sent at: " . now()->format('Y-m-d H:i:s');
+            $body .= 'Sent at: '.now()->format('Y-m-d H:i:s');
 
             Mail::raw($body, function ($message) use ($recipient, $subject) {
                 $message->to($recipient)

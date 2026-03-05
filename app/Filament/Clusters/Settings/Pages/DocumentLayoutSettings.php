@@ -3,32 +3,31 @@
 namespace App\Filament\Clusters\Settings\Pages;
 
 use App\Filament\Clusters\Settings\SettingsCluster;
+use App\Models\Delivery;
+use App\Models\Invoice;
+use App\Models\Quotation;
+use App\Models\Rental;
 use App\Models\Setting;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\RichEditor;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Tabs;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Schemas\Schema;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use UnitEnum;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Cache;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
-use App\Models\Invoice;
-use App\Models\Quotation;
-use App\Models\Rental;
-use App\Models\Delivery;
 use Illuminate\Support\Facades\URL;
 
 class DocumentLayoutSettings extends Page implements HasForms
@@ -54,32 +53,32 @@ class DocumentLayoutSettings extends Page implements HasForms
                     ->icon('heroicon-o-document-text')
                     ->url(fn () => ($record = Invoice::latest()->first()) ? URL::signedRoute('public-documents.invoice', $record) : null)
                     ->openUrlInNewTab()
-                    ->disabled(fn () => !Invoice::exists()),
-                
+                    ->disabled(fn () => ! Invoice::exists()),
+
                 Action::make('preview_quotation')
                     ->label('Quotation')
                     ->icon('heroicon-o-document-text')
                     ->url(fn () => ($record = Quotation::latest()->first()) ? URL::signedRoute('public-documents.quotation', $record) : null)
                     ->openUrlInNewTab()
-                    ->disabled(fn () => !Quotation::exists()),
+                    ->disabled(fn () => ! Quotation::exists()),
 
                 Action::make('preview_delivery_note')
                     ->label('Delivery Note')
                     ->icon('heroicon-o-truck')
                     ->url(fn () => ($record = Delivery::latest()->first()) ? URL::signedRoute('public-documents.delivery-note', $record) : null)
                     ->openUrlInNewTab()
-                    ->disabled(fn () => !Delivery::exists()),
+                    ->disabled(fn () => ! Delivery::exists()),
 
                 Action::make('preview_checklist')
                     ->label('Checklist Form')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->url(fn () => ($record = Rental::latest()->first()) ? URL::signedRoute('public-documents.rental.checklist', $record) : null)
                     ->openUrlInNewTab()
-                    ->disabled(fn () => !Rental::exists()),
+                    ->disabled(fn () => ! Rental::exists()),
             ])
-            ->label('Preview Document')
-            ->icon('heroicon-m-eye')
-            ->button(),
+                ->label('Preview Document')
+                ->icon('heroicon-m-eye')
+                ->button(),
         ];
     }
 
@@ -88,7 +87,7 @@ class DocumentLayoutSettings extends Page implements HasForms
     public function mount(): void
     {
         $settings = Setting::where('key', 'like', 'doc_%')->pluck('value', 'key')->toArray();
-        
+
         // Set defaults if not present
         $defaults = [
             'doc_font_family' => 'DejaVu Sans',
@@ -139,7 +138,7 @@ class DocumentLayoutSettings extends Page implements HasForms
                                                     ->default('DejaVu Sans')
                                                     ->required(),
                                             ]),
-                                        
+
                                         Section::make('Colors')
                                             ->schema([
                                                 ColorPicker::make('doc_primary_color')
@@ -197,7 +196,7 @@ class DocumentLayoutSettings extends Page implements HasForms
                                     ->label('Custom Header Text')
                                     ->helperText('Additional text to display in the header (e.g., branch info)')
                                     ->toolbarButtons(['bold', 'italic', 'link', 'bulletList']),
-                                
+
                                 RichEditor::make('doc_footer_text')
                                     ->label('Custom Footer Text')
                                     ->helperText('Text to display at the bottom of every page')
@@ -206,12 +205,14 @@ class DocumentLayoutSettings extends Page implements HasForms
                                 RichEditor::make('doc_quotation_terms')
                                     ->label('Quotation Terms & Conditions')
                                     ->helperText('Default terms displayed on quotations')
-                                    ->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList']),
-                                    
+                                    ->toolbarButtons(['bold', 'italic', 'link', 'bulletList', 'orderedList'])
+                                    ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::QuotationInvoice) ?? true),
+
                                 RichEditor::make('doc_bank_details')
                                     ->label('Bank Account Details')
                                     ->helperText('Payment instructions displayed on Invoices')
-                                    ->toolbarButtons(['bold', 'italic', 'bulletList']),
+                                    ->toolbarButtons(['bold', 'italic', 'bulletList'])
+                                    ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::QuotationInvoice) ?? true),
                             ]),
 
                         Tab::make('QR Code')
@@ -243,7 +244,7 @@ class DocumentLayoutSettings extends Page implements HasForms
             if (is_array($value)) {
                 $value = array_values($value)[0] ?? null;
             }
-            
+
             Setting::set($key, $value);
         }
 

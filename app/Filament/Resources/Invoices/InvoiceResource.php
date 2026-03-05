@@ -2,41 +2,54 @@
 
 namespace App\Filament\Resources\Invoices;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Filament\Resources\Invoices\Pages\CreateInvoice;
 use App\Filament\Resources\Invoices\Pages\EditInvoice;
 use App\Filament\Resources\Invoices\Pages\ListInvoices;
 use App\Filament\Resources\Invoices\RelationManagers\RentalsRelationManager;
+use App\Models\Account;
+use App\Models\FinanceAccount;
+use App\Models\FinanceTransaction;
 use App\Models\Invoice;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\JournalService;
 use BackedEnum;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use UnitEnum;
-use App\Models\FinanceAccount;
-use App\Models\FinanceTransaction;
-use App\Models\Account;
-use App\Services\JournalService;
-use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
+use UnitEnum;
 
 class InvoiceResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = Invoice::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-currency-dollar';
 
     protected static string|UnitEnum|null $navigationGroup = 'Sales';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::QuotationInvoice);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::QuotationInvoice);
+    }
 
     protected static ?int $navigationSort = 2;
 
@@ -158,7 +171,7 @@ class InvoiceResource extends Resource
                             'amount' => $data['amount'],
                             'date' => $data['date'],
                             'category' => 'Invoice Payment',
-                            'description' => 'Payment for Invoice #' . $record->number,
+                            'description' => 'Payment for Invoice #'.$record->number,
                             'payment_method' => $data['payment_method'],
                             'notes' => $data['notes'] ?? null,
                         ]);
@@ -171,7 +184,7 @@ class InvoiceResource extends Resource
                         // Journal Entry: Debit 1-1100 (Kas/Bank), Credit 2-1300 (Pendapatan Diterima Dimuka)
                         $financeAccount = FinanceAccount::find($data['finance_account_id']);
                         $debitAccountId = $financeAccount?->linked_account_id;
-                        
+
                         // Default to 2-1300 Pendapatan Diterima Dimuka for Invoice Payments (usually Rentals)
                         $creditAccount = Account::where('code', '2-1300')->first();
                         $creditAccountId = $creditAccount?->id;
@@ -179,7 +192,7 @@ class InvoiceResource extends Resource
                         if ($debitAccountId && $creditAccountId) {
                             JournalService::createEntry(
                                 $record,
-                                'Payment for Invoice #' . $record->number,
+                                'Payment for Invoice #'.$record->number,
                                 [
                                     [
                                         'account_id' => $debitAccountId,
@@ -220,9 +233,9 @@ class InvoiceResource extends Resource
                     ])
                     ->action(function (Invoice $record, array $data) {
                         $record->late_fee = ($record->late_fee ?? 0) + $data['late_fee_amount'];
-                        $record->notes .= "\n[Late Fee] Rp " . number_format($data['late_fee_amount'], 0, ',', '.') . " - Reason: " . $data['reason'];
+                        $record->notes .= "\n[Late Fee] Rp ".number_format($data['late_fee_amount'], 0, ',', '.').' - Reason: '.$data['reason'];
                         $record->save();
-                        
+
                         // Recalculate totals
                         $record->recalculate();
 
@@ -254,14 +267,14 @@ class InvoiceResource extends Resource
                                 $item->attachKitsFromUnit();
                             }
                         }
-                        
+
                         $record->load(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
-                        
+
                         $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $record]);
-                        
+
                         return response()->streamDownload(
-                            fn () => print($pdf->output()),
-                            'Invoice-' . $record->number . '.pdf'
+                            fn () => print ($pdf->output()),
+                            'Invoice-'.$record->number.'.pdf'
                         );
                     }),
             ]);

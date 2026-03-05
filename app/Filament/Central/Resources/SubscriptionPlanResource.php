@@ -2,13 +2,15 @@
 
 namespace App\Filament\Central\Resources;
 
+use App\Enums\TenantFeature;
 use App\Filament\Central\Resources\SubscriptionPlanResource\Pages;
 use App\Models\SubscriptionPlan;
+use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +21,6 @@ use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use BackedEnum;
 use UnitEnum;
 
 class SubscriptionPlanResource extends Resource
@@ -116,7 +117,7 @@ class SubscriptionPlanResource extends Resource
                             ->minValue(1)
                             ->required()
                             ->helperText('Maximum custom domains'),
-                        
+
                         TextInput::make('max_rental_transactions_per_month')
                             ->label('Max Rental Transactions / Month')
                             ->numeric()
@@ -126,19 +127,12 @@ class SubscriptionPlanResource extends Resource
                     ->columns(4),
 
                 Section::make('Features')
+                    ->description('Pilih fitur yang tersedia untuk paket ini.')
                     ->schema([
-                        Repeater::make('features')
-                            ->schema([
-                                TextInput::make('feature')
-                                    ->required()
-                                    ->columnSpanFull(),
-                            ])
-                            ->columns(1)
-                            ->addActionLabel('Add Feature')
-                            ->defaultItems(0)
-                            ->reorderable()
-                            ->collapsible()
-                            ->itemLabel(fn (array $state): ?string => $state['feature'] ?? null),
+                        CheckboxList::make('features')
+                            ->options(TenantFeature::toOptions())
+                            ->columns(2)
+                            ->bulkToggleable(),
                     ]),
 
                 Section::make('Settings')

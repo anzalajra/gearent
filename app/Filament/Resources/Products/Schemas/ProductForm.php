@@ -7,16 +7,15 @@ use App\Models\Category;
 use App\Models\CustomerCategory;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
-
-use Filament\Forms\Components\Repeater;
-use Filament\Schemas\Components\Section;
 
 class ProductForm
 {
@@ -33,7 +32,8 @@ class ProductForm
                         Toggle::make('is_visible_on_frontend')
                             ->label('Website')
                             ->default(true)
-                            ->helperText('If disabled, this product will only be available for admin rental.'),
+                            ->helperText('If disabled, this product will only be available for admin rental.')
+                            ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::Storefront) ?? true),
                     ])
                     ->columns(2)
                     ->columnSpanFull()
@@ -118,7 +118,7 @@ class ProductForm
                                     ->placeholder('e.g. 5 Meter')
                                     ->required()
                                     ->maxLength(255),
-                                
+
                                 TextInput::make('daily_rate')
                                     ->label('Override Daily Rate')
                                     ->numeric()
@@ -146,12 +146,14 @@ class ProductForm
                 Toggle::make('is_taxable')
                     ->label('Taxable (Kena Pajak)')
                     ->default(true)
-                    ->helperText('If disabled, this product will be excluded from tax calculations.'),
+                    ->helperText('If disabled, this product will be excluded from tax calculations.')
+                    ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::Finance) ?? true),
 
                 Toggle::make('price_includes_tax')
                     ->label('Price Includes Tax (Harga Termasuk Pajak)')
                     ->default(false)
-                    ->helperText('If enabled, the price is considered inclusive of tax.'),
+                    ->helperText('If enabled, the price is considered inclusive of tax.')
+                    ->visible(fn () => tenant()?->hasFeature(\App\Enums\TenantFeature::Finance) ?? true),
 
                 CheckboxList::make('excludedCustomerCategories')
                     ->label('Hide from Customer Categories')

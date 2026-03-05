@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Discounts;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Models\DailyDiscount;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -19,6 +21,8 @@ use Filament\Tables\Table;
 
 class DailyDiscountResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = DailyDiscount::class;
 
     protected static bool $shouldRegisterNavigation = false;
@@ -28,6 +32,11 @@ class DailyDiscountResource extends Resource
     protected static ?string $modelLabel = 'Daily Discount';
 
     protected static ?string $pluralModelLabel = 'Daily Discounts';
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Promotion);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -109,7 +118,7 @@ class DailyDiscountResource extends Resource
 
                 TextColumn::make('max_discount_amount')
                     ->label('Maks. Diskon')
-                    ->formatStateUsing(fn ($state) => $state ? 'Rp ' . number_format($state, 0, ',', '.') : '-')
+                    ->formatStateUsing(fn ($state) => $state ? 'Rp '.number_format($state, 0, ',', '.') : '-')
                     ->toggleable(),
 
                 TextColumn::make('end_date')

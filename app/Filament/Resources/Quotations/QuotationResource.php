@@ -2,15 +2,20 @@
 
 namespace App\Filament\Resources\Quotations;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Quotations\Pages\CreateQuotation;
 use App\Filament\Resources\Quotations\Pages\EditQuotation;
 use App\Filament\Resources\Quotations\Pages\ListQuotations;
 use App\Filament\Resources\Quotations\RelationManagers\RentalsRelationManager;
-use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\Quotation;
-use Barryvdh\DomPDF\Facade\Pdf;
 use BackedEnum;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -20,16 +25,14 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
-use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use UnitEnum;
 
 class QuotationResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = Quotation::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
@@ -37,6 +40,16 @@ class QuotationResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'Sales';
 
     protected static ?int $navigationSort = 1;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::QuotationInvoice);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::QuotationInvoice);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -146,7 +159,7 @@ class QuotationResource extends Resource
                                 ->title('Invoice created successfully')
                                 ->success()
                                 ->send();
-                                
+
                             return redirect()->to(InvoiceResource::getUrl('edit', ['record' => $invoice]));
                         }
 
@@ -178,12 +191,12 @@ class QuotationResource extends Resource
                         }
 
                         $record->load(['customer', 'rentals.items.productUnit.product', 'rentals.items.rentalItemKits.unitKit']);
-                        
+
                         $pdf = Pdf::loadView('pdf.quotation', ['quotation' => $record]);
-                        
+
                         return response()->streamDownload(
-                            fn () => print($pdf->output()),
-                            'Quotation-' . $record->number . '.pdf'
+                            fn () => print ($pdf->output()),
+                            'Quotation-'.$record->number.'.pdf'
                         );
                     }),
             ]);

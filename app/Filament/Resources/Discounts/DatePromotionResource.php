@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Discounts;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Models\DatePromotion;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -20,6 +22,8 @@ use Filament\Tables\Table;
 
 class DatePromotionResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = DatePromotion::class;
 
     protected static bool $shouldRegisterNavigation = false;
@@ -27,6 +31,11 @@ class DatePromotionResource extends Resource
     protected static ?string $slug = 'date-promotions';
 
     protected static ?string $modelLabel = 'Date Promotion';
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Promotion);
+    }
 
     protected static ?string $pluralModelLabel = 'Date Promotions';
 
@@ -112,9 +121,9 @@ class DatePromotionResource extends Resource
 
                 TextColumn::make('value')
                     ->label('Nilai')
-                    ->formatStateUsing(fn (DatePromotion $record) => $record->type === 'percentage' 
-                        ? $record->value . '%' 
-                        : 'Rp ' . number_format($record->value, 0, ',', '.')),
+                    ->formatStateUsing(fn (DatePromotion $record) => $record->type === 'percentage'
+                        ? $record->value.'%'
+                        : 'Rp '.number_format($record->value, 0, ',', '.')),
 
                 IconColumn::make('recurring_yearly')
                     ->label('Tahunan')

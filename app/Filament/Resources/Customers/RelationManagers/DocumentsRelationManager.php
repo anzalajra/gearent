@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Customers\RelationManagers;
 
 use App\Models\CustomerDocument;
-use Hugomyb\FilamentMediaAction\Actions\MediaAction;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Textarea;
@@ -11,14 +10,19 @@ use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Hugomyb\FilamentMediaAction\Actions\MediaAction;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 
 class DocumentsRelationManager extends RelationManager
 {
     protected static string $relationship = 'documents';
 
     protected static ?string $title = 'Documents';
+
+    public static function canViewForRecord(\Illuminate\Database\Eloquent\Model $ownerRecord, string $pageClass): bool
+    {
+        return tenant()?->hasFeature(\App\Enums\TenantFeature::CustomerVerification) ?? true;
+    }
 
     public function table(Table $table): Table
     {
@@ -33,7 +37,7 @@ class DocumentsRelationManager extends RelationManager
 
                 TextColumn::make('file_size')
                     ->label('Size')
-                    ->formatStateUsing(fn ($state) => number_format($state / 1024, 1) . ' KB'),
+                    ->formatStateUsing(fn ($state) => number_format($state / 1024, 1).' KB'),
 
                 TextColumn::make('status')
                     ->badge()
@@ -59,7 +63,7 @@ class DocumentsRelationManager extends RelationManager
                     ->icon('heroicon-o-eye')
                     ->media(fn (CustomerDocument $record) => route('admin.documents.view', ['document' => $record, 'filename' => $record->file_name]))
                     ->mediaType(MediaAction::TYPE_IMAGE)
-                    ->visible(fn (CustomerDocument $record) => !str_ends_with(strtolower($record->file_name), '.pdf')),
+                    ->visible(fn (CustomerDocument $record) => ! str_ends_with(strtolower($record->file_name), '.pdf')),
 
                 Action::make('approve')
                     ->label('Approve')
@@ -110,13 +114,13 @@ class DocumentsRelationManager extends RelationManager
 
         foreach ($requiredTypes as $type) {
             $doc = $customer->documents()->where('document_type_id', $type->id)->first();
-            if (!$doc || $doc->status !== CustomerDocument::STATUS_APPROVED) {
+            if (! $doc || $doc->status !== CustomerDocument::STATUS_APPROVED) {
                 $allApproved = false;
                 break;
             }
         }
 
-        if ($allApproved && !$customer->is_verified) {
+        if ($allApproved && ! $customer->is_verified) {
             $customer->verify(Auth::id());
         }
     }

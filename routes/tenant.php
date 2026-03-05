@@ -23,7 +23,11 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
-    // Tenant-specific routes go here.
+    // Impersonation route — auto-login from central admin via magic link token
+    Route::get('/impersonate/{token}', function (string $token) {
+        return \Stancl\Tenancy\Features\UserImpersonation::makeResponse($token);
+    })->name('tenant.impersonate');
+
     // Note: Do NOT register GET / here — it conflicts with web.php routes.
     // The tenant frontend is served by web.php's HomeController which detects
     // tenant vs central domain automatically.

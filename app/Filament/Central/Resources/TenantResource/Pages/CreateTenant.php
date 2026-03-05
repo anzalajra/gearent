@@ -13,4 +13,26 @@ class CreateTenant extends CreateRecord
     {
         return $this->getResource()::getUrl('index');
     }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // Transform repeater format to associative array for storage
+        $overrides = [];
+
+        foreach ($data['feature_overrides_form'] ?? [] as $item) {
+            if (! empty($item['feature'])) {
+                $overrides[$item['feature']] = (bool) ($item['enabled'] ?? false);
+            }
+        }
+
+        unset($data['feature_overrides_form']);
+
+        if (! empty($overrides)) {
+            $data['data'] = array_merge($data['data'] ?? [], [
+                'feature_overrides' => $overrides,
+            ]);
+        }
+
+        return $data;
+    }
 }

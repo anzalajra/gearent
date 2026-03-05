@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\ProductUnits;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Filament\Resources\ProductUnits\Pages\CreateProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\EditProductUnit;
 use App\Filament\Resources\ProductUnits\Pages\ListProductUnits;
@@ -18,11 +20,21 @@ use UnitEnum;
 
 class ProductUnitResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = ProductUnit::class;
 
-    protected static bool $shouldRegisterNavigation = true;
-
     protected static ?string $recordTitleAttribute = 'serial_number';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::ProductUnit);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::ProductUnit);
+    }
 
     public static function getGloballySearchableAttributes(): array
     {
@@ -31,11 +43,11 @@ class ProductUnitResource extends Resource
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
-    
+
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
-    
+
     protected static ?int $navigationSort = 2;
-    
+
     protected static ?string $navigationLabel = 'Product Unit';
 
     public static function form(Schema $schema): Schema

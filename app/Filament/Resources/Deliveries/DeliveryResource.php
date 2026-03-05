@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Deliveries;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Filament\Resources\Deliveries\Pages\CreateDelivery;
 use App\Filament\Resources\Deliveries\Pages\EditDelivery;
 use App\Filament\Resources\Deliveries\Pages\ListDeliveries;
@@ -17,18 +19,30 @@ use UnitEnum;
 
 class DeliveryResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = Delivery::class;
 
     protected static ?string $recordTitleAttribute = 'delivery_number';
 
     // Navigation Configuration
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-truck';
-    
+
     protected static string|UnitEnum|null $navigationGroup = 'Rentals';
-    
+
     protected static ?int $navigationSort = 3;
-    
+
     protected static ?string $navigationLabel = 'Deliveries';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Deliveries);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Deliveries);
+    }
 
     public static function form(Schema $schema): Schema
     {

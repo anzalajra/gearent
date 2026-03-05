@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\TaxService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
-use App\Services\TaxService;
 
 class Rental extends Model
 {
@@ -68,12 +67,19 @@ class Rental extends Model
     ];
 
     public const STATUS_QUOTATION = 'quotation';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_LATE_PICKUP = 'late_pickup';
+
     public const STATUS_LATE_RETURN = 'late_return';
+
     public const STATUS_PARTIAL_RETURN = 'partial_return';
 
     protected static function booted()
@@ -108,8 +114,8 @@ class Rental extends Model
         });
 
         static::deleting(function ($rental) {
-            $units = $rental->items->map(fn($item) => $item->productUnit)->filter();
-            
+            $units = $rental->items->map(fn ($item) => $item->productUnit)->filter();
+
             static::deleted(function () use ($units) {
                 foreach ($units as $unit) {
                     $unit->refreshStatus();
@@ -132,18 +138,18 @@ class Rental extends Model
     {
         $prefix = 'RNT';
         $date = now()->format('Ymd');
-        
+
         // Find the last rental code for today directly from the code pattern
         // This is more robust than relying on created_at
-        $lastRental = self::where('rental_code', 'like', $prefix . $date . '%')
-                          ->orderBy('rental_code', 'desc')
-                          ->first();
-                          
+        $lastRental = self::where('rental_code', 'like', $prefix.$date.'%')
+            ->orderBy('rental_code', 'desc')
+            ->first();
+
         $sequence = $lastRental ? intval(substr($lastRental->rental_code, -4)) + 1 : 1;
-        
+
         // Ensure uniqueness with a loop
         do {
-            $code = $prefix . $date . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+            $code = $prefix.$date.str_pad($sequence, 4, '0', STR_PAD_LEFT);
             $exists = self::where('rental_code', $code)->exists();
             if ($exists) {
                 $sequence++;
@@ -314,15 +320,15 @@ class Rental extends Model
         foreach ($this->items as $item) {
             if ($item->productUnit) {
                 $item->productUnit->refreshStatus();
-                
+
                 // Also refresh linked components (Children)
                 foreach ($item->productUnit->kits as $kit) {
                     if ($kit->linked_unit_id) {
-                         // We need to fetch the linked unit if not loaded
-                         $linkedUnit = $kit->linkedUnit ?? \App\Models\ProductUnit::find($kit->linked_unit_id);
-                         if ($linkedUnit) {
-                             $linkedUnit->refreshStatus();
-                         }
+                        // We need to fetch the linked unit if not loaded
+                        $linkedUnit = $kit->linkedUnit ?? \App\Models\ProductUnit::find($kit->linked_unit_id);
+                        if ($linkedUnit) {
+                            $linkedUnit->refreshStatus();
+                        }
                     }
                 }
 
@@ -331,7 +337,7 @@ class Rental extends Model
                 // but for "Scheduled" it might matter. Let's be safe.)
                 $parentUnitIds = \App\Models\UnitKit::where('linked_unit_id', $item->product_unit_id)->pluck('unit_id');
                 if ($parentUnitIds->isNotEmpty()) {
-                    \App\Models\ProductUnit::whereIn('id', $parentUnitIds)->each(fn($u) => $u->refreshStatus());
+                    \App\Models\ProductUnit::whereIn('id', $parentUnitIds)->each(fn ($u) => $u->refreshStatus());
                 }
             }
         }
@@ -342,7 +348,7 @@ class Rental extends Model
      */
     public function checkAvailability(): array
     {
-        if (!$this->relationLoaded('items')) {
+        if (! $this->relationLoaded('items')) {
             $this->load(['items.productUnit.kits']);
         }
 
@@ -353,7 +359,7 @@ class Rental extends Model
             // Get all related unit IDs that would cause a conflict
             // 1. The unit itself
             $conflictUnitIds = [$item->product_unit_id];
-            
+
             // 2. Parent units (Units that use this unit as a kit)
             // If I rent a Lens, I cannot rent the Camera Kit that contains it.
             $parentIds = \App\Models\UnitKit::where('linked_unit_id', $item->product_unit_id)->pluck('unit_id')->toArray();
@@ -362,13 +368,13 @@ class Rental extends Model
             // 3. Child units (Units that are kits of this unit)
             // If I rent a Camera Kit, I cannot rent the Lens inside it.
             if ($item->productUnit) {
-                 $childIds = $item->productUnit->kits()->whereNotNull('linked_unit_id')->pluck('linked_unit_id')->toArray();
-                 $conflictUnitIds = array_merge($conflictUnitIds, $childIds);
+                $childIds = $item->productUnit->kits()->whereNotNull('linked_unit_id')->pluck('linked_unit_id')->toArray();
+                $conflictUnitIds = array_merge($conflictUnitIds, $childIds);
             }
-            
+
             $conflictUnitIds = array_unique($conflictUnitIds);
 
-            \Illuminate\Support\Facades\Log::info("Item {$item->id} (Unit {$item->product_unit_id}) conflicts with units: " . implode(',', $conflictUnitIds));
+            \Illuminate\Support\Facades\Log::info("Item {$item->id} (Unit {$item->product_unit_id}) conflicts with units: ".implode(',', $conflictUnitIds));
 
             // Check if any of the conflicting units are already rented in an overlapping period
             $conflictingRentals = self::where('id', '!=', $this->id)
@@ -378,7 +384,7 @@ class Rental extends Model
                         ->orWhereBetween('end_date', [$this->start_date, $this->end_date])
                         ->orWhere(function ($q) {
                             $q->where('start_date', '<=', $this->start_date)
-                              ->where('end_date', '>=', $this->end_date);
+                                ->where('end_date', '>=', $this->end_date);
                         });
                 })
                 ->whereHas('items', function ($query) use ($conflictUnitIds) {
@@ -386,11 +392,11 @@ class Rental extends Model
                         // 1. Direct match (Item IS one of the conflict units)
                         $q->whereIn('product_unit_id', $conflictUnitIds)
                         // 2. Item CONTAINS one of the conflict units (Item is a Parent of a conflict unit)
-                        ->orWhereHas('productUnit', function ($pu) use ($conflictUnitIds) {
-                            $pu->whereHas('kits', function ($k) use ($conflictUnitIds) {
-                                $k->whereIn('linked_unit_id', $conflictUnitIds);
+                            ->orWhereHas('productUnit', function ($pu) use ($conflictUnitIds) {
+                                $pu->whereHas('kits', function ($k) use ($conflictUnitIds) {
+                                    $k->whereIn('linked_unit_id', $conflictUnitIds);
+                                });
                             });
-                        });
                         // 3. Item IS CONTAINED BY one of the conflict units (Item is a Child of a conflict unit)
                         // This is covered by "Direct match" if $conflictUnitIds was expanded correctly to include parents.
                         // (e.g. My item = Parent. $conflictUnitIds includes Child.
@@ -401,7 +407,7 @@ class Rental extends Model
                 ->get();
 
             if ($conflictingRentals->isNotEmpty()) {
-                \Illuminate\Support\Facades\Log::warning("Conflict detected for Rental {$this->id} with rentals: " . $conflictingRentals->pluck('rental_code')->implode(', '));
+                \Illuminate\Support\Facades\Log::warning("Conflict detected for Rental {$this->id} with rentals: ".$conflictingRentals->pluck('rental_code')->implode(', '));
                 $conflicts[] = [
                     'product_unit' => $item->productUnit,
                     'conflicting_rentals' => $conflictingRentals,
@@ -429,19 +435,19 @@ class Rental extends Model
 
                 if ($item) {
                     $item->delete();
-                    
+
                     // Recalculate totals for the other rental
                     $rental->refresh();
                     $subtotal = $rental->items->sum('subtotal');
-                    
+
                     // Update subtotal
                     $rental->subtotal = $subtotal;
-                    
+
                     // Recalculate total (keeping existing discount amount for fixed, or logic for percent)
                     // Since applyDiscount logic is complex, we'll do a simple update here
                     // assuming the admin will review the other rental if needed.
                     $rental->total = max(0, $subtotal - $rental->discount);
-                    
+
                     $rental->save();
                 }
             }
@@ -464,9 +470,10 @@ class Rental extends Model
             foreach ($conflicts as $conflict) {
                 $unitName = $conflict['product_unit']->product->name;
                 $serial = $conflict['product_unit']->serial_number;
-                
+
                 $rentalInfo = $conflict['conflicting_rentals']->map(function ($r) {
                     $customerName = $r->customer->name ?? 'Unknown';
+
                     return "{$r->rental_code} ($customerName)";
                 })->implode(', ');
 
@@ -494,15 +501,15 @@ class Rental extends Model
                     ->whereNotNull('linked_unit_id')
                     ->pluck('linked_unit_id')
                     ->toArray();
-                
-                if (!empty($componentIds)) {
+
+                if (! empty($componentIds)) {
                     $unavailableComponents = ProductUnit::whereIn('id', $componentIds)
                         ->whereIn('status', [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])
                         ->get();
-                    
+
                     if ($unavailableComponents->isNotEmpty()) {
-                         $comp = $unavailableComponents->first();
-                         throw new \Exception("Component Unit {$comp->serial_number} ({$comp->product->name}) inside Kit {$unit->product->name} is currently {$comp->status}. Cannot pickup this kit.");
+                        $comp = $unavailableComponents->first();
+                        throw new \Exception("Component Unit {$comp->serial_number} ({$comp->product->name}) inside Kit {$unit->product->name} is currently {$comp->status}. Cannot pickup this kit.");
                     }
                 }
 
@@ -511,8 +518,8 @@ class Rental extends Model
                 $parentIds = \App\Models\UnitKit::where('linked_unit_id', $unit->id)
                     ->pluck('unit_id')
                     ->toArray();
-                
-                if (!empty($parentIds)) {
+
+                if (! empty($parentIds)) {
                     $unavailableParents = ProductUnit::whereIn('id', $parentIds)
                         ->whereIn('status', [ProductUnit::STATUS_RENTED, ProductUnit::STATUS_MAINTENANCE])
                         ->get();
@@ -531,7 +538,7 @@ class Rental extends Model
                 $checkedKits = $item->rentalItemKits->count();
                 // Filter out broken/lost kits to match attachKitsFromUnit logic
                 $totalKits = $item->productUnit->kits->whereNotIn('condition', ['broken', 'lost'])->count();
-                
+
                 if ($checkedKits < $totalKits) {
                     throw new \Exception('All kit items must be checked before validating pickup.');
                 }
@@ -581,7 +588,7 @@ class Rental extends Model
     {
         // 1. Calculate Subtotal (Items)
         $this->subtotal = $this->items()->sum('subtotal');
-        
+
         // 2. Calculate Discount
         $discountAmount = 0;
         if ($this->discountRelation) {
@@ -593,20 +600,20 @@ class Rental extends Model
                 $discountAmount = $this->discount;
             }
         }
-        
+
         // 3. Calculate Tax Base (DPP)
         // DPP = (Subtotal - Discount) + Late Fee
         $netSubtotal = max(0, $this->subtotal - $discountAmount);
         $lateFee = $this->late_fee ?? 0;
         $taxableAmount = $netSubtotal + $lateFee;
-        
+
         // 4. Calculate Tax (Using TaxService for International Support)
         // Retrieve Customer
         $customer = $this->user ?? User::find($this->user_id);
-        
+
         $taxResult = TaxService::calculateTax(
-            $taxableAmount, 
-            $this->is_taxable, 
+            $taxableAmount,
+            $this->is_taxable,
             $this->price_includes_tax,
             $customer
         );
@@ -615,7 +622,7 @@ class Rental extends Model
         $this->ppn_amount = $taxResult['tax_amount'];
         $this->ppn_rate = $taxResult['tax_rate'];
         $this->tax_name = $taxResult['tax_name'];
-        
+
         // PPh Calculation (if applicable) - kept separate as it is withholding tax
         $pphAmount = 0;
         $taxEnabled = filter_var(\App\Models\Setting::get('tax_enabled', true), FILTER_VALIDATE_BOOLEAN);
@@ -624,31 +631,31 @@ class Rental extends Model
             $pphAmount = $this->tax_base * ($this->pph_rate / 100);
         }
         $this->pph_amount = $pphAmount;
-        
+
         // 5. Calculate Final Total
         // Total = TaxableAmount (if inclusive) OR (TaxableAmount + Tax) (if exclusive)
         // PLUS Deposit (Non-taxable)
-        
+
         $totalBill = 0;
-        if ($this->is_taxable && !$this->price_includes_tax) {
+        if ($this->is_taxable && ! $this->price_includes_tax) {
             $totalBill = $taxableAmount + $this->ppn_amount;
         } else {
             $totalBill = $taxableAmount;
         }
-        
+
         // Add Deposit
         // Deposit calculation based on Net Subtotal (Rental Value)
         $depositValue = 0;
         if ($this->deposit_type === 'percent') {
-             $depositValue = $netSubtotal * ($this->deposit / 100);
+            $depositValue = $netSubtotal * ($this->deposit / 100);
         } else {
-             $depositValue = $this->deposit;
+            $depositValue = $this->deposit;
         }
-        
+
         $this->security_deposit_amount = $depositValue;
-        
+
         $this->total = $totalBill + $depositValue;
-        
+
         $this->save();
     }
 
@@ -657,6 +664,7 @@ class Rental extends Model
         if ($this->discount_type === 'percent') {
             return $this->subtotal * ($this->discount / 100);
         }
+
         return (float) $this->discount;
     }
 
@@ -669,6 +677,7 @@ class Rental extends Model
         if ($this->deposit_type === 'percent') {
             return $netSubtotal * ($this->deposit / 100);
         }
+
         return (float) $this->deposit;
     }
 
@@ -676,21 +685,21 @@ class Rental extends Model
     {
         // Check if deposit is enabled
         $enabled = Setting::get('deposit_enabled', true);
-        if (!$enabled) {
+        if (! $enabled) {
             return 0;
         }
 
         $type = Setting::get('deposit_type', 'percentage');
-        
+
         // Determine default amount based on old setting if available
         $defaultAmount = 30;
         if ($type === 'percentage') {
-             $oldValue = Setting::get('deposit_percentage');
-             if ($oldValue !== null) {
-                 $defaultAmount = $oldValue;
-             }
+            $oldValue = Setting::get('deposit_percentage');
+            if ($oldValue !== null) {
+                $defaultAmount = $oldValue;
+            }
         }
-        
+
         $settingAmount = Setting::get('deposit_amount', $defaultAmount);
 
         if ($type === 'percentage') {
@@ -702,25 +711,24 @@ class Rental extends Model
 
     public static function calculateLateFee(float $dailyRate, int $daysLate): float
     {
-         $type = Setting::get('late_fee_type', 'percentage');
-         
-         $defaultAmount = 10;
-         if ($type === 'percentage') {
-             $oldValue = Setting::get('late_fee_percentage');
-             if ($oldValue !== null) {
-                 $defaultAmount = $oldValue;
-             }
-         }
-         
-         $amount = Setting::get('late_fee_amount', $defaultAmount);
-         
-         if ($type === 'percentage') {
-             return ($dailyRate * ($amount / 100)) * $daysLate;
-         }
-         
-         return $amount * $daysLate;
-    }
+        $type = Setting::get('late_fee_type', 'percentage');
 
+        $defaultAmount = 10;
+        if ($type === 'percentage') {
+            $oldValue = Setting::get('late_fee_percentage');
+            if ($oldValue !== null) {
+                $defaultAmount = $oldValue;
+            }
+        }
+
+        $amount = Setting::get('late_fee_amount', $defaultAmount);
+
+        if ($type === 'percentage') {
+            return ($dailyRate * ($amount / 100)) * $daysLate;
+        }
+
+        return $amount * $daysLate;
+    }
 
     /**
      * Calculate late fee based on overdue days
@@ -732,7 +740,7 @@ class Rental extends Model
         }
 
         $overdueDays = $this->end_date->diffInDays(now(), false);
-        
+
         if ($overdueDays <= 0) {
             return 0;
         }
@@ -749,8 +757,8 @@ class Rental extends Model
     {
         // Check if all items (main units and kits) in Delivery IN are checked
         $deliveryIn = $this->deliveries->where('type', Delivery::TYPE_IN)->first();
-        
-        if (!$deliveryIn || !$deliveryIn->allItemsChecked()) {
+
+        if (! $deliveryIn || ! $deliveryIn->allItemsChecked()) {
             throw new \Exception('All items must be checked in the Delivery Note before validating return.');
         }
 
@@ -759,7 +767,7 @@ class Rental extends Model
         // Calculate Late Fee
         $lateFee = $this->calculateOverdueFee();
         $this->late_fee = $lateFee;
-        
+
         // Update Total (Subtotal - Discount + Late Fee)
         // Note: Deposit is separate
         $this->total = $this->subtotal - $this->discount + $lateFee;
@@ -770,12 +778,12 @@ class Rental extends Model
         // Update product unit statuses based on return condition
         // We iterate all IN deliveries to find the condition for each item
         $inDeliveries = $this->deliveries()->where('type', Delivery::TYPE_IN)->with('items')->get();
-        
+
         foreach ($this->items as $item) {
             if ($item->productUnit) {
                 // Find the delivery item for this rental item in ANY IN delivery
                 $condition = null;
-                
+
                 foreach ($inDeliveries as $delivery) {
                     $dItem = $delivery->items
                         ->where('rental_item_id', $item->id)
@@ -801,6 +809,11 @@ class Rental extends Model
      */
     public function createDeliveries(): void
     {
+        // Skip delivery creation if Deliveries feature is disabled
+        if (! (tenant()?->hasFeature(\App\Enums\TenantFeature::Deliveries) ?? true)) {
+            return;
+        }
+
         // Ensure all rental items have their kits attached first
         foreach ($this->items as $item) {
             $item->attachKitsFromUnit();
@@ -809,7 +822,7 @@ class Rental extends Model
 
         // Create or Update Delivery Out (SJK)
         $deliveryOut = $this->deliveries()->where('type', Delivery::TYPE_OUT)->first();
-        if (!$deliveryOut) {
+        if (! $deliveryOut) {
             $deliveryOut = Delivery::create([
                 'rental_id' => $this->id,
                 'type' => Delivery::TYPE_OUT,
@@ -844,7 +857,7 @@ class Rental extends Model
 
         // Create or Update Delivery In (SJM)
         $deliveryIn = $this->deliveries()->where('type', Delivery::TYPE_IN)->first();
-        if (!$deliveryIn) {
+        if (! $deliveryIn) {
             $deliveryIn = Delivery::create([
                 'rental_id' => $this->id,
                 'type' => Delivery::TYPE_IN,
@@ -878,14 +891,15 @@ class Rental extends Model
 
     /**
      * Cancel the rental with a reason
-     * 
-     * @param string $reason The reason for cancellation
+     *
+     * @param  string  $reason  The reason for cancellation
+     *
      * @throws \Exception If rental cannot be cancelled
      */
     public function cancelRental(string $reason): void
     {
         // Validate that rental can be cancelled
-        if (!in_array($this->status, [self::STATUS_QUOTATION, self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
+        if (! in_array($this->status, [self::STATUS_QUOTATION, self::STATUS_CONFIRMED, self::STATUS_LATE_PICKUP])) {
             throw new \Exception('Cannot cancel this rental. Only quotation, confirmed or late pickup rentals can be cancelled.');
         }
 

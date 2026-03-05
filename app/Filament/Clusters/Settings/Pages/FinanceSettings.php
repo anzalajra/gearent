@@ -2,10 +2,12 @@
 
 namespace App\Filament\Clusters\Settings\Pages;
 
+use App\Enums\TenantFeature;
 use App\Filament\Clusters\Settings\SettingsCluster;
+use App\Filament\Concerns\ChecksTenantFeature;
+use App\Models\FinanceTransaction;
 use App\Models\Setting;
 use App\Services\JournalService;
-use App\Models\FinanceTransaction;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -27,6 +29,7 @@ use Filament\Schemas\Schema;
 
 class FinanceSettings extends Page implements HasForms
 {
+    use ChecksTenantFeature;
     use InteractsWithForms;
 
     protected static ?string $cluster = SettingsCluster::class;
@@ -37,6 +40,16 @@ class FinanceSettings extends Page implements HasForms
 
     protected static ?int $navigationSort = 2;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Finance);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Finance);
+    }
+
     protected string $view = 'filament.clusters.settings.pages.finance-settings';
 
     public ?array $data = [];
@@ -45,13 +58,13 @@ class FinanceSettings extends Page implements HasForms
     {
         // Load general finance settings
         $settings = Setting::all()->pluck('value', 'key')->toArray();
-        
+
         // Load tax settings
         $taxSettings = Setting::where('group', 'tax')->get()->pluck('value', 'key')->toArray();
-        
+
         // Merge all settings
         $allSettings = array_merge($settings, $taxSettings);
-        
+
         // Decode JSON fields if they are strings
         if (isset($allSettings['international_tax_rates']) && is_string($allSettings['international_tax_rates'])) {
             $allSettings['international_tax_rates'] = json_decode($allSettings['international_tax_rates'], true) ?? [];
@@ -96,7 +109,7 @@ class FinanceSettings extends Page implements HasForms
             ->title("Synced {$count} transactions to Journal Entries")
             ->success()
             ->send();
-            
+
         $this->redirect(request()->header('Referer'));
     }
 
@@ -133,7 +146,7 @@ class FinanceSettings extends Page implements HasForms
                                             }),
                                     ]),
                             ]),
-                        
+
                         Tab::make('Tax Settings')
                             ->icon('heroicon-o-receipt-percent')
                             ->schema([
@@ -180,7 +193,7 @@ class FinanceSettings extends Page implements HasForms
                                                 ->columnSpanFull(),
                                         ]),
                                     ]),
-                                
+
                                 Section::make('Indonesia Tax Configuration')
                                     ->visible(fn ($get) => $get('tax_enabled') && $get('tax_mode') === 'indonesia')
                                     ->schema([
@@ -198,14 +211,14 @@ class FinanceSettings extends Page implements HasForms
                                             ->label('Harga Termasuk Pajak (Default)')
                                             ->helperText('Default setting for new transactions.')
                                             ->default(false),
-                                        
+
                                         FileUpload::make('digital_certificate')
                                             ->label('Digital Certificate (e-Faktur)')
                                             ->helperText('Upload your digital certificate (.p12/.pfx) for e-Faktur integration.')
                                             ->disk('local')
                                             ->directory('certificates')
                                             ->visible(fn ($get) => $get('is_pkp')),
-                                            
+
                                         Grid::make(2)->schema([
                                             TextInput::make('ppn_rate')
                                                 ->label('Default PPN Rate (%)')
@@ -213,7 +226,7 @@ class FinanceSettings extends Page implements HasForms
                                                 ->default(11)
                                                 ->suffix('%')
                                                 ->visible(fn ($get) => $get('is_pkp')),
-                                                
+
                                             TextInput::make('pph_final_rate')
                                                 ->label('PPh Final Rate (%)')
                                                 ->numeric()
@@ -269,19 +282,19 @@ class FinanceSettings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
-        
+
         // Tax-related keys
         $taxKeys = [
-            'tax_enabled', 'tax_mode', 'company_tax_name', 'company_npwp', 
-            'company_nik', 'company_tax_address', 'is_pkp', 'is_taxable', 
-            'price_includes_tax', 'digital_certificate', 'ppn_rate', 
-            'pph_final_rate', 'international_tax_rates'
+            'tax_enabled', 'tax_mode', 'company_tax_name', 'company_npwp',
+            'company_nik', 'company_tax_address', 'is_pkp', 'is_taxable',
+            'price_includes_tax', 'digital_certificate', 'ppn_rate',
+            'pph_final_rate', 'international_tax_rates',
         ];
-        
+
         // Handle finance mode change
         $currentMode = Setting::get('finance_mode', 'simple');
         $newMode = $data['finance_mode'] ?? 'simple';
-        
+
         foreach ($data as $key => $value) {
             if (in_array($key, $taxKeys)) {
                 // Tax settings
@@ -316,7 +329,7 @@ class FinanceSettings extends Page implements HasForms
             ->title('Settings saved successfully')
             ->success()
             ->send();
-            
+
         // Reload if finance mode changed to trigger session check
         if ($currentMode !== $newMode && $newMode === 'advanced') {
             $this->redirect(request()->header('Referer'));

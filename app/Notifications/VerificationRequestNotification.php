@@ -2,13 +2,12 @@
 
 namespace App\Notifications;
 
-use App\Models\User;
 use App\Models\Setting;
+use App\Models\User;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Filament\Notifications\Notification as FilamentNotification;
 
 class VerificationRequestNotification extends Notification
 {
@@ -24,27 +23,27 @@ class VerificationRequestNotification extends Notification
     public function via(object $notifiable): array
     {
         $channels = [];
-        
+
         if (Setting::get('notification_app_enabled', true)) {
             $channels[] = 'database';
         }
-        
-        if (Setting::get('notification_email_enabled', true) && Setting::get('notify_verification_request', true)) {
+
+        if ((tenant()?->hasFeature(\App\Enums\TenantFeature::EmailNotification) ?? true) && Setting::get('notification_email_enabled', true) && Setting::get('notify_verification_request', true)) {
             $channels[] = 'mail';
         }
-        
+
         return $channels;
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Document Verification Request - ' . $this->customer->name)
-            ->greeting('Hello ' . $notifiable->name . ',')
+            ->subject('Document Verification Request - '.$this->customer->name)
+            ->greeting('Hello '.$notifiable->name.',')
             ->line('A customer has uploaded documents for verification.')
             ->line('**Customer Details:**')
-            ->line('Name: ' . $this->customer->name)
-            ->line('Email: ' . $this->customer->email)
+            ->line('Name: '.$this->customer->name)
+            ->line('Email: '.$this->customer->email)
             ->action('Review Documents', url("/admin/users/{$this->customer->id}/edit"))
             ->line('Please review and verify the documents.');
     }

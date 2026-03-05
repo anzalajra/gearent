@@ -18,6 +18,10 @@ class RentalConfirmation extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
+        if (! (tenant()?->hasFeature(\App\Enums\TenantFeature::EmailNotification) ?? true)) {
+            return [];
+        }
+
         return ['mail'];
     }
 
@@ -26,15 +30,15 @@ class RentalConfirmation extends Notification implements ShouldQueue
         $rental = $this->rental->load(['items.productUnit.product']);
 
         return (new MailMessage)
-            ->subject('Booking Confirmation - ' . $this->rental->rental_code)
-            ->greeting('Hello ' . $notifiable->name . '!')
+            ->subject('Booking Confirmation - '.$this->rental->rental_code)
+            ->greeting('Hello '.$notifiable->name.'!')
             ->line('Your rental booking has been received.')
             ->line('**Booking Details:**')
-            ->line('Rental Code: ' . $this->rental->rental_code)
-            ->line('Start Date: ' . $this->rental->start_date->format('d M Y H:i'))
-            ->line('End Date: ' . $this->rental->end_date->format('d M Y H:i'))
-            ->line('Total: Rp ' . number_format($this->rental->total, 0, ',', '.'))
-            ->line('Deposit: Rp ' . number_format($this->rental->deposit, 0, ',', '.'))
+            ->line('Rental Code: '.$this->rental->rental_code)
+            ->line('Start Date: '.$this->rental->start_date->format('d M Y H:i'))
+            ->line('End Date: '.$this->rental->end_date->format('d M Y H:i'))
+            ->line('Total: Rp '.number_format($this->rental->total, 0, ',', '.'))
+            ->line('Deposit: Rp '.number_format($this->rental->deposit, 0, ',', '.'))
             ->action('View Booking', route('customer.rental.detail', $this->rental->id))
             ->line('We will contact you shortly to confirm your booking.')
             ->line('Thank you for choosing our service!');

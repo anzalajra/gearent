@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Discounts;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Models\Discount;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -20,6 +22,8 @@ use Filament\Tables\Table;
 
 class DiscountResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = Discount::class;
 
     protected static bool $shouldRegisterNavigation = false;
@@ -27,6 +31,11 @@ class DiscountResource extends Resource
     protected static ?string $slug = 'discount-codes';
 
     protected static ?string $modelLabel = 'Discount Code';
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::Promotion);
+    }
 
     protected static ?string $pluralModelLabel = 'Discount Codes';
 
@@ -118,14 +127,14 @@ class DiscountResource extends Resource
                     ->visibleFrom('sm'),
 
                 TextColumn::make('value')
-                    ->formatStateUsing(fn (Discount $record) => $record->type === 'percentage' 
-                        ? $record->value . '%' 
-                        : 'Rp ' . number_format($record->value, 0, ',', '.'))
+                    ->formatStateUsing(fn (Discount $record) => $record->type === 'percentage'
+                        ? $record->value.'%'
+                        : 'Rp '.number_format($record->value, 0, ',', '.'))
                     ->toggleable()
                     ->visibleFrom('sm'),
 
                 TextColumn::make('usage')
-                    ->getStateUsing(fn (Discount $record) => $record->usage_count . ($record->usage_limit ? '/' . $record->usage_limit : ''))
+                    ->getStateUsing(fn (Discount $record) => $record->usage_count.($record->usage_limit ? '/'.$record->usage_limit : ''))
                     ->toggleable()
                     ->visibleFrom('md'),
 

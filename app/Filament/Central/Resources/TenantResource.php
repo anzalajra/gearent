@@ -2,10 +2,13 @@
 
 namespace App\Filament\Central\Resources;
 
+use App\Enums\TenantFeature;
 use App\Filament\Central\Resources\TenantResource\Pages;
 use App\Models\Domain;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
+use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -13,19 +16,18 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
-use BackedEnum;
 use UnitEnum;
 
 class TenantResource extends Resource
@@ -117,6 +119,29 @@ class TenantResource extends Resource
                             ->reorderable(false),
                     ]),
 
+                Section::make('Feature Overrides')
+                    ->description('Override fitur bawaan dari Subscription Plan. Biarkan kosong untuk mengikuti pengaturan plan.')
+                    ->schema([
+                        Repeater::make('feature_overrides_form')
+                            ->label('')
+                            ->schema([
+                                Select::make('feature')
+                                    ->label('Fitur')
+                                    ->options(TenantFeature::toOptions())
+                                    ->required()
+                                    ->distinct(),
+
+                                Toggle::make('enabled')
+                                    ->label('Aktif')
+                                    ->default(true),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Tambah Override')
+                            ->defaultItems(0)
+                            ->reorderable(false),
+                    ])
+                    ->collapsed(),
+
                 Section::make('Additional Data')
                     ->schema([
                         KeyValue::make('data')
@@ -205,9 +230,9 @@ class TenantResource extends Resource
                         ->label('Access Tenant')
                         ->icon('heroicon-o-arrow-top-right-on-square')
                         ->color('info')
-                        ->url(fn (Tenant $record): string => 'http://' . $record->domains->first()?->domain)
-                        ->openUrlInNewTab()
-                        ->visible(fn (Tenant $record): bool => $record->domains->isNotEmpty()),
+                        ->visible(fn (Tenant $record): bool => $record->domains->isNotEmpty())
+                        ->url(fn (Tenant $record): string => route('central.impersonate', $record))
+                        ->openUrlInNewTab(),
                     Action::make('suspend')
                         ->label('Suspend')
                         ->icon('heroicon-o-pause-circle')

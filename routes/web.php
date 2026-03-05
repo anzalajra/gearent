@@ -41,6 +41,11 @@ if (! $isInstalled) {
     // If INSTALLED, load normal application routes
     // Setup routes are only available when not installed (handled in the if block above)
 
+    // Central Admin: Impersonate Tenant (opens in new tab, redirects to tenant domain)
+    Route::get('/central/impersonate/{tenant}', \App\Http\Controllers\Central\ImpersonationController::class)
+        ->middleware('auth')
+        ->name('central.impersonate');
+
     // Tenant Registration (central domain only)
     Route::get('/register-tenant', \App\Livewire\RegisterTenant::class)
         ->middleware(\App\Http\Middleware\BruteForceProtection::class)
@@ -61,65 +66,68 @@ if (! $isInstalled) {
         abort(404);
     })->name('landing.pricing');
 
-    // Catalog
-    Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog.index');
-    Route::get('/catalog/{product}', [CatalogController::class, 'show'])->name('catalog.show');
-    Route::post('/catalog/check-availability/{unit}', [CatalogController::class, 'checkAvailability'])->name('catalog.check-availability');
+    // Storefront Routes (gated by CheckStorefrontEnabled middleware)
+    Route::middleware(\App\Http\Middleware\CheckStorefrontEnabled::class)->group(function () {
+        // Catalog
+        Route::get('/catalog', [CatalogController::class, 'index'])->name('catalog.index');
+        Route::get('/catalog/{product}', [CatalogController::class, 'show'])->name('catalog.show');
+        Route::post('/catalog/check-availability/{unit}', [CatalogController::class, 'checkAvailability'])->name('catalog.check-availability');
 
-    // Customer Auth
-    Route::middleware('customer.guest')->group(function () {
-        Route::get('/login', [CustomerAuthController::class, 'showLoginForm'])->name('customer.login');
-        Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:6,1');
-        Route::get('/register', [CustomerAuthController::class, 'showRegistrationForm'])->name('customer.register');
-        Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:6,1');
+        // Customer Auth
+        Route::middleware('customer.guest')->group(function () {
+            Route::get('/login', [CustomerAuthController::class, 'showLoginForm'])->name('customer.login');
+            Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:6,1');
+            Route::get('/register', [CustomerAuthController::class, 'showRegistrationForm'])->name('customer.register');
+            Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:6,1');
 
-        // Password Reset
-        Route::get('/forgot-password', [CustomerAuthController::class, 'showForgotPasswordForm'])->name('customer.password.request');
-        Route::post('/forgot-password', [CustomerAuthController::class, 'sendResetLink'])->name('customer.password.email')->middleware('throttle:3,1');
-        Route::get('/reset-password/{token}', [CustomerAuthController::class, 'showResetPasswordForm'])->name('customer.password.reset');
-        Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword'])->name('customer.password.update')->middleware('throttle:3,1');
-    });
+            // Password Reset
+            Route::get('/forgot-password', [CustomerAuthController::class, 'showForgotPasswordForm'])->name('customer.password.request');
+            Route::post('/forgot-password', [CustomerAuthController::class, 'sendResetLink'])->name('customer.password.email')->middleware('throttle:3,1');
+            Route::get('/reset-password/{token}', [CustomerAuthController::class, 'showResetPasswordForm'])->name('customer.password.reset');
+            Route::post('/reset-password', [CustomerAuthController::class, 'resetPassword'])->name('customer.password.update')->middleware('throttle:3,1');
+        });
 
-    Route::match(['get', 'post'], '/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout')->middleware('customer.auth');
+        Route::match(['get', 'post'], '/logout', [CustomerAuthController::class, 'logout'])->name('customer.logout')->middleware('customer.auth');
 
-    // Customer Protected Routes
-    Route::middleware('customer.auth')->prefix('customer')->name('customer.')->group(function () {
-        // Dashboard
-        Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/profile', [CustomerDashboardController::class, 'profile'])->name('profile');
-        Route::put('/profile', [CustomerDashboardController::class, 'updateProfile'])->name('profile.update');
-        Route::put('/password', [CustomerDashboardController::class, 'updatePassword'])->name('password.change');
-        Route::get('/rentals', [CustomerDashboardController::class, 'rentals'])->name('rentals');
-        Route::get('/rentals/{id}', [CustomerDashboardController::class, 'rentalDetail'])->name('rental.detail');
+        // Customer Protected Routes
+        Route::middleware('customer.auth')->prefix('customer')->name('customer.')->group(function () {
+            // Dashboard
+            Route::get('/dashboard', [CustomerDashboardController::class, 'index'])->name('dashboard');
+            Route::get('/profile', [CustomerDashboardController::class, 'profile'])->name('profile');
+            Route::put('/profile', [CustomerDashboardController::class, 'updateProfile'])->name('profile.update');
+            Route::put('/password', [CustomerDashboardController::class, 'updatePassword'])->name('password.change');
+            Route::get('/rentals', [CustomerDashboardController::class, 'rentals'])->name('rentals');
+            Route::get('/rentals/{id}', [CustomerDashboardController::class, 'rentalDetail'])->name('rental.detail');
 
-        // Notifications
-        Route::get('/notifications/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
-        Route::post('/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
-    });
+            // Notifications
+            Route::get('/notifications/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
+            Route::post('/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+        });
 
-    // Cart
-    Route::middleware('customer.auth')->group(function () {
-        Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-        Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
-        Route::post('/cart/update-all', [CartController::class, 'updateAll'])->name('cart.update-all');
-        Route::put('/cart/{cart}', [CartController::class, 'update'])->name('cart.update');
-        Route::delete('/cart/product', [CartController::class, 'removeProduct'])->name('cart.remove-product');
-        Route::patch('/cart/quantity', [CartController::class, 'updateQuantity'])->name('cart.update-quantity');
-        Route::delete('/cart/{cart}', [CartController::class, 'remove'])->name('cart.remove');
-        Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
+        // Cart
+        Route::middleware('customer.auth')->group(function () {
+            Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+            Route::post('/cart/add', [CartController::class, 'add'])->name('cart.add');
+            Route::post('/cart/update-all', [CartController::class, 'updateAll'])->name('cart.update-all');
+            Route::put('/cart/{cart}', [CartController::class, 'update'])->name('cart.update');
+            Route::delete('/cart/product', [CartController::class, 'removeProduct'])->name('cart.remove-product');
+            Route::patch('/cart/quantity', [CartController::class, 'updateQuantity'])->name('cart.update-quantity');
+            Route::delete('/cart/{cart}', [CartController::class, 'remove'])->name('cart.remove');
+            Route::delete('/cart', [CartController::class, 'clear'])->name('cart.clear');
 
-        // Checkout
-        Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-        Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
-        Route::post('/checkout/validate-discount', [CheckoutController::class, 'validateDiscount'])->name('checkout.validate-discount');
-        Route::get('/checkout/success/{rental}', [CheckoutController::class, 'success'])->name('checkout.success');
-    });
+            // Checkout
+            Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+            Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+            Route::post('/checkout/validate-discount', [CheckoutController::class, 'validateDiscount'])->name('checkout.validate-discount');
+            Route::get('/checkout/success/{rental}', [CheckoutController::class, 'success'])->name('checkout.success');
+        });
 
-    // Customer Documents
-    Route::middleware('customer.auth')->group(function () {
-        Route::post('/customer/documents/upload', [App\Http\Controllers\CustomerDocumentController::class, 'upload'])->name('customer.documents.upload');
-        Route::get('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'view'])->name('customer.documents.view');
-        Route::delete('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'delete'])->name('customer.documents.delete');
+        // Customer Documents
+        Route::middleware('customer.auth')->group(function () {
+            Route::post('/customer/documents/upload', [App\Http\Controllers\CustomerDocumentController::class, 'upload'])->name('customer.documents.upload');
+            Route::get('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'view'])->name('customer.documents.view');
+            Route::delete('/customer/documents/{document}', [App\Http\Controllers\CustomerDocumentController::class, 'delete'])->name('customer.documents.delete');
+        });
     });
 
     // Admin Document View

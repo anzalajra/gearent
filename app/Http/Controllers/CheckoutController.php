@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Discount;
 use App\Models\Rental;
 use App\Models\RentalItem;
-use App\Models\Discount;
-use App\Models\DailyDiscount;
-use App\Models\DatePromotion;
 use App\Services\PromotionService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class CheckoutController extends Controller
 {
@@ -20,7 +18,7 @@ class CheckoutController extends Controller
         $customer = Auth::guard('customer')->user();
 
         // Check if customer is verified
-        if (!$customer->canRent()) {
+        if (! $customer->canRent()) {
             return redirect()->route('customer.profile')
                 ->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout. Silakan lengkapi dokumen yang diperlukan.');
         }
@@ -32,17 +30,17 @@ class CheckoutController extends Controller
         }
 
         $subtotal = $cartItems->sum('subtotal');
-        
+
         // Calculate Gross Total and Category Discount
         $grossTotal = 0;
         $totalDays = 0;
         $totalDailyRate = 0;
         foreach ($cartItems as $item) {
-             $unit = $item->productUnit;
-             $originalDailyRate = $unit->variation->daily_rate ?? $unit->product->daily_rate;
-             $grossTotal += $originalDailyRate * $item->days;
-             $totalDays += $item->days;
-             $totalDailyRate += $item->daily_rate;
+            $unit = $item->productUnit;
+            $originalDailyRate = $unit->variation->daily_rate ?? $unit->product->daily_rate;
+            $grossTotal += $originalDailyRate * $item->days;
+            $totalDays += $item->days;
+            $totalDailyRate += $item->daily_rate;
         }
         $categoryDiscountAmount = $grossTotal - $subtotal;
         $categoryName = $customer->category ? $customer->category->name : null;
@@ -53,7 +51,7 @@ class CheckoutController extends Controller
         $startDate = $cartItems->min('start_date');
 
         $deposit = Rental::calculateDeposit($subtotal);
-        
+
         // Calculate promotions using PromotionService
         $discountCode = session('checkout_discount_code');
         $promotions = PromotionService::calculatePromotions(
@@ -72,7 +70,7 @@ class CheckoutController extends Controller
         $totalDiscount = $promotions['total_discount'];
 
         // Clear invalid discount code
-        if ($discountCode && !$promotions['code_discount']) {
+        if ($discountCode && ! $promotions['code_discount']) {
             session()->forget(['checkout_discount_code', 'checkout_discount_amount']);
         }
 
@@ -98,7 +96,7 @@ class CheckoutController extends Controller
         $cartItems = $customer->carts;
 
         if ($cartItems->isEmpty()) {
-             return response()->json(['valid' => false, 'message' => 'Cart is empty.']);
+            return response()->json(['valid' => false, 'message' => 'Cart is empty.']);
         }
 
         $discount = Discount::where('code', $code)
@@ -107,7 +105,7 @@ class CheckoutController extends Controller
             ->whereDate('end_date', '>=', now())
             ->first();
 
-        if (!$discount) {
+        if (! $discount) {
             return response()->json(['valid' => false, 'message' => 'Kode diskon tidak valid atau kadaluarsa.']);
         }
 
@@ -118,7 +116,7 @@ class CheckoutController extends Controller
         $subtotal = $cartItems->sum('subtotal');
 
         if ($subtotal < $discount->min_rental_amount) {
-            return response()->json(['valid' => false, 'message' => 'Minimal total belanja Rp ' . number_format($discount->min_rental_amount, 0, ',', '.') . ' belum terpenuhi.']);
+            return response()->json(['valid' => false, 'message' => 'Minimal total belanja Rp '.number_format($discount->min_rental_amount, 0, ',', '.').' belum terpenuhi.']);
         }
 
         // Calculate discount
@@ -140,20 +138,20 @@ class CheckoutController extends Controller
         session(['checkout_discount_amount' => $discountAmount]);
 
         $newTotal = $subtotal - $discountAmount;
-        // Recalculate deposit based on new total? 
+        // Recalculate deposit based on new total?
         // Existing logic uses subtotal. Let's stick to subtotal for deposit to be safe for now unless user asked.
         // Actually, if I pay less, maybe deposit should stay same to cover potential damage based on item value.
         // So deposit stays based on subtotal.
-        $deposit = Rental::calculateDeposit($subtotal); 
+        $deposit = Rental::calculateDeposit($subtotal);
 
         return response()->json([
             'valid' => true,
             'message' => 'Kode diskon berhasil digunakan!',
             'discount_amount' => $discountAmount,
             'new_subtotal' => $subtotal,
-            'new_total' => $newTotal + $deposit, // Total usually includes deposit? 
+            'new_total' => $newTotal + $deposit, // Total usually includes deposit?
             // In index view: Total = Subtotal (actually subtotal seems to be treated as Total to Pay + Deposit?)
-            // View says: Total = Subtotal. 
+            // View says: Total = Subtotal.
             // Wait, view says:
             // Subtotal: xxx
             // Deposit: xxx
@@ -164,14 +162,14 @@ class CheckoutController extends Controller
             // Let's check the view again.
             // View line 93-95: Total ... $subtotal.
             // View line 86: If deposit > 0, show deposit.
-            // So currently Total = Subtotal. It seems Deposit is NOT added to the Total shown at bottom? 
+            // So currently Total = Subtotal. It seems Deposit is NOT added to the Total shown at bottom?
             // Or is it included?
-            // If I look at Controller: 
+            // If I look at Controller:
             // 'total' => $subtotal,
             // 'deposit' => $deposit,
             // It seems Total = Subtotal. Deposit is just informational or separate?
             // But usually you pay Deposit upfront.
-            // Let's assume Total to Pay = Subtotal + Deposit? 
+            // Let's assume Total to Pay = Subtotal + Deposit?
             // No, the code says `total` => `$subtotal`.
             // Let's assume the user pays `$subtotal`.
             // Wait, if deposit is required, surely it should be added?
@@ -190,9 +188,9 @@ class CheckoutController extends Controller
             // If Total is just Subtotal, then user pays Rental Fee. Deposit is... ?
             // Maybe the view is just showing "Total Rental Cost"?
             // Let's check `Rental::calculateDeposit`.
-            
+
             // I will return what is needed for UI.
-            'new_grand_total' => $newTotal // This is what matters.
+            'new_grand_total' => $newTotal, // This is what matters.
         ]);
     }
 
@@ -201,7 +199,7 @@ class CheckoutController extends Controller
         $customer = Auth::guard('customer')->user();
 
         // Check if customer is verified
-        if (!$customer->canRent()) {
+        if (! $customer->canRent()) {
             return redirect()->route('customer.profile')
                 ->with('error', 'Anda harus menyelesaikan verifikasi akun sebelum dapat melakukan checkout.');
         }
@@ -226,7 +224,7 @@ class CheckoutController extends Controller
         $startDate = $cartItems->min('start_date');
 
         $discountCode = session('checkout_discount_code');
-        
+
         // Calculate all promotions using PromotionService
         $promotions = PromotionService::calculatePromotions(
             $globalSubtotal,
@@ -251,7 +249,7 @@ class CheckoutController extends Controller
 
         // Group cart items by date range
         $groupedItems = $cartItems->groupBy(function ($item) {
-            return $item->start_date->format('Y-m-d') . '_' . $item->end_date->format('Y-m-d');
+            return $item->start_date->format('Y-m-d').'_'.$item->end_date->format('Y-m-d');
         });
 
         DB::beginTransaction();
@@ -263,7 +261,7 @@ class CheckoutController extends Controller
             foreach ($groupedItems as $dateKey => $items) {
                 $firstItem = $items->first();
                 $subtotal = $items->sum('subtotal');
-                
+
                 // Calculate proportional discount for this rental
                 $rentalDiscount = 0;
                 $rentalDailyDiscountAmount = 0;
@@ -274,30 +272,34 @@ class CheckoutController extends Controller
                     $rentalDailyDiscountAmount = $globalDailyDiscountAmount * $proportion;
                     $rentalDatePromotionAmount = $globalDatePromotionAmount * $proportion;
                 }
-                
+
                 $rentalTotalDiscount = $rentalDiscount + $rentalDailyDiscountAmount + $rentalDatePromotionAmount;
 
                 // Deposit calculation
                 $deposit = Rental::calculateDeposit($subtotal); // Keeping it based on subtotal as per original logic
 
-                // Create Quotation first
-                $quotation = \App\Models\Quotation::create([
-                    'user_id' => $customer->id,
-                    'date' => now(),
-                    'valid_until' => now()->addDays(7),
-                    'status' => \App\Models\Quotation::STATUS_ON_QUOTE,
-                    'subtotal' => $subtotal,
-                    'tax' => 0,
-                    'total' => $subtotal - $rentalTotalDiscount,
-                    'notes' => $request->notes,
-                ]);
+                // Create Quotation first (only if feature is enabled)
+                $quotationId = null;
+                if (tenant()?->hasFeature(\App\Enums\TenantFeature::QuotationInvoice) ?? true) {
+                    $quotation = \App\Models\Quotation::create([
+                        'user_id' => $customer->id,
+                        'date' => now(),
+                        'valid_until' => now()->addDays(7),
+                        'status' => \App\Models\Quotation::STATUS_ON_QUOTE,
+                        'subtotal' => $subtotal,
+                        'tax' => 0,
+                        'total' => $subtotal - $rentalTotalDiscount,
+                        'notes' => $request->notes,
+                    ]);
+                    $quotationId = $quotation->id;
+                }
 
                 $rental = Rental::create([
                     'user_id' => $customer->id,
                     'start_date' => $firstItem->start_date,
                     'end_date' => $firstItem->end_date,
                     'status' => Rental::STATUS_QUOTATION,
-                    'quotation_id' => $quotation->id,
+                    'quotation_id' => $quotationId,
                     'subtotal' => $subtotal,
                     'discount' => $rentalDiscount,
                     'discount_id' => $discountId,
@@ -320,16 +322,16 @@ class CheckoutController extends Controller
                     // Get fresh availability from DB
                     // This checks against OTHER existing rentals (Confirmed, Active, etc.)
                     $availableUnits = $product->findAvailableUnits($startDate, $endDate);
-                    
+
                     // Filter out units we already reserved in this current checkout session
                     $candidates = $availableUnits->whereNotIn('id', $reservedUnitIds);
-                    
+
                     $finalUnitId = null;
 
                     // 1. Check if the unit currently in cart is valid
                     if ($candidates->contains('id', $cartItem->product_unit_id)) {
                         $finalUnitId = $cartItem->product_unit_id;
-                    } 
+                    }
                     // 2. If not, try to auto-switch to another available unit
                     else {
                         $replacement = $candidates->first();
@@ -339,7 +341,7 @@ class CheckoutController extends Controller
                     }
 
                     // 3. If no unit available, fail the transaction
-                    if (!$finalUnitId) {
+                    if (! $finalUnitId) {
                         throw new \Exception("Maaf, produk {$product->name} tidak lagi tersedia untuk tanggal yang dipilih (Unit penuh).");
                     }
 
@@ -365,8 +367,8 @@ class CheckoutController extends Controller
                 // FINAL AVAILABILITY CHECK
                 // Ensure no conflicts were missed by the query builder logic
                 $conflicts = $rental->checkAvailability();
-                if (!empty($conflicts)) {
-                    throw new \Exception("Beberapa item dalam pesanan Anda tidak tersedia karena bentrok dengan penyewaan lain (Kit/Unit Conflict). Silakan pilih tanggal atau unit lain.");
+                if (! empty($conflicts)) {
+                    throw new \Exception('Beberapa item dalam pesanan Anda tidak tersedia karena bentrok dengan penyewaan lain (Kit/Unit Conflict). Silakan pilih tanggal atau unit lain.');
                 }
 
                 $rentals[] = $rental;
@@ -383,7 +385,8 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Something went wrong. Please try again. ' . $e->getMessage());
+
+            return back()->with('error', 'Something went wrong. Please try again. '.$e->getMessage());
         }
     }
 

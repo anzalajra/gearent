@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
+use App\Enums\TenantFeature;
 use App\Models\Category;
-
+use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
 
 class HomeController extends Controller
@@ -17,18 +17,24 @@ class HomeController extends Controller
             return view('landing.index');
         }
 
+        // Check if storefront is enabled for this tenant
+        $tenant = tenant();
+        if ($tenant && ! $tenant->hasFeature(TenantFeature::Storefront)) {
+            return view('frontend.storefront-disabled');
+        }
+
         $featuredProducts = Product::with(['category', 'units'])
             ->where('is_active', true)
             ->visibleForCustomer(Auth::guard('customer')->user())
             ->whereHas('units', function ($query) {
                 $query->where('status', 'available')
-                      ->where(function ($q) {
-                          $q->whereNull('warehouse_id')
+                    ->where(function ($q) {
+                        $q->whereNull('warehouse_id')
                             ->orWhereHas('warehouse', function ($wq) {
                                 $wq->where('is_active', true)
-                                   ->where('is_available_for_rental', true);
+                                    ->where('is_available_for_rental', true);
                             });
-                      });
+                    });
             })
             ->take(8)
             ->get();

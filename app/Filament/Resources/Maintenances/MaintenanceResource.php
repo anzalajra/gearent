@@ -2,36 +2,37 @@
 
 namespace App\Filament\Resources\Maintenances;
 
+use App\Enums\TenantFeature;
+use App\Filament\Concerns\ChecksTenantFeature;
 use App\Filament\Resources\Maintenances\Pages\ManageMaintenances;
+use App\Models\FinanceAccount;
+use App\Models\FinanceTransaction;
+use App\Models\MaintenanceRecord;
 use App\Models\ProductUnit;
 use App\Models\UnitKit;
-use App\Models\MaintenanceRecord;
-use App\Models\FinanceTransaction;
-use App\Models\FinanceAccount;
-use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 class MaintenanceResource extends Resource
 {
+    use ChecksTenantFeature;
+
     protected static ?string $model = ProductUnit::class;
 
     protected static ?string $label = 'Maintenance';
+
     protected static ?string $pluralLabel = 'Maintenance & QC';
     // protected static ?string $navigationGroup = 'Inventory';
     // protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
@@ -49,6 +50,16 @@ class MaintenanceResource extends Resource
     public static function getNavigationSort(): ?int
     {
         return 2;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::InventoryQc);
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::tenantHasFeature(TenantFeature::InventoryQc);
     }
 
     public static function getNavigationBadge(): ?string
@@ -85,24 +96,34 @@ class MaintenanceResource extends Resource
                     ->label('Status')
                     ->badge()
                     ->getStateUsing(function ($record) {
-                        if (!$record) return 'Unknown';
-                        
+                        if (! $record) {
+                            return 'Unknown';
+                        }
+
                         $unitCondition = $record->condition;
                         // Check kits - eager loading is handled by Filament usually, or we query
-                        $kits = $record->kits; 
+                        $kits = $record->kits;
 
                         // 1. Check for Lost/Broken (High Priority)
-                        if ($unitCondition === 'lost') return 'Unit Lost';
-                        if ($unitCondition === 'broken') return 'Unit Broken';
+                        if ($unitCondition === 'lost') {
+                            return 'Unit Lost';
+                        }
+                        if ($unitCondition === 'broken') {
+                            return 'Unit Broken';
+                        }
 
                         foreach ($kits as $kit) {
-                            if ($kit->condition === 'lost') return 'Kit Lost';
-                            if ($kit->condition === 'broken') return 'Kit Broken';
+                            if ($kit->condition === 'lost') {
+                                return 'Kit Lost';
+                            }
+                            if ($kit->condition === 'broken') {
+                                return 'Kit Broken';
+                            }
                         }
 
                         // 2. Check for Excellent
                         $unitExcellent = $unitCondition === 'excellent';
-                        $kitsExcellent = $kits->every(fn($k) => $k->condition === 'excellent');
+                        $kitsExcellent = $kits->every(fn ($k) => $k->condition === 'excellent');
 
                         if ($unitExcellent && $kitsExcellent) {
                             return 'Excellent';
@@ -169,7 +190,7 @@ class MaintenanceResource extends Resource
                             ->placeholder('Select Status'),
                         Textarea::make('notes')
                             ->label('Unit Notes'),
-                        
+
                         // Kits Repeater
                         Repeater::make('kits')
                             ->relationship()
@@ -191,7 +212,7 @@ class MaintenanceResource extends Resource
                             ->addable(false)
                             ->deletable(false)
                             ->columns(2)
-                            ->visible(fn ($record) => $record->kits()->exists())
+                            ->visible(fn ($record) => $record->kits()->exists()),
                     ]),
 
                 \Filament\Actions\Action::make('quick_check')
@@ -213,7 +234,7 @@ class MaintenanceResource extends Resource
                     ->icon('heroicon-o-currency-dollar')
                     ->color('danger')
                     ->visible(fn ($record) => $record && (
-                        in_array($record->condition, ['broken', 'lost']) || 
+                        in_array($record->condition, ['broken', 'lost']) ||
                         $record->status === 'maintenance' ||
                         $record->kits()->whereIn('condition', ['broken', 'lost'])->exists()
                     ))
@@ -263,7 +284,7 @@ class MaintenanceResource extends Resource
                                 'reference_id' => $maintenanceRecord->id,
                             ]);
                         });
-                        
+
                         \Filament\Notifications\Notification::make()
                             ->title('Expense Recorded')
                             ->success()
@@ -275,7 +296,7 @@ class MaintenanceResource extends Resource
                     ->icon('heroicon-o-pencil-square')
                     ->color('warning')
                     ->visible(fn ($record) => $record && (
-                        in_array($record->condition, ['broken', 'lost']) || 
+                        in_array($record->condition, ['broken', 'lost']) ||
                         $record->status === 'maintenance' ||
                         $record->kits()->whereIn('condition', ['broken', 'lost'])->exists()
                     ))
@@ -294,7 +315,7 @@ class MaintenanceResource extends Resource
                     ->action(function (ProductUnit $record, array $data) {
                         $record->update([
                             'maintenance_status' => $data['maintenance_status'],
-                            'notes' => $data['notes'] ? $record->notes . "\n[" . now()->format('Y-m-d') . "] " . $data['notes'] : $record->notes,
+                            'notes' => $data['notes'] ? $record->notes."\n[".now()->format('Y-m-d').'] '.$data['notes'] : $record->notes,
                         ]);
                     }),
 
@@ -303,7 +324,7 @@ class MaintenanceResource extends Resource
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn ($record) => $record && (
-                        in_array($record->condition, ['broken', 'lost']) || 
+                        in_array($record->condition, ['broken', 'lost']) ||
                         $record->status === 'maintenance' ||
                         $record->kits()->whereIn('condition', ['broken', 'lost'])->exists()
                     ))
@@ -338,7 +359,7 @@ class MaintenanceResource extends Resource
                             ])
                             ->required()
                             ->hidden(fn ($get) => $get('resolution') === 'Write Off'),
-                        
+
                         Repeater::make('kit_updates')
                             ->label('Kit Final Conditions')
                             ->schema([
@@ -362,7 +383,7 @@ class MaintenanceResource extends Resource
                         DB::transaction(function () use ($record, $data) {
                             $updates = [
                                 'maintenance_status' => null, // Clear status
-                                'notes' => $record->notes . "\n[RESOLVED " . now()->format('Y-m-d') . "] " . $data['resolution'] . ": " . $data['notes'],
+                                'notes' => $record->notes."\n[RESOLVED ".now()->format('Y-m-d').'] '.$data['resolution'].': '.$data['notes'],
                             ];
 
                             if ($data['resolution'] === 'Write Off') {
@@ -370,13 +391,13 @@ class MaintenanceResource extends Resource
                             } else {
                                 $updates['status'] = ProductUnit::STATUS_AVAILABLE;
                                 $updates['condition'] = $data['condition'];
-                                
+
                                 // Close any active maintenance records
                                 $record->maintenanceRecords()
                                     ->whereIn('status', ['pending', 'in_progress'])
                                     ->update([
                                         'status' => 'completed',
-                                        'description' => DB::raw("CONCAT(description, '\n[RESOLVED " . now()->format('Y-m-d') . "] " . $data['resolution'] . ": " . $data['notes'] . "')")
+                                        'description' => DB::raw("CONCAT(description, '\n[RESOLVED ".now()->format('Y-m-d').'] '.$data['resolution'].': '.$data['notes']."')"),
                                     ]);
 
                                 // Update Kits
@@ -386,7 +407,7 @@ class MaintenanceResource extends Resource
                                             // Update kit condition and CLEAR maintenance status
                                             UnitKit::where('id', $kitData['id'])->update([
                                                 'condition' => $kitData['condition'],
-                                                'maintenance_status' => null
+                                                'maintenance_status' => null,
                                             ]);
                                         }
                                     }
