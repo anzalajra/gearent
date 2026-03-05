@@ -24,8 +24,8 @@
 
             {{-- Desktop CTA --}}
             <div class="hidden lg:flex items-center gap-3">
-                <a href="/central" class="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors px-4 py-2">
-                    Login
+                <a href="/masuk" class="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors px-4 py-2">
+                    Masuk Toko
                 </a>
                 <a href="/register-tenant" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">
                     Daftar Gratis
@@ -47,7 +47,7 @@
             <a href="#pricing" @click="open = false" class="block text-sm font-medium text-gray-600 hover:text-indigo-600 py-2">Harga</a>
             <a href="#testimonials" @click="open = false" class="block text-sm font-medium text-gray-600 hover:text-indigo-600 py-2">Testimoni</a>
             <hr class="my-2">
-            <a href="/central" class="block text-sm font-medium text-gray-600 hover:text-indigo-600 py-2">Login</a>
+            <a href="/masuk" class="block text-sm font-medium text-gray-600 hover:text-indigo-600 py-2">Masuk Toko</a>
             <a href="/register-tenant" class="block w-full text-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Daftar Gratis</a>
         </div>
     </div>

@@ -4,14 +4,16 @@ namespace App\Jobs;
 
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
+use App\Notifications\TenantReadyNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class CreateTenantJob implements ShouldQueue
 {
@@ -33,6 +35,16 @@ class CreateTenantJob implements ShouldQueue
     public bool $deleteWhenMissingModels = true;
 
     /**
+     * Cache key prefix for tracking provisioning status.
+     */
+    public const CACHE_PREFIX = 'tenant_provisioning_';
+
+    /**
+     * Cache TTL in seconds (30 minutes).
+     */
+    public const CACHE_TTL = 1800;
+
+    /**
      * Create a new job instance.
      */
     public function __construct(
@@ -42,10 +54,26 @@ class CreateTenantJob implements ShouldQueue
         public string $adminEmail,
         public string $adminPassword,
         public string $domain,
+        public string $planSlug = 'free',
+        public string $businessCategory = 'other',
     ) {
-        // Dispatch to Redis queue 'tenant-creation'
         $this->onQueue('tenant-creation');
-        $this->onConnection('redis');
+    }
+
+    /**
+     * Get the cache key for this tenant's provisioning status.
+     */
+    public function cacheKey(): string
+    {
+        return self::CACHE_PREFIX.$this->tenantId;
+    }
+
+    /**
+     * Update provisioning status in cache.
+     */
+    protected function setStatus(string $status, array $extra = []): void
+    {
+        Cache::put($this->cacheKey(), array_merge(['status' => $status], $extra), self::CACHE_TTL);
     }
 
     /**
@@ -57,23 +85,43 @@ class CreateTenantJob implements ShouldQueue
 
         try {
             // -------------------------------------------------------
-            // Step 1: Create the Tenant record in central database
+            // Step 1: Resolve subscription plan
             // -------------------------------------------------------
-            $freePlan = SubscriptionPlan::where('slug', 'free')->first();
+            $plan = SubscriptionPlan::active()->where('slug', $this->planSlug)->first()
+                ?? SubscriptionPlan::active()->where('slug', 'free')->first();
+
+            $isFreePlan = $plan && $plan->slug === 'free';
+            $initialStatus = $isFreePlan ? 'active' : 'trial';
+            $trialEndsAt = $isFreePlan ? null : now()->addDays(14);
+
+            // -------------------------------------------------------
+            // Step 2: Create the Tenant record in central database.
+            //         This triggers the TenancyServiceProvider event pipeline
+            //         which synchronously runs: CreateDatabase → MigrateDatabase
+            //         → CreateTenantStorageFolder.
+            //         Do NOT call Artisan::call('tenants:migrate') here.
+            // -------------------------------------------------------
+            $this->setStatus('creating_db');
 
             $tenant = Tenant::create([
                 'id' => $this->tenantId,
                 'name' => $this->storeName,
                 'email' => $this->adminEmail,
-                'subscription_plan_id' => $freePlan?->id,
-                'status' => 'trial',
-                'trial_ends_at' => now()->addDays(14),
+                'subscription_plan_id' => $plan?->id,
+                'status' => $initialStatus,
+                'trial_ends_at' => $trialEndsAt,
+                'subscription_ends_at' => null,
+                'current_rental_transactions_month' => 0,
+                'current_rental_month' => now()->format('Y-m'),
+                'data' => [
+                    'business_category' => $this->businessCategory,
+                ],
             ]);
 
-            Log::info("CreateTenantJob: Tenant record created: {$tenant->id}");
+            Log::info("CreateTenantJob: Tenant record + DB created: {$tenant->id}");
 
             // -------------------------------------------------------
-            // Step 2: Create the domain for the tenant
+            // Step 3: Create the domain for the tenant
             // -------------------------------------------------------
             $tenant->domains()->create([
                 'domain' => $this->domain,
@@ -82,23 +130,30 @@ class CreateTenantJob implements ShouldQueue
             Log::info("CreateTenantJob: Domain '{$this->domain}' linked to tenant '{$tenant->id}'");
 
             // -------------------------------------------------------
-            // Step 3: The database is auto-created by stancl/tenancy
-            //         via TenantCreated event -> CreateDatabase job
-            //         But we need to run migrations explicitly
+            // Step 4: Seed admin user, roles, and default settings
+            //         inside the tenant database context.
             // -------------------------------------------------------
+            $this->setStatus('creating_admin');
 
-            // Step 4: Run tenant migrations
-            Artisan::call('tenants:migrate', [
-                '--tenants' => [$tenant->id],
-                '--force' => true,
-            ]);
-
-            Log::info("CreateTenantJob: Migrations completed for tenant '{$tenant->id}'");
-
-            // -------------------------------------------------------
-            // Step 5: Seed the admin user inside the tenant database
-            // -------------------------------------------------------
             $tenant->run(function () {
+                // Create roles before the admin user
+                try {
+                    if (class_exists(\Spatie\Permission\Models\Role::class)) {
+                        $superAdmin = \Spatie\Permission\Models\Role::firstOrCreate(
+                            ['name' => 'super_admin', 'guard_name' => 'web']
+                        );
+                        \Spatie\Permission\Models\Role::firstOrCreate(
+                            ['name' => 'admin', 'guard_name' => 'web']
+                        );
+                        \Spatie\Permission\Models\Role::firstOrCreate(
+                            ['name' => 'staff', 'guard_name' => 'web']
+                        );
+                        Log::info("CreateTenantJob: Roles created for tenant '{$this->tenantId}'");
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("CreateTenantJob: Could not create roles: {$e->getMessage()}");
+                }
+
                 // Create the admin user
                 $user = \App\Models\User::create([
                     'name' => $this->adminName,
@@ -109,22 +164,16 @@ class CreateTenantJob implements ShouldQueue
 
                 Log::info("CreateTenantJob: Admin user created: {$user->email}");
 
-                // Assign super_admin role if Spatie permission is available
+                // Assign super_admin role
                 try {
                     if (class_exists(\Spatie\Permission\Models\Role::class)) {
-                        // Create roles if they don't exist
-                        $superAdmin = \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'super_admin', 'guard_name' => 'web']
-                        );
-                        \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'admin', 'guard_name' => 'web']
-                        );
-                        \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'staff', 'guard_name' => 'web']
-                        );
+                        $superAdmin = \Spatie\Permission\Models\Role::where('name', 'super_admin')
+                            ->where('guard_name', 'web')
+                            ->first();
 
-                        $user->assignRole($superAdmin);
-                        Log::info("CreateTenantJob: Role 'super_admin' assigned to {$user->email}");
+                        if ($superAdmin) {
+                            $user->assignRole($superAdmin);
+                        }
                     }
                 } catch (\Throwable $e) {
                     Log::warning("CreateTenantJob: Could not assign role: {$e->getMessage()}");
@@ -136,7 +185,6 @@ class CreateTenantJob implements ShouldQueue
                         \App\Models\Setting::set('site_name', $this->storeName);
                         \App\Models\Setting::set('currency', 'IDR');
                         \App\Models\Setting::set('timezone', 'Asia/Jakarta');
-                        Log::info("CreateTenantJob: Default settings created for tenant");
                     }
                 } catch (\Throwable $e) {
                     Log::warning("CreateTenantJob: Could not create settings: {$e->getMessage()}");
@@ -144,14 +192,19 @@ class CreateTenantJob implements ShouldQueue
             });
 
             // -------------------------------------------------------
-            // Step 6: Mark tenant as ready
+            // Step 5: Mark provisioning as complete
             // -------------------------------------------------------
-            $tenant->update(['status' => 'trial']);
+            $this->setStatus('ready', ['domain' => $this->domain]);
 
             Log::info("CreateTenantJob: Tenant '{$tenant->id}' is ready at {$this->domain}");
 
-            // TODO: Send welcome email notification to admin
-            // Notification::route('mail', $this->adminEmail)->notify(new TenantReadyNotification($tenant));
+            // Send welcome email
+            try {
+                Notification::route('mail', $this->adminEmail)
+                    ->notify(new TenantReadyNotification($this->storeName, $this->domain, $this->adminEmail));
+            } catch (\Throwable $e) {
+                Log::warning("CreateTenantJob: Could not send welcome email: {$e->getMessage()}");
+            }
 
         } catch (\Throwable $e) {
             Log::error("CreateTenantJob: Failed for tenant '{$this->tenantId}': {$e->getMessage()}", [
@@ -159,35 +212,33 @@ class CreateTenantJob implements ShouldQueue
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Clean up on failure: delete tenant record if it was created
+            $this->setStatus('failed', ['error' => $e->getMessage()]);
+
+            // Clean up on failure
             try {
                 $tenant = Tenant::find($this->tenantId);
                 if ($tenant) {
-                    // Try to delete the tenant database using tenancy package
                     try {
-                        // Use the database manager directly instead of command
                         $databaseManager = app(\Stancl\Tenancy\Database\DatabaseManager::class);
                         $databaseManager->delete($tenant);
                     } catch (\Throwable $dbError) {
                         Log::warning("CreateTenantJob: DB cleanup failed: {$dbError->getMessage()}");
                     }
-                    
-                    // Delete domains and tenant record
+
                     $tenant->domains()->delete();
                     $tenant->forceDelete();
-                    
                     Log::info("CreateTenantJob: Cleaned up failed tenant '{$this->tenantId}'");
                 }
             } catch (\Throwable $cleanupError) {
                 Log::error("CreateTenantJob: Cleanup failed: {$cleanupError->getMessage()}");
             }
 
-            throw $e; // Re-throw to trigger retry
+            throw $e;
         }
     }
 
     /**
-     * Handle a job failure.
+     * Handle a job failure (all retries exhausted).
      */
     public function failed(?\Throwable $exception): void
     {
@@ -195,6 +246,8 @@ class CreateTenantJob implements ShouldQueue
             'error' => $exception?->getMessage(),
         ]);
 
-        // TODO: Notify central admin about failed tenant creation
+        $this->setStatus('failed', [
+            'error' => $exception?->getMessage() ?? 'Job gagal setelah beberapa percobaan.',
+        ]);
     }
 }

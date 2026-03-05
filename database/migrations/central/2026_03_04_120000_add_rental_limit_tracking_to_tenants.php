@@ -12,13 +12,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tenants', function (Blueprint $table) {
-            $table->integer('current_rental_transactions_month')
-                ->default(0)
-                ->after('status');
+            if (! Schema::hasColumn('tenants', 'current_rental_transactions_month')) {
+                $table->integer('current_rental_transactions_month')
+                    ->default(0)
+                    ->after('status');
+            }
 
-            $table->string('current_rental_month', 7)
-                ->nullable()
-                ->after('current_rental_transactions_month');
+            if (! Schema::hasColumn('tenants', 'current_rental_month')) {
+                $table->string('current_rental_month', 7)
+                    ->nullable()
+                    ->after('current_rental_transactions_month');
+            }
         });
     }
 
@@ -35,4 +39,3 @@ return new class extends Migration
         });
     }
 };
-

@@ -6,11 +6,10 @@ use App\Jobs\CreateTenantJob;
 use App\Models\Domain;
 use App\Models\SubscriptionPlan;
 use App\Models\Tenant;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Layout('livewire.layouts.guest')]
@@ -20,57 +19,50 @@ class RegisterTenant extends Component
     public int $currentStep = 1;
 
     // Step 1: User Data
-    #[Validate('required|string|max:255')]
     public string $admin_name = '';
 
-    #[Validate('required|email|max:255')]
     public string $admin_email = '';
 
-    #[Validate('required|string|min:8|confirmed')]
     public string $password = '';
 
     public string $password_confirmation = '';
 
     // Step 2: Business Info
-    #[Validate('required|string|max:255')]
     public string $store_name = '';
 
-    #[Validate('required|string|max:63|alpha_dash|unique:domains,domain')]
     public string $subdomain = '';
 
-    #[Validate('required|string')]
     public string $business_category = '';
+
+    public string $selected_plan_slug = 'free';
 
     // Step 3: Provisioning
     public bool $submitted = false;
+
     public string $tenantDomain = '';
 
-    // Plan selection
-    #[Validate('required|exists:subscription_plans,slug')]
-    public string $selected_plan_slug = 'free';
+    // Provisioning status (read from Cache)
+    public string $provisioningStatus = 'queued'; // queued | creating_db | creating_admin | ready | failed
 
-    /**
-     * Cached list of active plans (Free, Basic, Pro).
-     *
-     * @var array<int, array<string, mixed>>
-     */
-    public array $plans = [];
-    
-    // Real provisioning status
-    public string $provisioningStatus = 'pending'; // pending, creating, ready, failed
     public string $provisioningError = '';
-    public int $provisioningProgress = 0;
-    public string $provisioningStep = '';
+
+    public int $provisioningProgress = 5;
+
+    public string $provisioningStep = 'Menunggu antrian...';
+
+    /** @var array<int, array<string, mixed>> */
+    public array $plans = [];
 
     /**
-     * Auto-generate subdomain from store name.
+     * Reserved subdomains that cannot be registered.
      */
-    public function updatedStoreName(string $value): void
-    {
-        if (empty($this->subdomain) || $this->subdomain === Str::slug(old('store_name', ''))) {
-            $this->subdomain = Str::slug($value);
-        }
-    }
+    protected array $reservedSubdomains = [
+        'admin', 'www', 'api', 'mail', 'ftp', 'pop', 'smtp', 'imap',
+        'app', 'dev', 'staging', 'test', 'beta', 'demo', 'central',
+        'zewalo', 'static', 'cdn', 'assets', 'media', 'dashboard',
+        'panel', 'console', 'billing', 'auth', 'login', 'register',
+        'support', 'help', 'docs', 'status', 'blog', 'shop', 'store',
+    ];
 
     public function mount(): void
     {
@@ -80,12 +72,34 @@ class RegisterTenant extends Component
             ->get()
             ->toArray();
 
-        // Ensure selected plan is a valid active plan
         $current = collect($this->plans)->firstWhere('slug', $this->selected_plan_slug);
         if (! $current) {
             $first = collect($this->plans)->first();
             if ($first) {
                 $this->selected_plan_slug = $first['slug'];
+            }
+        }
+    }
+
+    /**
+     * Auto-generate subdomain from store name.
+     */
+    public function updatedStoreName(string $value): void
+    {
+        if (empty($this->subdomain)) {
+            $this->subdomain = Str::slug($value);
+        }
+    }
+
+    /**
+     * Real-time email duplicate check.
+     */
+    public function updatedAdminEmail(string $value): void
+    {
+        if (! empty($value) && filter_var($value, FILTER_VALIDATE_EMAIL)) {
+            $this->resetErrorBag('admin_email');
+            if (Tenant::where('email', $value)->exists()) {
+                $this->addError('admin_email', 'Email ini sudah terdaftar sebagai pemilik toko lain.');
             }
         }
     }
@@ -112,8 +126,7 @@ class RegisterTenant extends Component
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
             'store_name.required' => 'Nama toko wajib diisi.',
             'subdomain.required' => 'Subdomain wajib diisi.',
-            'subdomain.unique' => 'Subdomain sudah digunakan. Pilih yang lain.',
-            'subdomain.alpha_dash' => 'Subdomain hanya boleh huruf, angka, dash, dan underscore.',
+            'subdomain.alpha_dash' => 'Subdomain hanya boleh huruf, angka, dan tanda hubung.',
             'business_category.required' => 'Kategori bisnis wajib dipilih.',
         ];
     }
@@ -129,7 +142,14 @@ class RegisterTenant extends Component
                 'admin_email' => 'required|email|max:255',
                 'password' => 'required|string|min:8|confirmed',
             ]);
-            $this->currentStep = 2;
+
+            // Check email not already used by another tenant
+            $this->validateAdminEmail();
+
+            if ($this->getErrorBag()->isEmpty()) {
+                $this->currentStep = 2;
+            }
+
         } elseif ($this->currentStep === 2) {
             $this->validate([
                 'store_name' => 'required|string|max:255',
@@ -137,8 +157,9 @@ class RegisterTenant extends Component
                 'business_category' => 'required|string',
                 'selected_plan_slug' => 'required|exists:subscription_plans,slug',
             ]);
+
             $this->validateSubdomain();
-            
+
             if ($this->getErrorBag()->isEmpty()) {
                 $this->currentStep = 3;
                 $this->register();
@@ -157,187 +178,154 @@ class RegisterTenant extends Component
     }
 
     /**
-     * Validate subdomain uniqueness against domains table.
+     * Validate that the admin email is not already registered as a tenant owner.
+     */
+    protected function validateAdminEmail(): void
+    {
+        if (Tenant::where('email', $this->admin_email)->exists()) {
+            $this->addError('admin_email', 'Email ini sudah terdaftar sebagai pemilik toko lain.');
+        }
+    }
+
+    /**
+     * Validate subdomain: uniqueness + reserved names.
      */
     protected function validateSubdomain(): void
     {
-        $fullDomain = $this->subdomain . '.' . config('app.domain', 'zewalo.test');
+        $slug = Str::slug($this->subdomain);
 
-        // Check if domain already exists
-        if (Domain::where('domain', $fullDomain)->exists()) {
-            $this->addError('subdomain', 'Subdomain sudah digunakan. Pilih yang lain.');
+        // Reserved subdomains
+        if (in_array($slug, $this->reservedSubdomains, true)) {
+            $this->addError('subdomain', 'Subdomain ini tidak tersedia. Pilih nama lain.');
+
             return;
         }
 
-        // Check if tenant ID already exists
-        if (Tenant::find($this->subdomain)) {
+        $fullDomain = $slug.'.'.config('app.domain', 'zewalo.test');
+
+        if (Domain::where('domain', $fullDomain)->exists()) {
             $this->addError('subdomain', 'Subdomain sudah digunakan. Pilih yang lain.');
+
             return;
+        }
+
+        if (Tenant::find($slug)) {
+            $this->addError('subdomain', 'Subdomain sudah digunakan. Pilih yang lain.');
         }
     }
 
     /**
-     * Submit the registration and start provisioning synchronously.
-     * This runs the tenant creation process directly for immediate feedback.
+     * Dispatch the tenant creation job and start polling.
+     * The HTTP request returns immediately; provisioning runs in the background.
      */
     public function register(): void
     {
+        // Rate limiting: 1 registration attempt per IP per 60 seconds as requested
+        $rateLimitKey = 'register-tenant:'.request()->ip();
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 1)) {
+            $seconds = RateLimiter::availableIn($rateLimitKey);
+            $this->addError('subdomain', "Terlalu banyak percobaan. Coba lagi dalam {$seconds} detik.");
+            $this->currentStep = 2;
+
+            return;
+        }
+        RateLimiter::hit($rateLimitKey, 60);
+
         $baseDomain = config('app.domain', 'zewalo.test');
-        $fullDomain = $this->subdomain . '.' . $baseDomain;
-        
+        $fullDomain = Str::slug($this->subdomain).'.'.$baseDomain;
+        $tenantId = Str::slug($this->subdomain);
+        $cacheKey = CreateTenantJob::CACHE_PREFIX.$tenantId;
+
+        // Seed initial cache status so polling works immediately
+        Cache::put($cacheKey, ['status' => 'queued'], CreateTenantJob::CACHE_TTL);
+
+        // Dispatch to background Redis queue — HTTP request returns now
+        CreateTenantJob::dispatch(
+            tenantId: $tenantId,
+            storeName: $this->store_name,
+            adminName: $this->admin_name,
+            adminEmail: $this->admin_email,
+            adminPassword: $this->password,
+            domain: $fullDomain,
+            planSlug: $this->selected_plan_slug,
+            businessCategory: $this->business_category,
+        );
+
         $this->tenantDomain = $fullDomain;
         $this->submitted = true;
-        $this->provisioningStatus = 'creating';
-        $this->provisioningStep = 'Membuat database tenant...';
-        $this->provisioningProgress = 10;
-
-        // Resolve selected plan (fallback to Free if something goes wrong)
-        $plan = SubscriptionPlan::active()
-            ->where('slug', $this->selected_plan_slug)
-            ->first()
-            ?? SubscriptionPlan::active()->where('slug', 'free')->first();
-
-        $isFreePlan = $plan && $plan->slug === 'free';
-        $initialStatus = $isFreePlan ? 'active' : 'trial';
-        $trialEndsAt = $isFreePlan ? null : now()->addDays(14);
-
-        try {
-            // Step 1: Create the Tenant record
-            $this->provisioningStep = 'Membuat database tenant...';
-            $this->provisioningProgress = 20;
-            
-            $tenant = Tenant::create([
-                'id' => $this->subdomain,
-                'name' => $this->store_name,
-                'email' => $this->admin_email,
-                'subscription_plan_id' => $plan?->id,
-                'status' => $initialStatus,
-                'trial_ends_at' => $trialEndsAt,
-                'subscription_ends_at' => null,
-                'current_rental_transactions_month' => 0,
-                'current_rental_month' => now()->format('Y-m'),
-            ]);
-
-            Log::info("RegisterTenant: Tenant record created: {$tenant->id}");
-            $this->provisioningProgress = 40;
-
-            // Step 2: Create the domain
-            $this->provisioningStep = 'Menyiapkan domain...';
-            $tenant->domains()->create([
-                'domain' => $fullDomain,
-            ]);
-
-            Log::info("RegisterTenant: Domain '{$fullDomain}' linked to tenant '{$tenant->id}'");
-            $this->provisioningProgress = 60;
-
-            // Step 3: Run tenant migrations (database is auto-created by TenantCreated event)
-            $this->provisioningStep = 'Menjalankan migrasi database...';
-            // Note: Migrations are handled by TenantCreated event listener in TenancyServiceProvider
-            // The JobPipeline will run: CreateDatabase, MigrateDatabase, CreateTenantStorageFolder
-            $this->provisioningProgress = 80;
-
-            // Step 4: Create admin user inside tenant database
-            $this->provisioningStep = 'Membuat akun admin...';
-            $tenant->run(function () {
-                // First, create required roles (needed before User is created due to User model's booted event)
-                try {
-                    if (class_exists(\Spatie\Permission\Models\Role::class)) {
-                        \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'super_admin', 'guard_name' => 'web']
-                        );
-                        \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'admin', 'guard_name' => 'web']
-                        );
-                        \Spatie\Permission\Models\Role::firstOrCreate(
-                            ['name' => 'staff', 'guard_name' => 'web']
-                        );
-                        Log::info("RegisterTenant: Roles created in tenant database");
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning("RegisterTenant: Could not create roles: {$e->getMessage()}");
-                }
-
-                // Create the admin user
-                $user = \App\Models\User::create([
-                    'name' => $this->admin_name,
-                    'email' => $this->admin_email,
-                    'password' => Hash::make($this->password),
-                    'email_verified_at' => now(),
-                ]);
-
-                Log::info("RegisterTenant: Admin user created: {$user->email}");
-
-                // Assign super_admin role
-                try {
-                    if (class_exists(\Spatie\Permission\Models\Role::class)) {
-                        $superAdmin = \Spatie\Permission\Models\Role::where('name', 'super_admin')
-                            ->where('guard_name', 'web')
-                            ->first();
-
-                        if ($superAdmin) {
-                            $user->assignRole($superAdmin);
-                            Log::info("RegisterTenant: Role 'super_admin' assigned to {$user->email}");
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning("RegisterTenant: Could not assign role: {$e->getMessage()}");
-                }
-
-                // Create default settings
-                try {
-                    if (class_exists(\App\Models\Setting::class) && method_exists(\App\Models\Setting::class, 'set')) {
-                        \App\Models\Setting::set('site_name', $this->store_name);
-                        \App\Models\Setting::set('currency', 'IDR');
-                        \App\Models\Setting::set('timezone', 'Asia/Jakarta');
-                        Log::info("RegisterTenant: Default settings created");
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning("RegisterTenant: Could not create settings: {$e->getMessage()}");
-                }
-            });
-
-            $this->provisioningProgress = 95;
-
-            // Step 5: Mark tenant as ready
-            $this->provisioningStep = 'Finalisasi...';
-            $this->provisioningProgress = 100;
-            $this->provisioningStatus = 'ready';
-            $this->provisioningStep = 'Selesai!';
-
-            Log::info("RegisterTenant: Tenant '{$tenant->id}' is ready at {$fullDomain}");
-
-        } catch (\Throwable $e) {
-            Log::error("RegisterTenant: Failed for tenant '{$this->subdomain}': {$e->getMessage()}", [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            $this->provisioningStatus = 'failed';
-            $this->provisioningError = $e->getMessage();
-            $this->provisioningStep = 'Gagal membuat tenant';
-
-            // Try to clean up
-            try {
-                $tenant = Tenant::find($this->subdomain);
-                if ($tenant) {
-                    $tenant->domains()->delete();
-                    $tenant->forceDelete();
-                }
-            } catch (\Throwable $cleanupError) {
-                Log::error("RegisterTenant: Cleanup failed: {$cleanupError->getMessage()}");
-            }
-        }
+        $this->provisioningStatus = 'queued';
+        $this->provisioningStep = 'Menunggu antrian...';
+        $this->provisioningProgress = 5;
     }
 
     /**
-     * Retry tenant creation after failure.
+     * Poll provisioning status from Cache (called by wire:poll).
+     * Stops updating once status is 'ready' or 'failed'.
+     */
+    public function checkProvisioningStatus(): void
+    {
+        if (! $this->submitted) {
+            return;
+        }
+
+        if (in_array($this->provisioningStatus, ['ready', 'failed'], true)) {
+            return;
+        }
+
+        $cacheKey = CreateTenantJob::CACHE_PREFIX.Str::slug($this->subdomain);
+        $data = Cache::get($cacheKey);
+
+        if (! $data) {
+            return;
+        }
+
+        $status = $data['status'] ?? 'queued';
+
+        match ($status) {
+            'queued' => [
+                $this->provisioningStatus = 'queued',
+                $this->provisioningStep = 'Menunggu antrian...',
+                $this->provisioningProgress = 5,
+            ],
+            'creating_db' => [
+                $this->provisioningStatus = 'creating_db',
+                $this->provisioningStep = 'Membuat database & menjalankan migrasi...',
+                $this->provisioningProgress = 35,
+            ],
+            'creating_admin' => [
+                $this->provisioningStatus = 'creating_admin',
+                $this->provisioningStep = 'Membuat akun admin & pengaturan awal...',
+                $this->provisioningProgress = 75,
+            ],
+            'ready' => [
+                $this->provisioningStatus = 'ready',
+                $this->provisioningStep = 'Selesai!',
+                $this->provisioningProgress = 100,
+                $this->tenantDomain = $data['domain'] ?? $this->tenantDomain,
+            ],
+            'failed' => [
+                $this->provisioningStatus = 'failed',
+                $this->provisioningStep = 'Gagal membuat tenant.',
+                $this->provisioningProgress = 0,
+                $this->provisioningError = $data['error'] ?? 'Terjadi kesalahan yang tidak diketahui.',
+            ],
+            default => null,
+        };
+    }
+
+    /**
+     * Retry provisioning after a failure.
      */
     public function retryRegistration(): void
     {
-        $this->provisioningStatus = 'pending';
+        // Clear old cache
+        Cache::forget(CreateTenantJob::CACHE_PREFIX.Str::slug($this->subdomain));
+
+        $this->provisioningStatus = 'queued';
         $this->provisioningError = '';
-        $this->provisioningProgress = 0;
-        $this->provisioningStep = '';
+        $this->provisioningProgress = 5;
+        $this->provisioningStep = 'Menunggu antrian...';
+
         $this->register();
     }
 

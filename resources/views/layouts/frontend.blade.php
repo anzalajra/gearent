@@ -74,16 +74,20 @@
                                         $url = '#';
                                         $target = $item['data']['target'] ?? '_self';
                                         
-                                        if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
-                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
-                                            $page = $postModel::find($item['data']['page_id']);
-                                            $url = $page ? route('page', $page->slug) : '#';
-                                        } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
-                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
-                                            $post = $postModel::find($item['data']['post_id']);
-                                            $url = $post ? route('post', $post->slug) : '#';
-                                        } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
-                                            $url = $item['data']['url'] ?? '#';
+                                        try {
+                                            if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
+                                                $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                                $page = $postModel::find($item['data']['page_id']);
+                                                $url = $page ? route('page', $page->slug) : '#';
+                                            } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
+                                                $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                                $post = $postModel::find($item['data']['post_id']);
+                                                $url = $post ? route('post', $post->slug) : '#';
+                                            } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
+                                                $url = $item['data']['url'] ?? '#';
+                                            }
+                                        } catch (\Throwable $e) {
+                                            $url = '#';
                                         }
 
                                         $menuItems[] = [
@@ -353,16 +357,20 @@
                                         $url = '#';
                                         $target = $item['data']['target'] ?? '_self';
                                         
-                                        if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
-                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
-                                            $page = $postModel::find($item['data']['page_id']);
-                                            $url = $page ? route('page', $page->slug) : '#';
-                                        } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
-                                            $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
-                                            $post = $postModel::find($item['data']['post_id']);
-                                            $url = $post ? route('post', $post->slug) : '#';
-                                        } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
-                                            $url = $item['data']['url'] ?? '#';
+                                        try {
+                                            if ($item['type'] === 'page_link' && isset($item['data']['page_id'])) {
+                                                $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                                $page = $postModel::find($item['data']['page_id']);
+                                                $url = $page ? route('page', $page->slug) : '#';
+                                            } elseif ($item['type'] === 'post_link' && isset($item['data']['post_id'])) {
+                                                $postModel = \LaraZeus\Sky\SkyPlugin::get()->getModel('Post');
+                                                $post = $postModel::find($item['data']['post_id']);
+                                                $url = $post ? route('post', $post->slug) : '#';
+                                            } elseif ($item['type'] === 'external-link' || $item['type'] === 'url') {
+                                                $url = $item['data']['url'] ?? '#';
+                                            }
+                                        } catch (\Throwable $e) {
+                                            $url = '#';
                                         }
 
                                         $footerItems[] = [

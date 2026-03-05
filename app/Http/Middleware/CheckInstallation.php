@@ -16,6 +16,13 @@ class CheckInstallation
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Skip installation check on tenant domains — the installed file
+        // only exists in the central storage path, and after tenancy is
+        // initialized storage_path() points to the tenant's storage.
+        if (tenancy()->initialized) {
+            return $next($request);
+        }
+
         $isInstalled = File::exists(storage_path('installed'));
 
         // If installed and trying to access setup, redirect to home
@@ -24,8 +31,7 @@ class CheckInstallation
         }
 
         // If NOT installed and trying to access anything other than setup, redirect to setup
-        // Also exclude static assets or debugbar if needed, but for now strict is fine
-        if (!$isInstalled && !$request->is('setup*')) {
+        if (! $isInstalled && ! $request->is('setup*')) {
             return redirect('/setup');
         }
 

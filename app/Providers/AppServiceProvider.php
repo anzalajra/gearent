@@ -83,5 +83,14 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $e) {
             // Settings table might not exist yet during migration
         }
+
+        // Configure Livewire Update Route to support both Central and Tenant domains
+        \Livewire\Livewire::setUpdateRoute(function ($handle) {
+            return \Illuminate\Support\Facades\Route::post('/livewire/update', $handle)
+                ->middleware([
+                    'web',
+                    \App\Http\Middleware\TenantLivewireMiddleware::class,
+                ]);
+        });
     }
 }

@@ -59,7 +59,9 @@
                     </div>
 
                     {{-- Form --}}
-                    <form wire:submit="nextStep" class="px-8 pb-10 space-y-5">
+                    <form wire:submit="nextStep" class="px-8 pb-10 space-y-5"
+                          x-data="{ submitting: false }"
+                          x-on:submit="submitting = true; $nextTick(() => setTimeout(() => submitting = false, 5000))">
                         <div class="space-y-4">
                             {{-- Nama Lengkap --}}
                             <div class="block">
@@ -81,10 +83,16 @@
                                     <div class="flex items-center justify-center w-12 bg-slate-50 border-r border-slate-200 text-slate-400 pointer-events-none">
                                         <span class="material-symbols-outlined text-xl">mail</span>
                                     </div>
-                                    <input wire:model="admin_email" type="email" placeholder="contoh@email.com"
+                                    <input wire:model.live.debounce.500ms="admin_email" type="email" placeholder="contoh@email.com"
                                            class="flex-1 w-full bg-transparent px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 border-none">
                                 </div>
                                 @error('admin_email') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                                @if ($admin_email && !$errors->has('admin_email') && filter_var($admin_email, FILTER_VALIDATE_EMAIL))
+                                    <p class="mt-1 text-xs font-medium text-emerald-600">
+                                        <span class="material-symbols-outlined text-xs align-middle">check_circle</span>
+                                        Email tersedia
+                                    </p>
+                                @endif
                             </div>
 
                             {{-- Password Grid --}}
@@ -117,18 +125,25 @@
                         <div class="pt-4">
                             <button type="submit"
                                     wire:loading.attr="disabled"
-                                    wire:loading.class="opacity-75 cursor-wait"
+                                    :disabled="submitting"
+                                    :class="{ 'opacity-75 cursor-not-allowed': submitting }"
                                     class="w-full text-white font-bold py-4 px-6 rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 group hover:opacity-90"
                                     style="background-color: #14B8A6; box-shadow: 0 10px 15px -3px rgba(20,184,166,0.2);">
-                                <span wire:loading.remove>Lanjutkan ke Langkah 2</span>
-                                <span wire:loading class="flex items-center gap-2">
-                                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                    </svg>
-                                    Memvalidasi...
-                                </span>
-                                <span wire:loading.remove class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                <template x-if="!submitting">
+                                    <span class="flex items-center gap-2">
+                                        Lanjutkan ke Langkah 2
+                                        <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </span>
+                                </template>
+                                <template x-if="submitting">
+                                    <span class="flex items-center gap-2">
+                                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                        </svg>
+                                        Memvalidasi...
+                                    </span>
+                                </template>
                             </button>
                             <p class="text-center text-slate-500 text-sm mt-6">
                                 Sudah memiliki akun?
@@ -173,7 +188,9 @@
                             <p class="text-slate-500 text-base">Lengkapi informasi bisnis dan pilih paket langganan yang sesuai.</p>
                         </header>
 
-                        <form wire:submit="nextStep" class="space-y-6">
+                        <form wire:submit="nextStep" class="space-y-6"
+                              x-data="{ submitting: false }"
+                              x-on:submit="submitting = true; $nextTick(() => setTimeout(() => submitting = false, 5000))">
                             {{-- Business Name --}}
                             <div class="flex flex-col gap-2">
                                 <span class="text-slate-700 text-sm font-semibold block">Nama Bisnis</span>
@@ -194,7 +211,7 @@
                                     <div class="flex items-center justify-center w-12 bg-slate-50 border-r border-slate-200 text-slate-400 pointer-events-none">
                                         <span class="material-symbols-outlined text-xl">language</span>
                                     </div>
-                                    <input wire:model.live.debounce.500ms="subdomain" type="text" placeholder="nama-toko"
+                                    <input wire:model.live.debounce.500ms="subdomain" type="text" placeholder="nama-toko" maxlength="63"
                                            class="flex-1 w-full bg-transparent px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 border-none">
                                     <div class="flex items-center px-4 bg-slate-100 border-l border-slate-200 text-slate-500 font-medium text-sm">
                                         .{{ config('app.domain', 'zewalo.com') }}
@@ -365,18 +382,25 @@
                                 </button>
                                 <button type="submit"
                                         wire:loading.attr="disabled"
-                                        wire:loading.class="opacity-75 cursor-wait"
+                                        :disabled="submitting"
+                                        :class="{ 'opacity-75 cursor-not-allowed': submitting }"
                                         class="flex-[2] px-6 py-3 text-white font-semibold rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 hover:opacity-90"
                                         style="background-color: #14B8A6; box-shadow: 0 10px 15px -3px rgba(20,184,166,0.2);">
-                                    <span wire:loading.remove>Lanjutkan</span>
-                                    <span wire:loading class="flex items-center gap-2">
-                                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                        </svg>
-                                        Memproses...
-                                    </span>
-                                    <span wire:loading.remove class="material-symbols-outlined text-xl">arrow_forward</span>
+                                    <template x-if="!submitting">
+                                        <span class="flex items-center gap-2">
+                                            Lanjutkan
+                                            <span class="material-symbols-outlined text-xl">arrow_forward</span>
+                                        </span>
+                                    </template>
+                                    <template x-if="submitting">
+                                        <span class="flex items-center gap-2">
+                                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                            </svg>
+                                            Memproses...
+                                        </span>
+                                    </template>
                                 </button>
                             </div>
                         </form>
@@ -394,7 +418,8 @@
             {{-- STEP 3: Provisioning --}}
             {{-- ============================================= --}}
             @if ($currentStep === 3)
-            <div class="p-0">
+            {{-- wire:poll aktif selama provisioning belum selesai --}}
+            <div class="p-0" @if (!in_array($provisioningStatus, ['ready', 'failed'])) wire:poll.2000ms="checkProvisioningStatus" @endif>
 
                 <div class="flex flex-col items-center text-center px-8 pt-10 pb-6"
                      x-data="{ show: false }" x-init="$nextTick(() => show = true)"
@@ -464,12 +489,12 @@
                         </div>
                         <div class="flex flex-col text-left">
                             <p class="text-sm font-semibold text-slate-900">{{ $provisioningStep ?: 'Memulai...' }}</p>
-                            @if ($provisioningStatus === 'creating')
-                                <p class="text-xs text-[#14B8A6] font-medium">Sedang berjalan...</p>
-                            @elseif ($provisioningStatus === 'ready')
+                            @if ($provisioningStatus === 'ready')
                                 <p class="text-xs text-slate-500">Selesai</p>
                             @elseif ($provisioningStatus === 'failed')
                                 <p class="text-xs text-red-500">{{ Str::limit($provisioningError, 80) }}</p>
+                            @else
+                                <p class="text-xs text-[#14B8A6] font-medium">Sedang berjalan...</p>
                             @endif
                         </div>
                     </div>
@@ -504,7 +529,7 @@
                     {{-- Login Info --}}
                     <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
                         <p class="text-sm text-slate-600 text-center">
-                            Login ke <strong class="font-semibold" style="color: #14B8A6;">{{ $tenantDomain }}/admin</strong>
+                            Login ke <a href="http://{{ $tenantDomain }}/admin" target="_blank" class="font-semibold underline hover:opacity-80 transition-opacity" style="color: #14B8A6;">{{ $tenantDomain }}/admin</a>
                             dengan email dan password yang telah Anda daftarkan.
                         </p>
                     </div>
@@ -541,7 +566,7 @@
                 {{-- Footer Note --}}
                 <div class="px-8 py-5 bg-slate-50 border-t border-slate-100 text-center">
                     <p class="text-slate-400 text-xs">
-                        @if ($provisioningStatus === 'creating')
+                        @if (in_array($provisioningStatus, ['queued', 'creating_db', 'creating_admin']))
                             Jangan tutup halaman ini sampai proses selesai.
                         @elseif ($provisioningStatus === 'ready')
                             Kami akan mengirimkan email konfirmasi setelah sistem siap.

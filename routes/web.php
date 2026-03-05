@@ -6,18 +6,16 @@ use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\CustomerDashboardController;
 use App\Http\Controllers\HomeController;
-use Illuminate\Support\Facades\Route;
-
-// use App\Http\Controllers\Admin\PageBuilderController;
 use App\Http\Controllers\PublicDocumentController;
-
+// use App\Http\Controllers\Admin\PageBuilderController;
 use App\Http\Controllers\SetupController;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
 
 // Check installation status
 $isInstalled = File::exists(storage_path('installed'));
 
-if (!$isInstalled) {
+if (! $isInstalled) {
     // If NOT installed, only allow setup routes and redirect root to setup
     Route::prefix('setup')->name('setup.')->group(function () {
         Route::get('/', [SetupController::class, 'index'])->name('index');
@@ -33,7 +31,7 @@ if (!$isInstalled) {
     Route::get('/', function () {
         return redirect()->route('setup.index');
     });
-    
+
     // Fallback to ensure everything goes to setup
     Route::fallback(function () {
         return redirect()->route('setup.index');
@@ -44,11 +42,16 @@ if (!$isInstalled) {
     // Setup routes are only available when not installed (handled in the if block above)
 
     // Tenant Registration (central domain only)
-    Route::get('/register-tenant', \App\Livewire\RegisterTenant::class)->name('register-tenant');
+    Route::get('/register-tenant', \App\Livewire\RegisterTenant::class)
+        ->middleware(\App\Http\Middleware\BruteForceProtection::class)
+        ->name('register-tenant');
+
+    // Central Tenant Login Portal
+    Route::get('/masuk', \App\Livewire\TenantLogin::class)->name('tenant.login');
 
     // Public Routes
     Route::get('/', [HomeController::class, 'index'])->name('home');
-    
+
     // Landing Pages (Central domain only)
     Route::get('/pricing', function () {
         $centralDomains = config('tenancy.central_domains', []);
@@ -69,7 +72,7 @@ if (!$isInstalled) {
         Route::post('/login', [CustomerAuthController::class, 'login'])->middleware('throttle:6,1');
         Route::get('/register', [CustomerAuthController::class, 'showRegistrationForm'])->name('customer.register');
         Route::post('/register', [CustomerAuthController::class, 'register'])->middleware('throttle:6,1');
-        
+
         // Password Reset
         Route::get('/forgot-password', [CustomerAuthController::class, 'showForgotPasswordForm'])->name('customer.password.request');
         Route::post('/forgot-password', [CustomerAuthController::class, 'sendResetLink'])->name('customer.password.email')->middleware('throttle:3,1');
@@ -137,11 +140,11 @@ if (!$isInstalled) {
     Route::prefix('blog')->middleware(['web'])->group(function () {
         Route::get('/', \LaraZeus\Sky\Livewire\Posts::class)->name('blogs');
         Route::get('/faq', \LaraZeus\Sky\Livewire\Faq::class)->name('faq');
-        
+
         Route::get('/tag/{slug}', \LaraZeus\Sky\Livewire\Tags::class)
             ->defaults('type', 'tag')
             ->name('tag');
-            
+
         Route::get('/category/{slug}', \LaraZeus\Sky\Livewire\Tags::class)
             ->defaults('type', 'category')
             ->name('category');

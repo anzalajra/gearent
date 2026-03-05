@@ -59,14 +59,14 @@ return [
 
         /**
          * PostgreSQL 16 specific settings.
-         * 
+         *
          * For Docker postgres:16-alpine, use 'en_US.utf8' (Alpine format)
          * For standard Linux, use 'en_US.UTF-8'
          * For minimal/safe option, use 'C'
          */
         'charset' => 'UTF8',
         'collation' => 'en_US.utf8',  // Match Docker Alpine postgres:16-alpine
-        
+
         /**
          * PostgreSQL template database.
          * Use 'template0' for clean database creation (recommended for multi-tenant).
@@ -80,7 +80,7 @@ return [
         'managers' => [
             'sqlite' => Stancl\Tenancy\TenantDatabaseManagers\SQLiteDatabaseManager::class,
             'mysql' => Stancl\Tenancy\TenantDatabaseManagers\MySQLDatabaseManager::class,
-            
+
             /**
              * Custom PostgreSQL 16 Database Manager for Docker Alpine.
              * Handles template0, 'C' collation, and proper database creation.
@@ -160,7 +160,7 @@ return [
          * disable asset() helper tenancy and explicitly use tenant_asset() calls in places
          * where you want to use tenant-specific assets (product images, avatars, etc).
          */
-        'asset_helper_tenancy' => true,
+        'asset_helper_tenancy' => false,
     ],
 
     /**

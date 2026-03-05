@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(prepend: [
             \App\Http\Middleware\RedirectCentralDomainToPanel::class,
+            \App\Http\Middleware\InitializeTenancyIfApplicable::class,
         ]);
 
         $middleware->web(append: [

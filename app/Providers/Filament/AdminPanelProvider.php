@@ -2,9 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Middleware\RedirectCentralDomainToPanel;
 use App\Models\Setting;
-use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Schema;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -21,11 +20,12 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
-use App\Http\Middleware\RedirectCentralDomainToPanel;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -50,12 +50,12 @@ class AdminPanelProvider extends PanelProvider
                 }
                 $logo = Setting::get('logo');
                 if ($logo) {
-                    $brandLogo = asset('storage/' . $logo);
-                    $favicon = asset('storage/' . $logo);
+                    $brandLogo = asset('storage/'.$logo);
+                    $favicon = asset('storage/'.$logo);
                 }
 
                 $navigationLayout = Setting::get('navigation_layout', 'sidebar');
-                
+
                 // Use the centralized ThemeService to ensure consistency between Admin and Frontend
                 $primaryColor = \App\Services\ThemeService::getPrimaryColor();
             }
@@ -69,9 +69,9 @@ class AdminPanelProvider extends PanelProvider
         Config::set('filament-palette.palette.dynamic_theme', [
             'primary' => $primaryColor,
             'warning' => Color::Amber,
-            'danger'  => Color::Red,
+            'danger' => Color::Red,
             'success' => Color::Green,
-            'info'    => Color::Blue,
+            'info' => Color::Blue,
         ]);
         Config::set('filament-palette.default', 'dynamic_theme');
 
@@ -93,11 +93,11 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Orange,
                 'purple' => Color::Purple,
             ]);
-            
+
         // Detect mobile early for render hooks
         $isMobile = $this->isMobileDevice();
         $useTopNav = ($navigationLayout === 'top' || $isMobile);
-        
+
         $panel
             ->renderHook(
                 $useTopNav
@@ -158,34 +158,51 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel
             ->bootUsing(function () {
-                \LaraZeus\Sky\SkyPlugin::get()
-                    ->itemType(
-                        'Post',
-                        [
-                            \Filament\Forms\Components\Select::make('post_id')
-                                ->label(__('zeus-sky::cms.post.select_post'))
-                                ->searchable()
-                                ->options(function () {
-                                    return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::published()->pluck('title', 'id');
-                                }),
-                        ],
-                        'post_link'
-                    )
-                    ->itemType(
-                        'Page',
-                        [
-                            \Filament\Forms\Components\Select::make('page_id')
-                                ->label(__('zeus-sky::cms.page.select_page'))
-                                ->searchable()
-                                ->options(function () {
-                                    return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::query()
-                                        ->page()
-                                        ->whereDate('published_at', '<=', now())
-                                        ->pluck('title', 'id');
-                                }),
-                        ],
-                        'page_link'
-                    );
+                try {
+                    // Safeguard against missing tables during tenant provisioning
+                    if (! \Illuminate\Support\Facades\Schema::hasTable('posts') || ! \Illuminate\Support\Facades\Schema::hasTable('pages')) {
+                        return;
+                    }
+
+                    \LaraZeus\Sky\SkyPlugin::get()
+                        ->itemType(
+                            'Post',
+                            [
+                                \Filament\Forms\Components\Select::make('post_id')
+                                    ->label(__('zeus-sky::cms.post.select_post'))
+                                    ->searchable()
+                                    ->options(function () {
+                                        try {
+                                            return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::published()->pluck('title', 'id');
+                                        } catch (\Throwable $e) {
+                                            return [];
+                                        }
+                                    }),
+                            ],
+                            'post_link'
+                        )
+                        ->itemType(
+                            'Page',
+                            [
+                                \Filament\Forms\Components\Select::make('page_id')
+                                    ->label(__('zeus-sky::cms.page.select_page'))
+                                    ->searchable()
+                                    ->options(function () {
+                                        try {
+                                            return \LaraZeus\Sky\SkyPlugin::get()->getModel('Post')::query()
+                                                ->page()
+                                                ->whereDate('published_at', '<=', now())
+                                                ->pluck('title', 'id');
+                                        } catch (\Throwable $e) {
+                                            return [];
+                                        }
+                                    }),
+                            ],
+                            'page_link'
+                        );
+                } catch (\Throwable $e) {
+                    // Posts table may not exist yet during tenant provisioning — skip Sky item types
+                }
             })
             ->plugins([
                 FilamentFullCalendarPlugin::make(),
@@ -219,14 +236,14 @@ class AdminPanelProvider extends PanelProvider
             // Sidebar collapsible (opsional - bisa dihapus jika tidak perlu)
             ->sidebarCollapsibleOnDesktop();
     }
-    
+
     /**
      * Detect if the current request is from a mobile device
      */
     protected function isMobileDevice(): bool
     {
         $userAgent = request()->header('User-Agent', '');
-        
+
         // Common mobile device patterns
         $mobilePatterns = [
             '/Mobile/i',
@@ -240,13 +257,13 @@ class AdminPanelProvider extends PanelProvider
             '/IEMobile/i',
             '/Windows Phone/i',
         ];
-        
+
         foreach ($mobilePatterns as $pattern) {
             if (preg_match($pattern, $userAgent)) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }
