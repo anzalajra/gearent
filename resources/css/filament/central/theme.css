@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@import "../../../../vendor/filament/filament/resources/css/theme.css";
+
+@source "../../../../app/Filament/Central/**/*.php";
+@source "../../../../resources/views/filament/central/**/*.blade.php";
+@source "../../../../vendor/filament/**/*.blade.php";
+@source "../../../../vendor/bezhansalleh/filament-google-analytics/resources/views/**/*";
+@source "../../../../vendor/bezhansalleh/filament-google-analytics/src/{Widgets,Support}/*";

@@ -63,21 +63,30 @@ class AppServiceProvider extends ServiceProvider
                     }
                 }
 
-                if (Setting::get('notification_email_enabled')) {
+                // Apply central mail settings (SMTP server + default from, managed by central admin)
+                $centralMailSettings = \App\Filament\Central\Pages\EmailSettings::loadSettings();
+                if (! empty($centralMailSettings)) {
                     $mailConfig = [];
-                    
-                    if ($mailer = Setting::get('mail_mailer')) $mailConfig['mail.default'] = $mailer;
-                    if ($host = Setting::get('mail_host')) $mailConfig['mail.mailers.smtp.host'] = $host;
-                    if ($port = Setting::get('mail_port')) $mailConfig['mail.mailers.smtp.port'] = $port;
-                    if ($encryption = Setting::get('mail_encryption')) $mailConfig['mail.mailers.smtp.encryption'] = $encryption ?: null;
-                    if ($username = Setting::get('mail_username')) $mailConfig['mail.mailers.smtp.username'] = $username;
-                    if ($password = Setting::get('mail_password')) $mailConfig['mail.mailers.smtp.password'] = $password;
-                    if ($fromAddress = Setting::get('mail_from_address')) $mailConfig['mail.from.address'] = $fromAddress;
-                    if ($fromName = Setting::get('mail_from_name')) $mailConfig['mail.from.name'] = $fromName;
+                    if (! empty($centralMailSettings['mail_mailer'])) $mailConfig['mail.default'] = $centralMailSettings['mail_mailer'];
+                    if (! empty($centralMailSettings['mail_host'])) $mailConfig['mail.mailers.smtp.host'] = $centralMailSettings['mail_host'];
+                    if (! empty($centralMailSettings['mail_port'])) $mailConfig['mail.mailers.smtp.port'] = $centralMailSettings['mail_port'];
+                    if (isset($centralMailSettings['mail_encryption'])) $mailConfig['mail.mailers.smtp.encryption'] = $centralMailSettings['mail_encryption'] ?: null;
+                    if (! empty($centralMailSettings['mail_username'])) $mailConfig['mail.mailers.smtp.username'] = $centralMailSettings['mail_username'];
+                    if (! empty($centralMailSettings['mail_password'])) $mailConfig['mail.mailers.smtp.password'] = $centralMailSettings['mail_password'];
+                    if (! empty($centralMailSettings['mail_from_address'])) $mailConfig['mail.from.address'] = $centralMailSettings['mail_from_address'];
+                    if (! empty($centralMailSettings['mail_from_name'])) $mailConfig['mail.from.name'] = $centralMailSettings['mail_from_name'];
 
-                    if (!empty($mailConfig)) {
+                    if (! empty($mailConfig)) {
                         config($mailConfig);
                     }
+                }
+
+                // Override from address/name with tenant-specific sender identity
+                if ($fromAddress = Setting::get('mail_from_address')) {
+                    config(['mail.from.address' => $fromAddress]);
+                }
+                if ($fromName = Setting::get('mail_from_name')) {
+                    config(['mail.from.name' => $fromName]);
                 }
             }
         } catch (\Exception $e) {

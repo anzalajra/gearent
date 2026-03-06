@@ -13,6 +13,7 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\Widgets\AccountWidget;
+use BezhanSalleh\GoogleAnalytics\GoogleAnalyticsPlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -40,6 +41,7 @@ class CentralPanelProvider extends PanelProvider
                 'success' => Color::Emerald,
                 'warning' => Color::Orange,
             ])
+            ->viteTheme('resources/css/filament/central/theme.css')
             ->discoverResources(in: app_path('Filament/Central/Resources'), for: 'App\Filament\Central\Resources')
             ->discoverPages(in: app_path('Filament/Central/Pages'), for: 'App\Filament\Central\Pages')
             ->pages([
@@ -65,6 +67,9 @@ class CentralPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->authGuard('web') // Use default web guard with central connection
+            ->plugins([
+                GoogleAnalyticsPlugin::make(),
+            ])
             ->databaseNotifications()
             ->sidebarCollapsibleOnDesktop();
     }
