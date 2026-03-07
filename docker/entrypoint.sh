@@ -1,10 +1,12 @@
 #!/bin/bash
 set -e
 
+echo "=== Zewalo Production Entrypoint ==="
+
 # Wait for database to be ready
 echo "Waiting for database..."
-while ! pg_isready -h db -p 5432 -U ${DB_USERNAME:-postgres} > /dev/null 2>&1; do
-    sleep 1
+until pg_isready -h ${DB_HOST:-db} -p ${DB_PORT:-5432} -U ${DB_USERNAME:-postgres} > /dev/null 2>&1; do
+    sleep 2
 done
 echo "Database is ready!"
 
@@ -12,23 +14,22 @@ echo "Database is ready!"
 echo "Running migrations..."
 php artisan migrate --force
 
-# Clear and cache configs for production
+# Create storage/installed marker (required for app to work, not enter setup mode)
+touch storage/installed
+
+# Create storage link if not exists
+if [ ! -L public/storage ]; then
+    php artisan storage:link 2>/dev/null || true
+fi
+
+# Optimize for production
 echo "Optimizing application..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 php artisan event:cache
-php artisan icons:cache
+php artisan icons:cache 2>/dev/null || true
 
-# Create storage link if not exists
-if [ ! -L public/storage ]; then
-    php artisan storage:link
-fi
-
-# Set permissions
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
-
-echo "Application is ready!"
+echo "=== Application is ready! ==="
 
 exec "$@"
