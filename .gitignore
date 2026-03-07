@@ -20,6 +20,7 @@
 /storage/*.key
 /storage/pail
 /storage/installed
+/storage/seeded
 /vendor
 Homestead.json
 Homestead.yaml

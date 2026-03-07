@@ -14,9 +14,20 @@ until pg_isready -h ${DB_HOST:-db} -p ${DB_PORT:-5432} -U ${DB_USERNAME:-postgre
 done
 echo "Database is ready!"
 
-# Run migrations
-echo "Running migrations..."
+# Run migrations (default path: tenants & domains tables)
+echo "Running default migrations..."
 php artisan migrate --force
+
+# Run central migrations (users, permissions, subscription_plans, etc.)
+echo "Running central migrations..."
+php artisan migrate --path=database/migrations/central --database=central --force
+
+# Seed central database on first deploy (creates admin user and roles)
+if [ ! -f storage/seeded ]; then
+    echo "First deploy detected, seeding central database..."
+    php artisan db:seed --class=CentralSeeder --force
+    touch storage/seeded
+fi
 
 # Create storage/installed marker (required for app to work, not enter setup mode)
 touch storage/installed
