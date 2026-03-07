@@ -25,3 +25,15 @@ Schedule::command('finance:run-depreciation')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/depreciation.log'));
+
+Schedule::command('subscriptions:generate-invoices')
+    ->dailyAt('08:00')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/subscription-invoices.log'));
+
+Schedule::command('subscriptions:check-status')
+    ->dailyAt('00:30')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->appendOutputTo(storage_path('logs/subscription-status.log'));

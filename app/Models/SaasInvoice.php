@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SaasInvoiceStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +26,10 @@ class SaasInvoice extends Model
         'paid_at',
         'payment_method',
         'payment_reference',
+        'payment_gateway_id',
+        'payment_method_id',
+        'payment_data',
+        'gateway_reference_id',
         'notes',
     ];
 
@@ -35,6 +40,8 @@ class SaasInvoice extends Model
         'amount' => 'decimal:2',
         'tax' => 'decimal:2',
         'total' => 'decimal:2',
+        'status' => SaasInvoiceStatus::class,
+        'payment_data' => 'array',
     ];
 
     public function tenant(): BelongsTo
@@ -47,25 +54,64 @@ class SaasInvoice extends Model
         return $this->belongsTo(TenantSubscription::class);
     }
 
+    public function paymentGateway(): BelongsTo
+    {
+        return $this->belongsTo(PaymentGateway::class);
+    }
+
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === SaasInvoiceStatus::Paid;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === SaasInvoiceStatus::Pending;
+    }
+
+    public function hasPaymentInstructions(): bool
+    {
+        return ! empty($this->payment_data);
+    }
+
+    public function isPaymentExpired(): bool
+    {
+        if (! $this->payment_data || ! isset($this->payment_data['expires_at'])) {
+            return false;
+        }
+
+        return now()->isAfter($this->payment_data['expires_at']);
+    }
+
     public function scopeOverdue($query)
     {
-        return $query->where('status', 'overdue')
-            ->orWhere(fn ($q) => $q->where('status', 'pending')->where('due_at', '<', now()));
+        return $query->where('status', SaasInvoiceStatus::Overdue)
+            ->orWhere(fn ($q) => $q->where('status', SaasInvoiceStatus::Pending)->where('due_at', '<', now()));
     }
 
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', SaasInvoiceStatus::Pending);
     }
 
     public function scopePaid($query)
     {
-        return $query->where('status', 'paid');
+        return $query->where('status', SaasInvoiceStatus::Paid);
+    }
+
+    public function scopeUnpaid($query)
+    {
+        return $query->whereIn('status', [SaasInvoiceStatus::Pending, SaasInvoiceStatus::Overdue]);
     }
 
     public function isDueSoon(int $days = 7): bool
     {
-        return $this->status === 'pending'
+        return $this->status === SaasInvoiceStatus::Pending
             && $this->due_at !== null
             && $this->due_at->isFuture()
             && $this->due_at->diffInDays(now()) <= $days;

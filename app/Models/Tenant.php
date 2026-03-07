@@ -34,6 +34,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
         'subscription_plan_id',
         'trial_ends_at',
         'subscription_ends_at',
+        'grace_period_ends_at',
         'status',
         'current_rental_transactions_month',
         'current_rental_month',
@@ -46,6 +47,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     protected $casts = [
         'trial_ends_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
+        'grace_period_ends_at' => 'datetime',
     ];
 
     /**
@@ -61,6 +63,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             'subscription_plan_id',
             'trial_ends_at',
             'subscription_ends_at',
+            'grace_period_ends_at',
             'status',
             'current_rental_transactions_month',
             'current_rental_month',
@@ -107,7 +110,21 @@ class Tenant extends BaseTenant implements TenantWithDatabase
             return $this->subscription_ends_at === null || $this->subscription_ends_at->isFuture();
         }
 
+        if ($this->isInGracePeriod()) {
+            return true;
+        }
+
         return $this->onTrial();
+    }
+
+    /**
+     * Check if tenant is in grace period.
+     */
+    public function isInGracePeriod(): bool
+    {
+        return $this->status === 'grace_period'
+            && $this->grace_period_ends_at !== null
+            && $this->grace_period_ends_at->isFuture();
     }
 
     /**

@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'logout',
+            'api/payment/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

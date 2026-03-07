@@ -10,6 +10,7 @@
         "barryvdh/laravel-dompdf": "^3.1",
         "bezhansalleh/filament-google-analytics": "^3.0",
         "bezhansalleh/filament-shield": "^4.1",
+        "duitkupg/duitku-php": "dev-master",
         "filament/filament": "^4.0",
         "hugomyb/filament-media-action": "^5.0",
         "lara-zeus/sky": "^4.1",

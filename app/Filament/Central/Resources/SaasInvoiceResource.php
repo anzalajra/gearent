@@ -2,16 +2,22 @@
 
 namespace App\Filament\Central\Resources;
 
+use App\Enums\SaasInvoiceStatus;
 use App\Filament\Central\Resources\SaasInvoiceResource\Pages;
+use App\Models\PaymentGateway;
+use App\Models\PaymentMethod;
 use App\Models\SaasInvoice;
 use App\Models\Tenant;
+use App\Services\Payment\PaymentService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -109,11 +115,28 @@ class SaasInvoiceResource extends Resource
                 ->schema([
                     TextInput::make('payment_method')
                         ->nullable()
-                        ->placeholder('e.g., Bank Transfer, Midtrans'),
+                        ->placeholder('e.g., Bank Transfer, Duitku'),
 
                     TextInput::make('payment_reference')
                         ->nullable()
                         ->placeholder('Transaction ID or reference'),
+
+                    Select::make('payment_gateway_id')
+                        ->label('Payment Gateway')
+                        ->options(PaymentGateway::pluck('name', 'id'))
+                        ->nullable()
+                        ->placeholder('Auto (via gateway)'),
+
+                    Select::make('payment_method_id')
+                        ->label('Payment Method')
+                        ->options(PaymentMethod::pluck('display_name', 'id'))
+                        ->nullable()
+                        ->placeholder('Auto (via gateway)'),
+
+                    TextInput::make('gateway_reference_id')
+                        ->label('Gateway Reference')
+                        ->disabled()
+                        ->placeholder('Set by system'),
 
                     Textarea::make('notes')
                         ->rows(3)
@@ -143,13 +166,13 @@ class SaasInvoiceResource extends Resource
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'paid' => 'success',
-                        'pending' => 'warning',
-                        'overdue' => 'danger',
-                        'cancelled' => 'gray',
-                        default => 'gray',
-                    }),
+                    ->formatStateUsing(fn ($state) => $state instanceof SaasInvoiceStatus ? $state->getLabel() : $state)
+                    ->color(fn ($state) => $state instanceof SaasInvoiceStatus ? $state->getColor() : 'gray'),
+
+                Tables\Columns\TextColumn::make('paymentMethod.display_name')
+                    ->label('Via')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('issued_at')
                     ->label('Issued')
@@ -182,6 +205,21 @@ class SaasInvoiceResource extends Resource
                     ->options(fn () => Tenant::pluck('name', 'id')),
             ])
             ->recordActions([
+                Action::make('mark_as_paid')
+                    ->label('Tandai Lunas')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Tandai Invoice sebagai Lunas?')
+                    ->modalDescription('Tindakan ini akan menandai invoice sebagai lunas dan mengaktifkan subscription tenant.')
+                    ->visible(fn (SaasInvoice $record) => ! $record->isPaid())
+                    ->action(function (SaasInvoice $record) {
+                        app(PaymentService::class)->handlePaymentSuccess($record);
+                        Notification::make()
+                            ->title('Invoice ditandai lunas')
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

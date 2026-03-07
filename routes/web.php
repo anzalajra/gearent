@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\PaymentCallbackController;
 use App\Http\Controllers\Auth\CustomerAuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CatalogController;
@@ -39,7 +40,18 @@ if (! $isInstalled) {
 
 } else {
     // If INSTALLED, load normal application routes
-    // Setup routes are only available when not installed (handled in the if block above)
+
+    // Payment Gateway Callback & Return Routes (no CSRF, no tenancy)
+    Route::middleware(\App\Http\Middleware\PreventTenancyInitialization::class)->group(function () {
+        Route::post('/api/payment/callback/{gateway}', [PaymentCallbackController::class, 'callback'])
+            ->name('payment.callback');
+        Route::get('/api/payment/return', [PaymentCallbackController::class, 'returnUrl'])
+            ->name('payment.return');
+    });
+
+    // Subscription Expired page (accessible on tenant domains)
+    Route::get('/subscription-expired', fn () => view('subscription-expired'))
+        ->name('subscription.expired');
 
     // Central Admin: Impersonate Tenant (opens in new tab, redirects to tenant domain)
     Route::get('/central/impersonate/{tenant}', \App\Http\Controllers\Central\ImpersonationController::class)

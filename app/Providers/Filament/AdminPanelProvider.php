@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Middleware\EnsureTenantSubscriptionActive;
 use App\Http\Middleware\RedirectCentralDomainToPanel;
 use App\Models\Setting;
 use Filament\Http\Middleware\Authenticate;
@@ -107,6 +108,22 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.hooks.qr-scanner')
             )
             ->renderHook(
+                'panels::content.start',
+                function () {
+                    $tenant = tenant();
+                    if ($tenant && $tenant->isInGracePeriod()) {
+                        $graceTo = $tenant->grace_period_ends_at?->format('d M Y') ?? '-';
+
+                        return view('filament.hooks.subscription-warning', [
+                            'message' => "Subscription Anda telah berakhir. Perpanjang sebelum {$graceTo} untuk menghindari suspend.",
+                            'billingUrl' => \App\Filament\Pages\SubscriptionBilling::getUrl(),
+                        ]);
+                    }
+
+                    return '';
+                }
+            )
+            ->renderHook(
                 'panels::content.end',
                 fn () => view('filament.hooks.footer')
             )
@@ -145,6 +162,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                EnsureTenantSubscriptionActive::class,
             ])
             ->userMenuItems([
                 MenuItem::make()
