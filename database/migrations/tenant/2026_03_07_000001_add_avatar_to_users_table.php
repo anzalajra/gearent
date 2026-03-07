@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            if (! Schema::hasColumn('users', 'is_system_admin')) {
-                $table->boolean('is_system_admin')->default(false)->after('remember_token');
+            if (! Schema::hasColumn('users', 'avatar')) {
+                $table->string('avatar')->nullable()->after('password');
             }
         });
     }
@@ -18,7 +18,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('is_system_admin');
+            $table->dropColumn('avatar');
         });
     }
 };

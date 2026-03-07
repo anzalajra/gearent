@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"HasAvatars\\\\|getFilamentAvatarUrl\\\\|avatar_url\\\\|profile_photo\")",
+      "Bash(xargs grep -l \"filament\")"
+    ]
+  }
+}

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\TenantFeature;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDatabase;
 use Stancl\Tenancy\Database\Concerns\HasDomains;
@@ -72,6 +73,21 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     public function subscriptionPlan(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPlan::class);
+    }
+
+    public function tenantSubscriptions(): HasMany
+    {
+        return $this->hasMany(TenantSubscription::class);
+    }
+
+    public function saasInvoices(): HasMany
+    {
+        return $this->hasMany(SaasInvoice::class);
+    }
+
+    public function activeSubscription(): ?TenantSubscription
+    {
+        return $this->tenantSubscriptions()->active()->latest('started_at')->first();
     }
 
     /**

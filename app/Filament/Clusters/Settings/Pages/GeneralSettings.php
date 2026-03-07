@@ -6,13 +6,12 @@ use App\Filament\Clusters\Settings\SettingsCluster;
 use App\Models\Setting;
 use BackedEnum;
 use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 
 class GeneralSettings extends Page implements HasForms
@@ -21,9 +20,9 @@ class GeneralSettings extends Page implements HasForms
 
     protected static ?string $cluster = SettingsCluster::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-storefront';
 
-    protected static ?string $navigationLabel = 'General Settings';
+    protected static ?string $navigationLabel = 'Business Information';
 
     protected static ?int $navigationSort = 1;
 
@@ -74,7 +73,7 @@ class GeneralSettings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
-        
+
         foreach ($data as $key => $value) {
             Setting::set($key, $value);
         }

@@ -8,6 +8,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\MenuItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -144,6 +145,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+            ])
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label('My Profile')
+                    ->icon('heroicon-o-user-circle')
+                    ->url(fn (): string => \App\Filament\Pages\Profile::getUrl()),
+                MenuItem::make()
+                    ->label('Subscription & Billing')
+                    ->icon('heroicon-o-credit-card')
+                    ->url(fn (): string => \App\Filament\Pages\SubscriptionBilling::getUrl()),
             ]);
 
         // On mobile, always use top navigation for better UX
