@@ -1,5 +1,15 @@
 # ============================================
-# Stage 1: Build frontend assets (Vite + Tailwind)
+# Stage 1: Install PHP dependencies (needed by frontend build)
+# ============================================
+FROM composer:latest AS composer-builder
+
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction --ignore-platform-reqs
+
+# ============================================
+# Stage 2: Build frontend assets (Vite + Tailwind)
+# Needs vendor/ for Filament CSS and app/ for @source directives
 # ============================================
 FROM node:20-alpine AS frontend-builder
 
@@ -7,18 +17,16 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Copy all files needed by Vite/Tailwind build
 COPY vite.config.js tailwind.config.js postcss.config.js ./
 COPY resources/ ./resources/
+COPY app/ ./app/
+COPY --from=composer-builder /app/vendor/ ./vendor/
+
+# Create directory referenced by @source in app.css
+RUN mkdir -p storage/framework/views
+
 RUN npm run build
-
-# ============================================
-# Stage 2: Install PHP dependencies
-# ============================================
-FROM composer:latest AS composer-builder
-
-WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction --ignore-platform-reqs
 
 # ============================================
 # Stage 3: Final production image
