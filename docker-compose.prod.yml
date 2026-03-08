@@ -1,18 +1,11 @@
 services:
-  # PHP-FPM Service
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
-      args:
-        user: www
-        uid: 1000
-    image: zewalo-app
+    image: ghcr.io/anzalajra/zewalo:latest
     container_name: zewalo-app
     restart: always
-    working_dir: /var/www
+    ports:
+      - "${APP_PORT:-80}:80"
     volumes:
-      - app-public:/var/www/public
       - app-storage:/var/www/storage
       - app-cache:/var/www/bootstrap/cache
     networks:
@@ -25,27 +18,12 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1/up || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
 
-  # Nginx Service (Coolify proxy handles external ports)
-  nginx:
-    build:
-      context: .
-      dockerfile: Dockerfile.nginx
-    container_name: zewalo-nginx
-    restart: always
-    volumes:
-      - app-public:/var/www/public:ro
-      - app-storage:/var/www/storage:ro
-    networks:
-      - zewalo-network
-    depends_on:
-      - app
-
-  # PostgreSQL Service
   db:
     image: postgres:16-alpine
     container_name: zewalo-db
@@ -64,7 +42,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis Service
   redis:
     image: redis:alpine
     container_name: zewalo-redis
@@ -80,50 +57,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Queue Worker (reuses image from app service)
-  queue:
-    image: zewalo-app
-    container_name: zewalo-queue
-    restart: always
-    working_dir: /var/www
-    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
-    volumes:
-      - app-storage:/var/www/storage
-    networks:
-      - zewalo-network
-    depends_on:
-      - app
-      - db
-      - redis
-    env_file:
-      - .env
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
-  # Scheduler (reuses image from app service)
-  scheduler:
-    image: zewalo-app
-    container_name: zewalo-scheduler
-    restart: always
-    working_dir: /var/www
-    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
-    volumes:
-      - app-storage:/var/www/storage
-    networks:
-      - zewalo-network
-    depends_on:
-      - app
-      - db
-      - redis
-    env_file:
-      - .env
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-
 networks:
   zewalo-network:
     driver: bridge
@@ -131,6 +64,5 @@ networks:
 volumes:
   zewalo-db-data:
   zewalo-redis-data:
-  app-public:
   app-storage:
   app-cache:

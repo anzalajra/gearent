@@ -22,6 +22,10 @@ php artisan migrate --force
 echo "Running central migrations..."
 php artisan migrate --path=database/migrations/central --database=central --force
 
+# Run tenant migrations (all existing tenant databases)
+echo "Running tenant migrations..."
+php artisan tenants:migrate --force 2>/dev/null || true
+
 # Seed central database on first deploy (creates admin user and roles)
 if [ ! -f storage/seeded ]; then
     echo "First deploy detected, seeding central database..."
@@ -49,6 +53,6 @@ php artisan view:cache
 php artisan event:cache
 php artisan icons:cache || true
 
-echo "=== Application is ready! ==="
+echo "=== Application is ready, starting services ==="
 
 exec "$@"

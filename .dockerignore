@@ -4,11 +4,13 @@
 /.idea
 /.vscode
 /.trae
+/.github
 .env
 .env.backup
 .env.local
+.env.example
 .phpunit.result.cache
-docker-compose.override.yml
+docker-compose*.yml
 Homestead.json
 Homestead.yaml
 npm-debug.log
@@ -18,6 +20,8 @@ storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+storage/seeded
+storage/installed
 bootstrap/cache/*
 public/hot
 public/storage
@@ -27,9 +31,6 @@ phpunit.mysql.xml
 .editorconfig
 .gitattributes
 .gitignore
-README.md
-CHANGELOG.md
-LICENSE
 *.md
 chartofaccount.xlsx
 project-export.txt
@@ -40,3 +41,7 @@ check_*.php
 debug_*.php
 test_*.php
 production_update.sql
+Dockerfile.prod
+Dockerfile.nginx
+Dockerfile.dev
+Makefile
